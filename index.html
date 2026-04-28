@@ -268,7 +268,7 @@ async function geocodeAddress(address) {
 }
 
 // ── Fetch NOAA hail data ──
-async function fetchNOAAHailData(lat, lon, radiusMiles = 15) {
+async function fetchNOAAHailData(lat, lon, radiusMiles = 5) {
   const events = [];
   const today = new Date();
 
