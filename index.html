@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Storm Tracker Pro">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Storm Tracker Pro</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --border: #334155;
+    --accent: #3b82f6;
+    --gold: #f59e0b;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+  }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+
+  /* Header */
+  .header { background: linear-gradient(135deg, #0f172a, #1e293b); padding: 16px 20px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+  .header-logo { width: 36px; height: 36px; background: var(--accent); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .header-title { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
+  .header-title span { color: var(--accent); }
+  .header-badge { margin-left: auto; background: var(--gold); color: #000; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* Main */
+  .main { padding: 20px 16px; max-width: 600px; margin: 0 auto; }
+
+  /* Search */
+  .search-box { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 20px; }
+  .search-label { font-size: 13px; color: var(--muted); margin-bottom: 10px; display: block; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+  .search-row { display: flex; gap: 8px; }
+  .search-input { flex: 1; background: var(--bg); border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; color: var(--text); font-size: 15px; outline: none; transition: border-color 0.2s; }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--muted); }
+  .search-btn { background: var(--accent); border: none; border-radius: 10px; padding: 12px 18px; color: white; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity 0.2s; display: flex; align-items: center; gap: 6px; }
+  .search-btn:active { opacity: 0.8; }
+  .search-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Loading */
+  .loading { display: none; text-align: center; padding: 40px 20px; color: var(--muted); }
+  .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Score card */
+  .score-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; display: none; }
+  .score-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+  .score-address { font-size: 14px; color: var(--muted); }
+  .score-property { font-size: 17px; font-weight: 700; margin-top: 2px; }
+  .score-badge { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+  .score-badge.high { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+  .score-badge.medium { background: rgba(234,179,8,0.15); color: var(--yellow); border: 1px solid rgba(234,179,8,0.3); }
+  .score-badge.low { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+  .score-meter { background: var(--bg); border-radius: 8px; height: 8px; margin-bottom: 20px; overflow: hidden; }
+  .score-fill { height: 100%; border-radius: 8px; transition: width 0.8s ease; }
+  .score-fill.high { background: linear-gradient(90deg, var(--green), #16a34a); }
+  .score-fill.medium { background: linear-gradient(90deg, var(--yellow), #ca8a04); }
+  .score-fill.low { background: linear-gradient(90deg, var(--red), #dc2626); }
+
+  /* Stats row */
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+  .stat { background: var(--bg); border-radius: 10px; padding: 12px; text-align: center; }
+  .stat-value { font-size: 22px; font-weight: 900; }
+  .stat-label { font-size: 10px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* Storm events */
+  .events-title { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; font-weight: 700; }
+  .event-item { background: var(--bg); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
+  .event-icon { font-size: 20px; width: 36px; text-align: center; }
+  .event-info { flex: 1; }
+  .event-date { font-size: 13px; font-weight: 700; }
+  .event-detail { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .event-size { font-size: 13px; font-weight: 800; }
+  .event-size.big { color: var(--red); }
+  .event-size.med { color: var(--yellow); }
+  .event-size.small { color: var(--green); }
+
+  /* Recommendation box */
+  .rec-box { border-radius: 12px; padding: 14px 16px; margin-top: 12px; }
+  .rec-box.high { background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); }
+  .rec-box.medium { background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.2); }
+  .rec-box.low { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); }
+  .rec-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .rec-box.high .rec-title { color: var(--green); }
+  .rec-box.medium .rec-title { color: var(--yellow); }
+  .rec-box.low .rec-title { color: var(--red); }
+  .rec-text { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  /* No results */
+  .no-results { display: none; text-align: center; padding: 40px 20px; color: var(--muted); }
+  .no-results-icon { font-size: 48px; margin-bottom: 12px; }
+
+  /* Recent searches */
+  .recent { margin-bottom: 20px; display: none; }
+  .recent-title { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; font-weight: 700; }
+  .recent-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 6px 12px; font-size: 12px; cursor: pointer; transition: border-color 0.2s; }
+  .chip:active { border-color: var(--accent); }
+
+  /* Export btn */
+  .export-btn { width: 100%; background: transparent; border: 1.5px solid var(--border); border-radius: 10px; padding: 12px; color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer; display: none; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; transition: border-color 0.2s, color 0.2s; }
+  .export-btn:active { border-color: var(--accent); color: var(--accent); }
+
+  /* Bottom nav */
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-top: 1px solid var(--border); display: flex; padding: 8px 0 max(8px, env(safe-area-inset-bottom)); }
+  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px; cursor: pointer; opacity: 0.5; transition: opacity 0.2s; }
+  .nav-item.active { opacity: 1; }
+  .nav-icon { font-size: 20px; }
+  .nav-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .nav-item.active .nav-label { color: var(--accent); }
+  .page-spacer { height: 80px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">🌩️</div>
+  <div class="header-title">Storm <span>Tracker</span> Pro</div>
+  <div class="header-badge">Beta</div>
+</div>
+
+<div class="main" id="searchPage">
+
+  <div class="search-box">
+    <span class="search-label">🔍 Search Property Hail History</span>
+    <div class="search-row">
+      <input type="text" class="search-input" id="addressInput" placeholder="Enter address or ZIP code..." autocomplete="off" autocorrect="off" spellcheck="false">
+      <button class="search-btn" id="searchBtn" onclick="searchAddress()">
+        <span id="searchBtnText">Search</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="recent" id="recentSection">
+    <div class="recent-title">Recent Searches</div>
+    <div class="recent-chips" id="recentChips"></div>
+  </div>
+
+  <div class="loading" id="loadingState">
+    <div class="spinner"></div>
+    <div>Checking storm history...</div>
+  </div>
+
+  <div class="no-results" id="noResults">
+    <div class="no-results-icon">🌤️</div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:8px;">No storms found</div>
+    <div>No qualifying hail events found for this location in the last 3 years.</div>
+  </div>
+
+  <div class="score-card" id="scoreCard">
+    <div class="score-header">
+      <div>
+        <div class="score-address" id="resultAddress"></div>
+        <div class="score-property" id="resultProperty"></div>
+      </div>
+      <div class="score-badge" id="scoreBadge"></div>
+    </div>
+    <div class="score-meter"><div class="score-fill" id="scoreFill"></div></div>
+
+    <div class="stats-row">
+      <div class="stat">
+        <div class="stat-value" id="statEvents" style="color: var(--accent)">—</div>
+        <div class="stat-label">Storm Events</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="statMaxSize" style="color: var(--gold)">—</div>
+        <div class="stat-label">Max Hail Size</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="statDaysSince" style="color: var(--muted)">—</div>
+        <div class="stat-label">Days Since Last</div>
+      </div>
+    </div>
+
+    <div class="events-title">Storm History</div>
+    <div id="eventsList"></div>
+
+    <div class="rec-box" id="recBox">
+      <div class="rec-title" id="recTitle"></div>
+      <div class="rec-text" id="recText"></div>
+    </div>
+  </div>
+
+  <button class="export-btn" id="exportBtn" onclick="exportReport()">
+    📄 Export Report
+  </button>
+
+  <div class="page-spacer"></div>
+</div>
+
+<div class="bottom-nav">
+  <div class="nav-item active">
+    <div class="nav-icon">🔍</div>
+    <div class="nav-label">Search</div>
+  </div>
+  <div class="nav-item" onclick="alert('Storm Map coming soon!')">
+    <div class="nav-icon">🗺️</div>
+    <div class="nav-label">Map</div>
+  </div>
+  <div class="nav-item" onclick="alert('Saved reports coming soon!')">
+    <div class="nav-icon">📋</div>
+    <div class="nav-label">Reports</div>
+  </div>
+  <div class="nav-item" onclick="alert('Settings coming soon!')">
+    <div class="nav-icon">⚙️</div>
+    <div class="nav-label">Settings</div>
+  </div>
+</div>
+
+<script>
+// ── Recent searches ──
+let recentSearches = JSON.parse(localStorage.getItem('stp_recent') || '[]');
+
+function saveRecent(addr) {
+  recentSearches = [addr, ...recentSearches.filter(a => a !== addr)].slice(0, 5);
+  localStorage.setItem('stp_recent', JSON.stringify(recentSearches));
+  renderRecent();
+}
+
+function renderRecent() {
+  if (recentSearches.length === 0) return;
+  document.getElementById('recentSection').style.display = 'block';
+  document.getElementById('recentChips').innerHTML = recentSearches.map(a =>
+    `<div class="chip" onclick="document.getElementById('addressInput').value='${a}';searchAddress()">${a}</div>`
+  ).join('');
+}
+renderRecent();
+
+// ── Size helpers ──
+function getSizeEmoji(inches) {
+  if (inches >= 2.75) return '🟠';
+  if (inches >= 1.75) return '🔴';
+  if (inches >= 1.0) return '🟡';
+  return '🟢';
+}
+function getSizeLabel(inches) {
+  if (inches >= 4.5) return 'Grapefruit';
+  if (inches >= 2.75) return 'Baseball';
+  if (inches >= 1.75) return 'Golf Ball';
+  if (inches >= 1.25) return 'Half Dollar';
+  if (inches >= 1.0) return 'Quarter';
+  if (inches >= 0.75) return 'Penny';
+  return 'Marble';
+}
+function getSizeClass(inches) {
+  if (inches >= 1.75) return 'big';
+  if (inches >= 1.0) return 'med';
+  return 'small';
+}
+
+// ── Geocode address using Nominatim (free, no API key) ──
+async function geocodeAddress(address) {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&countrycodes=us&limit=1`;
+  const res = await fetch(url, { headers: { 'Accept-Language': 'en', 'User-Agent': 'StormTrackerPro/1.0' } });
+  const data = await res.json();
+  if (!data || data.length === 0) throw new Error('Address not found');
+  return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), display: data[0].display_name };
+}
+
+// ── Fetch NOAA hail data ──
+async function fetchNOAAHailData(lat, lon, radiusMiles = 15) {
+  const events = [];
+  const today = new Date();
+
+  for (let daysBack = 0; daysBack < 1095; daysBack += 1) { // 3 years
+    const d = new Date(today);
+    d.setDate(d.getDate() - daysBack);
+    const yy = String(d.getFullYear()).slice(2);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const dateStr = `${yy}${mm}${dd}`;
+
+    // Only check dates that might have storms (skip future checks, only sample key dates)
+    // For PWA demo, we use a smarter sampling approach
+    if (daysBack > 0 && daysBack % 7 !== 0 && daysBack < 365) continue;
+    if (daysBack >= 365 && daysBack % 30 !== 0) continue;
+
+    try {
+      const url = `https://www.spc.noaa.gov/climo/reports/${dateStr}_rpts_hail.csv`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+      if (!res.ok) continue;
+      const text = await res.text();
+      const lines = text.trim().split('\n').slice(1);
+
+      for (const line of lines) {
+        const parts = line.split(',');
+        if (parts.length < 7) continue;
+        const hailLat = parseFloat(parts[5]);
+        const hailLon = parseFloat(parts[6]);
+        if (isNaN(hailLat) || isNaN(hailLon)) continue;
+        const dist = getDistanceMiles(lat, lon, hailLat, hailLon);
+        if (dist <= radiusMiles) {
+          const sizeRaw = parseInt(parts[1]);
+          const sizeInches = sizeRaw / 100;
+          if (sizeInches < 0.75) continue;
+          events.push({
+            date: `20${yy}-${mm}-${dd}`,
+            size: sizeInches,
+            location: parts[2] || 'Near property',
+            county: parts[3] || '',
+            distance: Math.round(dist * 10) / 10,
+            daysAgo: daysBack,
+          });
+        }
+      }
+    } catch(e) { /* skip failed dates */ }
+  }
+
+  return events.sort((a, b) => a.daysAgo - b.daysAgo);
+}
+
+function getDistanceMiles(lat1, lon1, lat2, lon2) {
+  const R = 3958.8;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ── Score calculation ──
+function calculateScore(events) {
+  if (events.length === 0) return 0;
+  let score = 0;
+  events.forEach(e => {
+    let s = e.size >= 1.75 ? 30 : e.size >= 1.0 ? 20 : 10;
+    if (e.daysAgo < 365) s *= 1.5;
+    else if (e.daysAgo < 730) s *= 1.0;
+    else s *= 0.6;
+    score += s;
+  });
+  return Math.min(100, Math.round(score));
+}
+
+// ── Current result for export ──
+let currentResult = null;
+
+// ── Main search function ──
+async function searchAddress() {
+  const input = document.getElementById('addressInput').value.trim();
+  if (!input) return;
+
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true;
+  document.getElementById('searchBtnText').textContent = '...';
+  document.getElementById('loadingState').style.display = 'block';
+  document.getElementById('scoreCard').style.display = 'none';
+  document.getElementById('noResults').style.display = 'none';
+  document.getElementById('exportBtn').style.display = 'none';
+
+  try {
+    const { lat, lon, display } = await geocodeAddress(input);
+    const events = await fetchNOAAHailData(lat, lon);
+
+    saveRecent(input);
+
+    if (events.length === 0) {
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('noResults').style.display = 'block';
+    } else {
+      const score = calculateScore(events);
+      const maxSize = Math.max(...events.map(e => e.size));
+      const minDays = Math.min(...events.map(e => e.daysAgo));
+      const level = score >= 60 ? 'high' : score >= 30 ? 'medium' : 'low';
+
+      // Store for export
+      currentResult = { input, display, events, score, maxSize, minDays, level };
+
+      // Update UI
+      document.getElementById('resultAddress').textContent = input;
+      document.getElementById('resultProperty').textContent = display.split(',').slice(0, 2).join(',');
+      document.getElementById('scoreBadge').textContent = level === 'high' ? '🟢 Strong Claim' : level === 'medium' ? '🟡 Possible' : '🔴 Low';
+      document.getElementById('scoreBadge').className = `score-badge ${level}`;
+      document.getElementById('scoreFill').style.width = score + '%';
+      document.getElementById('scoreFill').className = `score-fill ${level}`;
+      document.getElementById('statEvents').textContent = events.length;
+      document.getElementById('statMaxSize').textContent = maxSize.toFixed(2) + '"';
+      document.getElementById('statDaysSince').textContent = minDays;
+
+      // Events list
+      document.getElementById('eventsList').innerHTML = events.slice(0, 8).map(e => `
+        <div class="event-item">
+          <div class="event-icon">${getSizeEmoji(e.size)}</div>
+          <div class="event-info">
+            <div class="event-date">${e.date}</div>
+            <div class="event-detail">${e.location}${e.county ? ', ' + e.county : ''} · ${e.distance} mi away</div>
+          </div>
+          <div class="event-size ${getSizeClass(e.size)}">${e.size.toFixed(2)}"<br><span style="font-size:10px;font-weight:500">${getSizeLabel(e.size)}</span></div>
+        </div>
+      `).join('');
+
+      // Recommendation
+      const recs = {
+        high: { title: '✅ Strong Claim Potential', text: 'Multiple qualifying storm events found within the claim window. Pull the dec page, verify policy type (RCV preferred), and walk the property with the OPI checklist. High priority deal.' },
+        medium: { title: '⚠️ Possible Claim — Verify', text: 'Storm activity detected but confidence is moderate. Verify storm date against policy period, check hail size documentation, and run the full property walkthrough before deciding to pursue.' },
+        low: { title: '🔴 Low Claim Potential', text: 'Limited storm activity found near this property. Not a strong OPI candidate based on available data. Consider other properties or verify manually with local weather data.' }
+      };
+      document.getElementById('recBox').className = `rec-box ${level}`;
+      document.getElementById('recTitle').textContent = recs[level].title;
+      document.getElementById('recText').textContent = recs[level].text;
+
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('scoreCard').style.display = 'block';
+      document.getElementById('exportBtn').style.display = 'flex';
+    }
+  } catch(err) {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('noResults').style.display = 'block';
+    document.getElementById('noResults').querySelector('div:last-child').textContent = 'Could not find that address. Try a ZIP code or city, state.';
+  }
+
+  btn.disabled = false;
+  document.getElementById('searchBtnText').textContent = 'Search';
+}
+
+// ── Export report ──
+function exportReport() {
+  if (!currentResult) return;
+  const r = currentResult;
+  const lines = [
+    'STORM TRACKER PRO — PROPERTY REPORT',
+    '=====================================',
+    `Address: ${r.input}`,
+    `Date: ${new Date().toLocaleDateString()}`,
+    `Claim Score: ${r.score}/100 (${r.level.toUpperCase()})`,
+    `Total Storm Events: ${r.events.length}`,
+    `Max Hail Size: ${r.maxSize.toFixed(2)}" (${getSizeLabel(r.maxSize)})`,
+    `Days Since Last Storm: ${r.minDays}`,
+    '',
+    'STORM HISTORY:',
+    ...r.events.map(e => `  ${e.date} — ${e.size.toFixed(2)}" hail (${getSizeLabel(e.size)}) — ${e.distance} mi from property`),
+    '',
+    'Generated by Storm Tracker Pro | OPI Millions',
+    'For educational purposes. Verify with licensed professionals.',
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `storm-report-${r.input.replace(/\s+/g, '-')}.txt`;
+  a.click();
+}
+
+// ── Enter key support ──
+document.getElementById('addressInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') searchAddress();
+});
+
+// ── Service Worker registration ──
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
