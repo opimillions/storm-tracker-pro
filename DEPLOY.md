@@ -1,97 +1,88 @@
-# HailCheck Pro — Deployment Guide
-## hailcheck.thepublicadjustertx.com
+# StormCheck Pro — Deployment Guide
+## stormcheckpro.thepublicadjustertx.com
+
+This repo (storm-tracker-pro) now holds the full StormCheck Pro app. The old
+one-page Storm Tracker PWA for OPI Millions investors lives in `pwa/`.
 
 ---
 
-## Step 1: Install dependencies (on your server/machine)
+## 1. Point Railway at this repo
+
+1. Railway → your StormCheck Pro service → Settings → Source → connect
+   `opimillions/storm-tracker-pro` (branch `master` after this PR merges).
+2. Keep the existing **volume** attached. User accounts, lookups and all storm
+   data live on it (`RAILWAY_VOLUME_MOUNT_PATH`), not in the repo.
+3. Start command stays `node server.js` (see `Procfile`).
+
+## 2. Environment variables
+
+See `.env.example`. New or changed:
+
+| Variable | Why |
+|---|---|
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | **Required now.** The hardcoded default admin password was removed. |
+| `STRIPE_PRICE_ID_STARTER/PRO/TEAM/ENTERPRISE` | One price per plan. |
+| `STRIPE_WEBHOOK_SECRET` | Webhook now verifies correctly (it was failing before, so paid users were never upgraded automatically). |
+| `STRIPE_PRICE_ID_REVIEW` | Optional one-time price for meteorologist reviewed reports. |
+| `SMTP_*` | Needed for portfolio, territory, free and warning alerts. |
+| `MESH_BACKFILL_FROM` | Oldest radar day to load. Default `2020-10-15`. |
+| `NCEI_FROM_YEAR` | Oldest NWS Storm Events year. Default `1996`. |
+
+## 3. First start: data loads itself
+
+On boot the server, in the background:
+
+1. Fetches the last 30 days of SPC storm reports (minutes).
+2. Loads the most recent radar hail days.
+3. Ingests NWS Storm Events from `NCEI_FROM_YEAR` to now (roughly 30–60 min).
+4. Backfills two years of SPC reports and radar hail back to
+   `MESH_BACKFILL_FROM` (about 2,200 days, one every few seconds: allow ~3–4 hours).
+
+Until enough data is loaded, address lookups fall back to the old live SPC scan,
+so nothing breaks during the backfill. Watch progress in **Admin → Data Pipeline**.
+
+Disk: radar + storm events + summaries use roughly 1–3 GB. Make sure the volume
+has at least 5 GB.
+
+Memory: decoding a radar day peaks around 200 MB. 512 MB+ recommended.
+
+### Manual commands
+
 ```bash
-cd C:\Users\ryanc\.openclaw\workspace\firstcall\hailcheck-app
-npm install
+node scripts/data.js status
+node scripts/data.js mesh 2024-05-28            # one radar day
+node scripts/data.js mesh 2024-03-01 2024-09-30 # range
+node scripts/data.js ncei 1996
+node scripts/data.js spc 730
+node scripts/data.js summaries                  # rebuild public storm pages
 ```
 
-## Step 2: Set up environment variables
-```bash
-copy .env.example .env
-```
-Edit `.env` and fill in:
-- `JWT_SECRET` — any long random string (e.g. 64 random characters)
-- `ADMIN_EMAIL` — your email
-- `ADMIN_PASSWORD` — your admin password
-- `STRIPE_SECRET_KEY` — from dashboard.stripe.com (after setting up Stripe)
-- `STRIPE_PRICE_ID` — create a $99/mo recurring product in Stripe first
+## 4. Ongoing schedule (automatic)
 
-## Step 3: Test locally
-```bash
-node server.js
-```
-Open http://localhost:3000 — you should see the landing page.
-Login at http://localhost:3000/login with your admin email/password.
+| When | Job |
+|---|---|
+| Every 5 min | NWS hail/tornado warnings → heads-up emails (Team, Enterprise) |
+| Every 15 min | SPC reports for today/yesterday → portfolio hit check |
+| Hourly :25 | New radar day (posts ~12:10 UTC) → storm page + portfolio, territory and free alerts |
+| Sundays 08:00 UTC | NWS Storm Events revisions |
 
-## Step 4: Set up Stripe (for $99/mo subscriptions)
-1. Go to https://dashboard.stripe.com
-2. Create a product: "HailCheck Pro" at $99/month recurring
-3. Copy the Price ID (starts with `price_`) → add to .env as STRIPE_PRICE_ID
-4. Copy Secret Key → STRIPE_SECRET_KEY
-5. Copy Publishable Key → STRIPE_PUBLISHABLE_KEY
-6. For webhooks: go to Stripe Webhooks → Add endpoint → URL: https://hailcheck.thepublicadjustertx.com/api/stripe/webhook
-   Events: checkout.session.completed, customer.subscription.deleted, customer.subscription.updated
-   Copy webhook secret → STRIPE_WEBHOOK_SECRET
+## 5. Stripe webhook
 
-## Step 5: Deploy to the internet
+Endpoint: `https://stormcheckpro.thepublicadjustertx.com/api/stripe/webhook`
+Events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`.
 
-### Option A — Railway (recommended, easy)
-1. Go to https://railway.app
-2. New project → Deploy from GitHub (push this folder to GitHub first)
-   OR New project → Deploy from local
-3. Add environment variables in Railway dashboard
-4. Railway gives you a URL — point hailcheck.thepublicadjustertx.com to it via CNAME in your DNS
+## 6. After deploy, check
 
-### Option B — Run on your existing Windows server
-1. Install Node.js on the server
-2. Copy the hailcheck-app folder to the server
-3. Use PM2 to keep it running:
-   ```
-   npm install -g pm2
-   pm2 start server.js --name hailcheck
-   pm2 save
-   pm2 startup
-   ```
-4. Use nginx as reverse proxy on port 3000
-5. Point hailcheck.thepublicadjustertx.com DNS to your server IP
+- `/` landing page, `/hail-maps`, `/hail/tx/grapevine`, `/sample-report`, `/sitemap.xml`
+- Admin → Data Pipeline shows radar days and NWS years increasing
+- Run a lookup: it should return in about a second with "Most likely dates of loss"
+- Submit the sitemap in Google Search Console
 
-### Option C — Render.com (free tier available)
-1. Go to https://render.com
-2. New → Web Service → Connect GitHub repo
-3. Build command: `npm install`
-4. Start command: `node server.js`
-5. Add environment variables
-6. Free tier sleeps after 15min inactivity (fine for low traffic start)
+## Data sources
 
-## Step 6: DNS setup (for hailcheck.thepublicadjustertx.com)
-In your domain registrar (wherever thepublicadjustertx.com is registered):
-- Add a CNAME record: `hailcheck` → your Railway/Render URL
-- OR an A record: `hailcheck` → your server's IP address
-
----
-
-## User Tiers
-- **trial** — 10 free lookups, 14 days
-- **pro** — unlimited lookups, $99/mo via Stripe
-- **client** — unlimited lookups, free (your First Call clients)
-- **admin** — full access + admin panel
-- **suspended** — blocked from logging in
-
-## Admin Panel
-Go to: hailcheck.thepublicadjustertx.com/admin
-- Add users manually (set their tier to 'client' for free access to your PA clients)
-- Suspend users instantly
-- See all lookups and storm alerts
-- See subscription stats
-
----
-
-## Notes
-- The hail lookup takes 1-3 minutes per search (scanning NOAA data)
-- For faster results, consider caching results in the DB (future enhancement)
-- SQLite database stored at: hailcheck-app/data/hailcheck.db
-- Logs: none currently (add Winston logger as a future enhancement)
+- NOAA MRMS MESH (radar-estimated maximum hail size), AWS Open Data `noaa-mrms-pds`;
+  Iowa Environmental Mesonet archive as fallback
+- NOAA NCEI Storm Events Database (bulk CSV)
+- NOAA SPC daily storm reports
+- NWS active alerts API (warnings)
+- Census geocoder (addresses), bundled city and ZIP gazetteers
