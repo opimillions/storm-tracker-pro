@@ -87,6 +87,10 @@
   </div>
 
   <!-- Contact cards -->
+  <div id="listTools" style="display:none;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+    <button class="btn btn-sm btn-outline" onclick="removeDuplicates()">Remove duplicates</button>
+    <button class="btn btn-sm btn-danger" onclick="deleteAll()">Delete all</button>
+  </div>
   <div id="contactsWrap">
     <div id="contactList" class="contact-grid"></div>
     <div id="emptyState" style="text-align:center;padding:40px;color:var(--muted)">
@@ -113,6 +117,7 @@ async function loadContacts() {
 
   const el = document.getElementById('contactList');
   document.getElementById('emptyState').style.display = contacts.length ? 'none' : 'block';
+  document.getElementById('listTools').style.display = contacts.length ? 'flex' : 'none';
   if (!contacts.length) { el.innerHTML = ''; return; }
 
   el.innerHTML = contacts.map(c => {
@@ -175,32 +180,70 @@ function lookupContact(address) {
   window.location = '/dashboard?address=' + encodeURIComponent(address);
 }
 
+function parseCsvText(text) {
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; continue; }
+    if (c === '"') q = true;
+    else if (c === ',') { row.push(f); f = ''; }
+    else if (c === '\n') { row.push(f); rows.push(row); row = []; f = ''; }
+    else if (c !== '\r') f += c;
+  }
+  if (f || row.length) { row.push(f); rows.push(row); }
+  return rows.filter(r => r.some(v => v.trim()));
+}
+
 function handleCSV(input) {
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = async (e) => {
-    const text = e.target.result;
-    const lines = text.trim().split('\n');
-    const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g,''));
+    const rows = parseCsvText(e.target.result);
+    const headers = (rows.shift() || []).map(h => h.toLowerCase().trim());
+    const col = (...names) => headers.findIndex(h => names.includes(h));
+    const iName = col('name', 'client', 'client name', 'contact', 'owner'), iAddr = col('address', 'street', 'property address', 'address1');
+    const iCity = col('city'), iState = col('state', 'st'), iZip = col('zip', 'zipcode', 'zip code', 'postal code');
+    const iPhone = col('phone', 'mobile', 'cell'), iEmail = col('email', 'e-mail');
     const contacts = [];
-    for (let i = 1; i < lines.length; i++) {
-      const vals = lines[i].split(',').map(v => v.trim().replace(/"/g,''));
-      const row = {};
-      headers.forEach((h, idx) => { row[h] = vals[idx] || ''; });
-      if (row.name && row.address) contacts.push({ name: row.name, address: row.address, phone: row.phone||row.mobile||'', email: row.email||'' });
+    for (const r of rows) {
+      const v = i => (i >= 0 ? (r[i] || '').trim() : '');
+      let address = v(iAddr);
+      const rest = [v(iCity), [v(iState), v(iZip)].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+      if (rest && !address.toLowerCase().includes(v(iCity).toLowerCase() || '\u0000')) address = [address, rest].filter(Boolean).join(', ');
+      const name = v(iName) || address;
+      if (address) contacts.push({ name, address, phone: v(iPhone), email: v(iEmail) });
     }
-    if (!contacts.length) { alert('No valid contacts found. Check your CSV format.'); return; }
-    const res = await fetch('/api/watchlist/bulk', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contacts })
-    });
-    const data = await res.json();
-    alert(`✅ Imported ${data.imported} contacts. Geocoding in progress — check back in a moment.`);
+    if (!contacts.length) { alert('No valid rows found. The file needs an "address" column (and ideally name, city, state, zip).'); return; }
+    let imported = 0;
+    for (let i = 0; i < contacts.length; i += 500) {
+      const res = await fetch('/api/watchlist/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contacts: contacts.slice(i, i + 500) }) });
+      const data = await res.json();
+      imported += data.imported || 0;
+    }
+    input.value = '';
+    alert(`Imported ${imported} properties. Addresses are being located now; refresh in a few minutes.`);
     loadContacts();
   };
   reader.readAsText(file);
+}
+
+async function deleteAll() {
+  const n = document.getElementById('statTotal').textContent;
+  const typed = prompt(`This permanently deletes all ${n} properties from your list. Type DELETE to confirm.`);
+  if (typed !== 'DELETE') return;
+  const res = await fetch('/api/watchlist', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: 'DELETE' }) });
+  const data = await res.json();
+  alert(res.ok ? `Deleted ${data.removed} properties.` : (data.error || 'Delete failed.'));
+  loadContacts();
+}
+
+async function removeDuplicates() {
+  if (!confirm('Remove properties that appear more than once (keeps the first one)?')) return;
+  const res = await fetch('/api/watchlist/dedupe', { method: 'POST' });
+  const data = await res.json();
+  alert(`Removed ${data.removed} duplicate${data.removed === 1 ? '' : 's'}.`);
+  loadContacts();
 }
 
 function exportPortfolio() {
