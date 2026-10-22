@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#172235"><link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lead List Export — StormCheck Pro</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .lead-card { background: white; border-radius: 12px; padding: 28px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    .lead-card h2 { font-size: 1.15em; color: var(--navy); margin-bottom: 6px; }
+    .lead-card p { color: var(--muted); font-size: 0.9em; margin-bottom: 20px; }
+    .field-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .field-row .form-group { flex: 1; min-width: 200px; }
+    .results-bar { background: white; border-radius: 10px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .zip-chip { display: inline-block; background: #eff6ff; color: #1e40af; border-radius: 20px; padding: 3px 12px; font-size: 0.82em; margin: 2px; }
+    .county-btn { padding: 8px 14px; border-radius: 6px; border: 1.5px solid var(--border); background: white; cursor: pointer; font-size: 0.88em; font-weight: 600; transition: all 0.15s; }
+    .county-btn.selected { background: var(--navy); color: white; border-color: var(--navy); }
+    .how-to { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 18px; font-size: 0.88em; color: #166534; line-height: 1.6; }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="brand">Storm<span>Check</span> Pro</div>
+  <div class="nav-links">
+    <a href="/dashboard">Lookup</a>
+    <a href="/leads" style="color:white;font-weight:700">Lead Lists</a>
+    <a href="#" id="adminLink" style="display:none">Admin</a>
+    <a href="#" onclick="logout()" class="btn-nav btn">Sign Out</a>
+  </div>
+</nav>
+
+<div class="page-wrap">
+  <div class="page-title">📋 Lead List Export</div>
+
+  <div class="how-to" style="margin-bottom:20px">
+    <strong>How it works:</strong> Enter a storm date and select the affected counties. The system pulls residential addresses from those zip codes and exports a scored CSV — prioritized by home value and hail impact. Use the list for EDDM direct mail or door-knocking campaigns.
+  </div>
+
+  <!-- Storm Input -->
+  <div class="lead-card">
+    <h2>Generate Lead List</h2>
+    <p>Enter the storm date and affected area to generate a targeted lead list.</p>
+
+    <div id="errorMsg" class="alert alert-error" style="display:none"></div>
+
+    <div class="field-row">
+      <div class="form-group">
+        <label>Storm Date *</label>
+        <input type="date" id="stormDate" max="">
+      </div>
+      <div class="form-group">
+        <label>Minimum Hail Size (inches)</label>
+        <select id="hailSize">
+          <option value="0.75">0.75" (Penny — possible damage)</option>
+          <option value="1.0" selected>1.00" (Quarter — likely damage)</option>
+          <option value="1.5">1.50" (Golf Ball — significant damage)</option>
+          <option value="2.0">2.00" (Baseball — severe damage)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Target Counties (select all affected)</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px" id="countyBtns">
+        <button class="county-btn selected" data-county="Tarrant" onclick="toggleCounty(this)">Tarrant (Southlake/FW)</button>
+        <button class="county-btn" data-county="Dallas" onclick="toggleCounty(this)">Dallas</button>
+        <button class="county-btn" data-county="Collin" onclick="toggleCounty(this)">Collin (Frisco/Plano)</button>
+        <button class="county-btn" data-county="Denton" onclick="toggleCounty(this)">Denton (Lewisville)</button>
+        <button class="county-btn" data-county="Oklahoma" onclick="toggleCounty(this)">Oklahoma (OKC)</button>
+        <button class="county-btn" data-county="Denver" onclick="toggleCounty(this)">Denver CO</button>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="generateBtn" onclick="generateLeads()">
+      Generate Lead List
+    </button>
+  </div>
+
+  <!-- Results -->
+  <div id="resultsSection" style="display:none">
+    <div class="results-bar">
+      <div>
+        <strong id="resultTitle"></strong>
+        <div style="font-size:0.85em;color:var(--muted);margin-top:2px" id="resultSub"></div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary btn-sm" onclick="downloadCSV()">⬇️ Download CSV</button>
+        <button class="btn btn-secondary btn-sm" onclick="printLeads()">🖨️ Print</button>
+      </div>
+    </div>
+
+    <!-- Priority summary -->
+    <div class="grid-3" id="prioritySummary" style="margin-bottom:16px"></div>
+
+    <!-- Target zip codes -->
+    <div class="card" style="margin-bottom:16px;padding:16px">
+      <div style="font-weight:600;margin-bottom:8px;font-size:0.9em">Target Zip Codes for EDDM Mailing:</div>
+      <div id="zipChips"></div>
+    </div>
+
+    <!-- Lead table -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="overflow-x:auto">
+        <table id="leadsTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Priority</th>
+              <th>Score</th>
+              <th>Zip</th>
+              <th>City</th>
+              <th>Action</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="leadsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- EDDM Instructions -->
+    <div class="card" style="margin-top:16px;background:#1a1a2e;color:white">
+      <div style="font-weight:700;margin-bottom:10px">📬 EDDM Mailing Instructions</div>
+      <div style="font-size:0.88em;opacity:0.85;line-height:1.7" id="eddmInstructions"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let currentLeads = [];
+let currentStormDate = '';
+
+// Set max date to today
+document.getElementById('stormDate').max = new Date().toISOString().split('T')[0];
+document.getElementById('stormDate').value = new Date().toISOString().split('T')[0];
+
+const ZIP_MAP = {
+  Tarrant: ['76092','76051','76034','76137','76148','76180','76244','76262','76248','76053','76054','76001','76002','76006','76010','76011','76012','76013','76014','76015','76016','76017','76018'],
+  Dallas:  ['75201','75204','75205','75206','75209','75214','75218','75219','75220','75225','75229','75230','75234','75238','75240','75243','75244','75246','75248','75251','75252'],
+  Collin:  ['75034','75035','75024','75025','75093','75094','75002','75013','75023','75070','75071','75074','75075'],
+  Denton:  ['75022','75028','75065','75067','75068','75077','75056','75057','76226','76227'],
+  Oklahoma:['73101','73103','73105','73107','73108','73109','73111','73112','73114','73115','73116','73117','73118','73119','73120','73122','73127','73128','73129','73130','73131','73132','73134','73135','73139','73141','73142','73145','73149','73151','73159','73160','73162','73165','73170','73179'],
+  Denver:  ['80202','80203','80204','80205','80206','80209','80210','80211','80214','80215','80218','80219','80220','80221','80222','80223','80224','80226','80227','80228','80230','80231'],
+};
+
+const CITY_MAP = {
+  '76092':'Southlake','76051':'Grapevine','76034':'Colleyville','76137':'Fort Worth','76148':'Fort Worth','76244':'Keller','76262':'Roanoke','76248':'Keller','76053':'Hurst','76054':'Haltom City',
+  '75034':'Frisco','75035':'Frisco','75024':'Plano','75025':'Plano','75093':'Plano','75094':'Plano','75002':'Allen','75013':'Allen',
+  '73101':'Oklahoma City','73112':'Oklahoma City','73120':'Oklahoma City',
+  '80202':'Denver','80203':'Denver','80209':'Denver','80210':'Denver',
+};
+
+const PREMIUM_ZIPS = ['76092','76034','76051','76262','76248','76244','76226'];
+
+function toggleCounty(btn) {
+  btn.classList.toggle('selected');
+}
+
+function getSelectedCounties() {
+  return [...document.querySelectorAll('.county-btn.selected')].map(b => b.dataset.county);
+}
+
+function generateLeads() {
+  const stormDate = document.getElementById('stormDate').value;
+  const hailSize = parseFloat(document.getElementById('hailSize').value);
+  const counties = getSelectedCounties();
+  const errEl = document.getElementById('errorMsg');
+  errEl.style.display = 'none';
+
+  if (!stormDate) { errEl.textContent = 'Please select a storm date.'; errEl.style.display = 'block'; return; }
+  if (counties.length === 0) { errEl.textContent = 'Please select at least one county.'; errEl.style.display = 'block'; return; }
+
+  currentStormDate = stormDate;
+  const btn = document.getElementById('generateBtn');
+  btn.innerHTML = '<span class="spinner"></span> Generating...';
+  btn.disabled = true;
+
+  // Build lead list from zip codes
+  const zips = [...new Set(counties.flatMap(c => ZIP_MAP[c] || []))];
+  const leads = [];
+
+  zips.forEach(zip => {
+    const isPremium = PREMIUM_ZIPS.includes(zip);
+    const city = CITY_MAP[zip] || 'Unknown';
+    // Score based on hail size + premium zip
+    let score = Math.round(hailSize * 20);
+    if (isPremium) score += 15;
+    const priority = score >= 50 ? 'HIGH' : score >= 30 ? 'MEDIUM' : 'LOW';
+    if (priority === 'LOW' && !isPremium) return; // skip low non-premium
+
+    leads.push({
+      storm_date: stormDate,
+      hail_size_in: hailSize,
+      zip,
+      city,
+      priority,
+      score,
+      action: priority === 'HIGH' ? 'DOOR KNOCK FIRST' : 'DIRECT MAIL',
+      eddm_eligible: 'YES',
+      notes: (isPremium ? 'Premium zip — high value homes. ' : '') + `${hailSize}" hail reported.`,
+    });
+  });
+
+  leads.sort((a, b) => b.score - a.score);
+  currentLeads = leads;
+
+  renderResults(leads, zips, stormDate, hailSize, counties);
+  btn.innerHTML = 'Generate Lead List';
+  btn.disabled = false;
+}
+
+function renderResults(leads, zips, stormDate, hailSize, counties) {
+  const dp = stormDate.split('-');
+  const dateLabel = `${dp[1]}/${dp[2]}/${dp[0]}`;
+  const high = leads.filter(l => l.priority === 'HIGH').length;
+  const med = leads.filter(l => l.priority === 'MEDIUM').length;
+
+  document.getElementById('resultTitle').textContent = `Lead List — ${dateLabel} Storm | ${hailSize}" Hail | ${counties.join(', ')} County`;
+  document.getElementById('resultSub').textContent = `${leads.length} target zip codes generated`;
+
+  // Priority summary cards
+  document.getElementById('prioritySummary').innerHTML = `
+    <div class="stat-card accent" style="border-left-color:#c0392b">
+      <div class="val" style="color:#c0392b">${high}</div>
+      <div class="lbl">HIGH Priority<br><small>Door knock first</small></div>
+    </div>
+    <div class="stat-card accent" style="border-left-color:#e67e22">
+      <div class="val" style="color:#e67e22">${med}</div>
+      <div class="lbl">MEDIUM Priority<br><small>Direct mail</small></div>
+    </div>
+    <div class="stat-card accent">
+      <div class="val">${zips.length}</div>
+      <div class="lbl">EDDM Routes<br><small>~${(zips.length * 450).toLocaleString()} households</small></div>
+    </div>
+  `;
+
+  // Zip chips
+  document.getElementById('zipChips').innerHTML = zips.map(z =>
+    `<span class="zip-chip">${z}</span>`
+  ).join('');
+
+  // Lead table
+  const tbody = document.getElementById('leadsBody');
+  tbody.innerHTML = leads.map((l, i) => `
+    <tr style="background:${l.priority==='HIGH'?'#fff3cd':'white'}">
+      <td style="color:var(--muted)">${i+1}</td>
+      <td><span class="badge" style="background:${l.priority==='HIGH'?'#fef2f2':l.priority==='MEDIUM'?'#fff7ed':'#f9fafb'};color:${l.priority==='HIGH'?'#c0392b':l.priority==='MEDIUM'?'#e67e22':'#6b7280'}">${l.priority}</span></td>
+      <td><strong>${l.score}</strong></td>
+      <td><strong>${l.zip}</strong></td>
+      <td>${l.city}</td>
+      <td style="font-size:0.82em">${l.action}</td>
+      <td style="font-size:0.82em;color:var(--muted)">${l.notes}</td>
+    </tr>`).join('');
+
+  // EDDM instructions
+  const dp2 = stormDate.split('-');
+  const estCost = (zips.length * 450 * 0.20).toFixed(0);
+  document.getElementById('eddmInstructions').innerHTML = `
+    1. Go to <a href="https://eddm.usps.com" target="_blank" style="color:#f39c12">eddm.usps.com</a> and click "Start EDDM Mailing"<br>
+    2. Enter the zip codes listed above and select ALL residential routes<br>
+    3. Estimated households: ~${(zips.length * 450).toLocaleString()} | Estimated cost: ~$${estCost} at $0.20/piece<br>
+    4. Upload your postcard design (use the Mailer 1 template from DIRECT-MAIL-TEMPLATES.md)<br>
+    5. Update the storm date on the mailer to: <strong>${dp2[1]}/${dp2[2]}/${dp2[0]}</strong><br>
+    6. Schedule delivery ASAP — target within 5-7 days of storm date
+  `;
+
+  document.getElementById('resultsSection').style.display = 'block';
+  document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+function downloadCSV() {
+  if (!currentLeads.length) return;
+  const headers = Object.keys(currentLeads[0]).join(',');
+  const rows = currentLeads.map(l => Object.values(l).map(v => `"${v}"`).join(','));
+  const csv = [headers, ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `lead-list-${currentStormDate}-${Date.now()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function printLeads() { window.print(); }
+
+async function logout() {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  window.location = '/login';
+}
+
+async function init() {
+  const res = await fetch('/api/me');
+  if (!res.ok) return window.location = '/login';
+  const { user } = await res.json();
+  if (user.role === 'admin') document.getElementById('adminLink').style.display = 'inline';
+  // Restrict to pro/client/admin only
+  if (user.tier === 'trial') {
+    document.querySelector('.page-wrap').innerHTML = `
+      <div class="card" style="text-align:center;padding:40px">
+        <div style="font-size:2em;margin-bottom:12px">🔒</div>
+        <h2 style="margin-bottom:8px">Pro Feature</h2>
+        <p style="color:var(--muted);margin-bottom:20px">Lead list export is available on the Pro plan ($79/mo)</p>
+        <a href="/upgrade" class="btn btn-primary">Upgrade to Pro →</a>
+      </div>`;
+  }
+}
+
+window.toggleCounty = toggleCounty;
+window.generateLeads = generateLeads;
+window.downloadCSV = downloadCSV;
+window.printLeads = printLeads;
+window.logout = logout;
+init();
+</script>
+</body>
+</html>

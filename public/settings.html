@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#172235"><link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings — StormCheck Pro</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .settings-wrap { max-width: 700px; margin: 40px auto; padding: 0 20px; }
+    .tier-badge { display: inline-block; padding: 4px 14px; border-radius: 20px; font-size: 0.82em; font-weight: 700; margin-left: 10px; }
+    .tier-starter  { background:#eff6ff;color:#1e40af; }
+    .tier-pro      { background:#f0fdf4;color:#166534; }
+    .tier-team     { background:#fef3c7;color:#92400e; }
+    .tier-enterprise { background:#f3e8ff;color:#6b21a8; }
+    .logo-preview { max-height: 80px; border-radius: 8px; border: 1px solid var(--border); margin-top: 8px; display:none; }
+    .locked-msg { background:#f9fafb;border:1px solid var(--border);border-radius:8px;padding:20px;text-align:center;color:var(--muted);font-size:0.9em; }
+    .color-row { display:flex;gap:10px;align-items:center; }
+    .color-swatch { width:40px;height:40px;border-radius:8px;border:1px solid var(--border);cursor:pointer; }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="brand">Storm<span>Check</span> Pro</div>
+  <div class="nav-links">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/settings" style="color:white;font-weight:700">Settings</a>
+    <a href="#" onclick="logout()" class="btn-nav btn">Sign Out</a>
+  </div>
+</nav>
+
+<div class="settings-wrap">
+  <h1 class="page-title">Account Settings</h1>
+
+  <!-- Plan Info -->
+  <div class="card" style="margin-bottom:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div>
+        <div style="font-weight:700;color:var(--navy);font-size:1.1em">Current Plan: <span id="planName">—</span></div>
+        <div style="color:var(--muted);font-size:0.88em;margin-top:4px" id="planDesc"></div>
+      </div>
+      <a href="/upgrade" class="btn btn-primary btn-sm">Upgrade Plan</a>
+    </div>
+  </div>
+
+  <!-- Branding / Company Profile -->
+  <div class="card" style="margin-bottom:20px"><div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-weight:700;color:var(--navy)">Coverage States</div><div style="font-size:0.85em;color:var(--muted)">Change which states you monitor for storm events.</div></div><a href="/onboarding" class="btn btn-outline btn-sm">Edit States</a></div></div>
+<div class="card" id="brandingSection">
+    <div style="font-weight:700;color:var(--navy);margin-bottom:4px;font-size:1.1em">Company Branding</div>
+    <div style="color:var(--muted);font-size:0.88em;margin-bottom:20px">Customize how your company appears on reports and exports.</div>
+
+    <div id="brandingLocked" class="locked-msg" style="display:none">
+      🔒 Company branding is available on <strong>Pro</strong> and higher plans.
+      <br><a href="/upgrade" style="color:var(--red);font-weight:600">Upgrade to Pro →</a>
+    </div>
+
+    <div id="brandingForm">
+      <div id="alertMsg" style="display:none" class="alert" style="margin-bottom:16px"></div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Company Name</label>
+          <input type="text" id="companyName" placeholder="First Call Public Adjusters">
+        </div>
+        <div class="form-group">
+          <label>Phone Number</label>
+          <input type="text" id="companyPhone" placeholder="(817) 618-9884">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>License Numbers</label>
+        <input type="text" id="licenseNumbers" placeholder="TX #1921679 | OK #3000772279 | CO #906301">
+      </div>
+
+      <div class="form-group">
+        <label>Company Logo URL <span style="color:var(--muted);font-weight:400;font-size:0.85em">(Pro+ feature — paste a direct image URL)</span></label>
+        <div id="logoLocked" class="locked-msg" style="display:none;padding:10px">
+          🔒 Logo upload requires <strong>Team</strong> or higher plan.
+        </div>
+        <div id="logoInput">
+          <input type="url" id="logoUrl" placeholder="https://yoursite.com/logo.png" oninput="previewLogo()">
+          <img id="logoPreview" class="logo-preview" alt="Logo preview">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Report Accent Color <span style="color:var(--muted);font-weight:400;font-size:0.85em">(shown on report headers)</span></label>
+        <div class="color-row">
+          <input type="color" id="accentColor" value="#c0392b" style="width:50px;height:36px;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:2px">
+          <input type="text" id="accentColorHex" value="#c0392b" placeholder="#c0392b" style="max-width:120px" oninput="syncColorHex()">
+          <div class="color-swatch" style="background:#c0392b" onclick="setColor('#c0392b')"></div>
+          <div class="color-swatch" style="background:#1a4faa" onclick="setColor('#1a4faa')"></div>
+          <div class="color-swatch" style="background:#16a34a" onclick="setColor('#16a34a')"></div>
+          <div class="color-swatch" style="background:#0891b2" onclick="setColor('#0891b2')"></div>
+          <div class="color-swatch" style="background:#7c3aed" onclick="setColor('#7c3aed')"></div>
+          <div class="color-swatch" style="background:#172235" onclick="setColor('#172235')"></div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Custom Report Footer</label>
+        <textarea id="reportFooter" style="height:70px" placeholder="e.g. Licensed Public Adjuster serving TX, OK, CO | No upfront fees"></textarea>
+      </div>
+
+      <!-- White-label toggle — enterprise only -->
+      <div id="whitelabelSection" style="display:none">
+        <div style="background:#f3e8ff;border:1px solid #c4b5fd;border-radius:8px;padding:16px;margin-bottom:16px">
+          <div style="font-weight:700;color:#6b21a8;margin-bottom:6px">🏷️ White-Label Mode (Enterprise)</div>
+          <div style="font-size:0.88em;color:#7c3aed;margin-bottom:12px">Remove all StormCheck Pro branding from reports. Your company brand only.</div>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+            <input type="checkbox" id="whitelabelEnabled" style="width:18px;height:18px">
+            <span style="font-weight:600">Enable white-label mode</span>
+          </label>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="saveProfile()">Save Branding Settings</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentTier = 'trial';
+
+async function init() {
+  const res = await fetch('/api/profile');
+  if (res.status === 403) {
+    // Below Pro — show locked state
+    document.getElementById('brandingLocked').style.display = 'block';
+    document.getElementById('brandingForm').style.display = 'none';
+  } else if (res.ok) {
+    const { profile, features } = await res.json();
+    // Populate fields
+    document.getElementById('companyName').value = profile.companyName || '';
+    document.getElementById('companyPhone').value = profile.companyPhone || '';
+    document.getElementById('licenseNumbers').value = profile.licenseNumbers || '';
+    document.getElementById('logoUrl').value = profile.logoUrl || '';
+    document.getElementById('accentColor').value = profile.accentColor || '#c0392b';
+    document.getElementById('accentColorHex').value = profile.accentColor || '#c0392b';
+    document.getElementById('reportFooter').value = profile.reportFooter || '';
+    if (profile.logoUrl) previewLogo();
+
+    // Show/hide logo based on tier
+    if (!features.logo) {
+      document.getElementById('logoLocked').style.display = 'block';
+      document.getElementById('logoInput').style.display = 'none';
+    }
+    // Show white-label for enterprise
+    if (features.whitelabel) {
+      document.getElementById('whitelabelSection').style.display = 'block';
+      document.getElementById('whitelabelEnabled').checked = profile.whitelabelEnabled || false;
+    }
+  }
+
+  // Get plan info
+  const meRes = await fetch('/api/me');
+  const { user, features } = await meRes.json();
+  currentTier = user.tier;
+  const tierLabels = { trial:'Free Trial', starter:'Starter', pro:'Pro', team:'Team', enterprise:'Enterprise', client:'Client', admin:'Admin' };
+  document.getElementById('planName').textContent = tierLabels[user.tier] || user.tier;
+  const descs = {
+    trial: '1 free lookup included. Upgrade to unlock unlimited lookups.',
+    starter: 'Unlimited lookups · Texas only',
+    pro: 'Unlimited lookups · TX, OK, CO · Company name on reports',
+    team: 'Unlimited lookups · All states · Up to 5 users · Logo on reports',
+    enterprise: 'Unlimited lookups · All states · Unlimited users · Full white-label',
+    client: 'Complimentary access from First Call Public Adjusters',
+    admin: 'Administrator access'
+  };
+  document.getElementById('planDesc').textContent = descs[user.tier] || '';
+}
+
+async function saveProfile() {
+  const btn = event.target;
+  const alertEl = document.getElementById('alertMsg');
+  alertEl.style.display = 'none';
+  btn.textContent = 'Saving...'; btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        companyName: document.getElementById('companyName').value,
+        companyPhone: document.getElementById('companyPhone').value,
+        licenseNumbers: document.getElementById('licenseNumbers').value,
+        logoUrl: document.getElementById('logoUrl').value,
+        accentColor: document.getElementById('accentColor').value,
+        reportFooter: document.getElementById('reportFooter').value,
+        whitelabelEnabled: document.getElementById('whitelabelEnabled')?.checked || false,
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alertEl.className = 'alert alert-success';
+      alertEl.textContent = '✅ Branding settings saved!';
+    } else {
+      alertEl.className = 'alert alert-error';
+      alertEl.textContent = data.error || 'Save failed.';
+    }
+    alertEl.style.display = 'block';
+    setTimeout(() => alertEl.style.display = 'none', 3000);
+  } catch (e) {
+    alertEl.className = 'alert alert-error';
+    alertEl.textContent = 'Connection error.';
+    alertEl.style.display = 'block';
+  } finally {
+    btn.textContent = 'Save Branding Settings'; btn.disabled = false;
+  }
+}
+
+function previewLogo() {
+  const url = document.getElementById('logoUrl').value;
+  const preview = document.getElementById('logoPreview');
+  if (url) { preview.src = url; preview.style.display = 'block'; }
+  else preview.style.display = 'none';
+}
+
+function setColor(hex) {
+  document.getElementById('accentColor').value = hex;
+  document.getElementById('accentColorHex').value = hex;
+}
+
+function syncColorHex() {
+  const hex = document.getElementById('accentColorHex').value;
+  if (/^#[0-9a-f]{6}$/i.test(hex)) document.getElementById('accentColor').value = hex;
+}
+
+async function logout() {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  window.location = '/login';
+}
+
+init();
+</script>
+</body>
+</html>

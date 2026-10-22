@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#172235"><link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Affiliate Program — StormCheck Pro</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .aff-wrap { max-width: 800px; margin: 40px auto; padding: 0 20px; }
+    .ref-box { background: linear-gradient(135deg, var(--navy), #2c3e50); color: white; border-radius: 12px; padding: 28px; margin-bottom: 24px; }
+    .ref-box h2 { margin-bottom: 6px; }
+    .ref-box p { opacity: 0.8; font-size: 0.9em; margin-bottom: 20px; }
+    .ref-link { display: flex; gap: 10px; align-items: center; }
+    .ref-link input { flex: 1; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 12px 16px; border-radius: 8px; font-size: 0.95em; font-family: monospace; }
+    .ref-link input::placeholder { color: rgba(255,255,255,0.4); }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); border-left: 4px solid var(--red); }
+    .stat-card .val { font-size: 2em; font-weight: 900; color: var(--navy); }
+    .stat-card .lbl { font-size: 0.8em; color: var(--muted); margin-top: 4px; }
+    .how-it-works { background: white; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+    .how-it-works h3 { color: var(--navy); margin-bottom: 16px; }
+    .step { display: flex; gap: 16px; margin-bottom: 16px; align-items: flex-start; }
+    .step-num { background: var(--red); color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; flex-shrink: 0; }
+    .step-text h4 { font-size: 0.95em; margin-bottom: 4px; color: var(--navy); }
+    .step-text p { font-size: 0.85em; color: var(--muted); }
+    .commission-table { width: 100%; }
+    .commission-table th { background: var(--navy); color: white; }
+    .not-enrolled { text-align: center; padding: 40px; }
+    .not-enrolled h2 { color: var(--navy); margin-bottom: 10px; }
+    .not-enrolled p { color: var(--muted); margin-bottom: 24px; }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="brand">Storm<span>Check</span> Pro</div>
+  <div class="nav-links">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/affiliate" style="color:white;font-weight:700">Affiliate</a>
+    <a href="#" onclick="logout()" class="btn-nav btn">Sign Out</a>
+  </div>
+</nav>
+
+<div class="aff-wrap">
+  <div class="page-title">💰 Affiliate Program</div>
+
+  <!-- Not enrolled yet -->
+  <div id="notEnrolled" class="card not-enrolled" style="display:none">
+    <h2>Earn 20% Recurring Commission</h2>
+    <p>Refer other public adjusters, roofing contractors, and insurance professionals to StormCheck Pro.<br>Earn 20% of every payment they make — month after month, as long as they stay subscribed.</p>
+    <div class="grid-3" style="margin-bottom:24px">
+      <div class="stat-card"><div class="val" style="color:#22c55e">$15.80</div><div class="lbl">/mo per Starter referral</div></div>
+      <div class="stat-card"><div class="val" style="color:#22c55e">$19.80</div><div class="lbl">/mo per Pro referral</div></div>
+      <div class="stat-card"><div class="val" style="color:#22c55e">$29.80</div><div class="lbl">/mo per Team referral</div></div>
+    </div>
+    <button class="btn btn-primary" onclick="joinAffiliate()" style="font-size:1.05em;padding:14px 32px">Join Affiliate Program →</button>
+  </div>
+
+  <!-- Enrolled -->
+  <div id="enrolled" style="display:none">
+    <!-- Referral link box -->
+    <div class="ref-box">
+      <h2>Your Referral Link</h2>
+      <p>Share this link anywhere. Anyone who signs up through it gets tracked to your account automatically.</p>
+      <div class="ref-link">
+        <input type="text" id="refLink" readonly>
+        <button class="btn btn-primary" onclick="copyLink()">📋 Copy</button>
+      </div>
+      <div style="margin-top:12px;font-size:0.82em;opacity:0.7">
+        Referral code: <strong id="refCode">—</strong> &nbsp;·&nbsp;
+        You can also use: <code>?ref=YOURCODE</code> on any StormCheck Pro page
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card"><div class="val" id="statReferrals">0</div><div class="lbl">Total Referrals</div></div>
+      <div class="stat-card"><div class="val" id="statActive">0</div><div class="lbl">Active Subscribers</div></div>
+      <div class="stat-card"><div class="val" id="statEarned">$0</div><div class="lbl">Total Earned</div></div>
+      <div class="stat-card" style="border-left-color:#22c55e"><div class="val" id="statPending" style="color:#22c55e">$0</div><div class="lbl">Pending Payout</div></div>
+    </div>
+
+    <!-- Payout request -->
+    <div class="card" style="margin-bottom:24px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-weight:700;color:var(--navy)">Request Payout</div>
+          <div style="font-size:0.85em;color:var(--muted)">Minimum $20. Paid via Venmo/PayPal/Zelle — contact us to set up.</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="requestPayout()">Request Payout</button>
+      </div>
+    </div>
+
+    <!-- Commission table -->
+    <div class="card" style="margin-bottom:24px">
+      <div style="font-weight:700;color:var(--navy);margin-bottom:14px">Commission Structure — 20% Recurring</div>
+      <table class="commission-table">
+        <thead><tr><th>Plan</th><th>Monthly Price</th><th>Your Commission</th><th>Annual if they stay</th></tr></thead>
+        <tbody>
+          <tr><td>Starter</td><td>$39/mo</td><td style="color:#22c55e;font-weight:700">$7.80/mo</td><td>$93.60/yr</td></tr>
+          <tr><td>Pro</td><td>$79/mo</td><td style="color:#22c55e;font-weight:700">$15.80/mo</td><td>$189.60/yr</td></tr>
+          <tr><td>Team</td><td>$149/mo</td><td style="color:#22c55e;font-weight:700">$29.80/mo</td><td>$357.60/yr</td></tr>
+          <tr><td>Enterprise</td><td>$199/mo</td><td style="color:#22c55e;font-weight:700">$39.80/mo</td><td>$477.60/yr</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- How it works -->
+    <div class="how-it-works">
+      <h3>How It Works</h3>
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text"><h4>Share your link</h4><p>Post it in your networks, OPI Millions community, roofing groups, PA associations, or send directly.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text"><h4>They sign up</h4><p>Anyone who clicks your link and creates an account is automatically tagged as your referral — even if they don't subscribe right away (tracked for 30 days).</p></div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text"><h4>They subscribe</h4><p>When they choose a plan and pay, you earn 20% of their monthly payment.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text"><h4>Keep earning</h4><p>You get paid every month they stay subscribed. Bring in 10 Pro subscribers = $198/mo passive income.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let myAffiliate = null;
+
+async function init() {
+  const res = await fetch('/api/affiliate/me');
+  if (!res.ok) return window.location = '/login';
+  const { affiliate } = await res.json();
+
+  if (!affiliate || !affiliate.enabled) {
+    document.getElementById('notEnrolled').style.display = 'block';
+  } else {
+    myAffiliate = affiliate;
+    document.getElementById('enrolled').style.display = 'block';
+    const base = window.location.origin;
+    const link = `${base}/api/ref/${affiliate.code}`;
+    document.getElementById('refLink').value = link;
+    document.getElementById('refCode').textContent = affiliate.code;
+    document.getElementById('statReferrals').textContent = affiliate.totalReferrals || 0;
+    document.getElementById('statActive').textContent = affiliate.activeReferrals || 0;
+    document.getElementById('statEarned').textContent = '$' + (affiliate.totalEarned || 0).toFixed(2);
+    document.getElementById('statPending').textContent = '$' + (affiliate.pendingPayout || 0).toFixed(2);
+  }
+}
+
+async function joinAffiliate() {
+  const btn = event.target;
+  btn.textContent = 'Joining...'; btn.disabled = true;
+  const res = await fetch('/api/affiliate/apply', { method: 'POST' });
+  const data = await res.json();
+  if (data.success || data.affiliate) {
+    window.location.reload();
+  } else {
+    alert(data.error || 'Something went wrong.');
+    btn.textContent = 'Join Affiliate Program →'; btn.disabled = false;
+  }
+}
+
+function copyLink() {
+  const input = document.getElementById('refLink');
+  navigator.clipboard.writeText(input.value).then(() => {
+    const btn = event.target;
+    btn.textContent = '✅ Copied!';
+    setTimeout(() => btn.textContent = '📋 Copy', 2000);
+  });
+}
+
+async function requestPayout() {
+  if (!myAffiliate || myAffiliate.pendingPayout < 20) {
+    alert('Minimum payout is $20. Keep referring to build up your balance!');
+    return;
+  }
+  alert(`Payout request received for $${myAffiliate.pendingPayout.toFixed(2)}. We'll contact you at ${myAffiliate.email} within 3 business days to arrange payment via Venmo/PayPal/Zelle.`);
+}
+
+async function logout() {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  window.location = '/login';
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#172235"><link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hail Map — StormCheck Pro</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/lib/leaflet.min.css"/>
+  <script src="/lib/leaflet.min.js"></script>
+  <style>
+    html, body { margin:0; padding:0; height:100%; overflow:hidden; font-family:Arial,sans-serif; }
+    .hailmap-app { display:grid; grid-template-rows:52px 1fr; grid-template-columns:320px 1fr; height:100vh; }
+
+    /* Nav */
+    .hm-nav { grid-column:1/-1; background:#1a1a2e; color:white; display:flex; align-items:center; gap:16px; padding:0 16px; border-bottom:2px solid #c0392b; }
+    .hm-brand { font-weight:900; font-size:1.05em; }
+    .hm-brand span { color:#f39c12; }
+    .hm-nav-links { display:flex; gap:14px; margin-left:auto; }
+    .hm-nav-links a { color:rgba(255,255,255,0.8); text-decoration:none; font-size:0.82em; }
+    .hm-nav-links a.active { color:white; font-weight:700; }
+    .hm-nav-links a.btn-nav { background:#c0392b; color:white; padding:5px 12px; border-radius:5px; }
+
+    /* Sidebar */
+    .hm-sidebar { background:#172235; color:white; overflow-y:auto; display:flex; flex-direction:column; border-right:1px solid #334155; }
+    .hm-sidebar-header { padding:14px 16px; border-bottom:1px solid #334155; }
+    .hm-sidebar-header h2 { font-size:1em; margin:0 0 2px; }
+    .hm-sidebar-header p { font-size:0.75em; color:#94a3b8; margin:0; }
+
+    /* Date tabs */
+    .date-tabs { display:flex; border-bottom:1px solid #334155; }
+    .date-tab { flex:1; padding:8px 4px; text-align:center; cursor:pointer; font-size:0.78em; font-weight:600; color:#64748b; border-bottom:2px solid transparent; margin-bottom:-1px; }
+    .date-tab.active { color:white; border-bottom-color:#c0392b; }
+
+    /* Event list */
+    .event-list { flex:1; overflow-y:auto; }
+    .event-item { padding:12px 16px; border-bottom:1px solid #1e293b; cursor:pointer; transition:background 0.15s; }
+    .event-item:hover { background:rgba(255,255,255,0.05); }
+    .event-item.active { background:rgba(192,57,43,0.15); border-left:3px solid #c0392b; }
+    .event-date { font-weight:700; font-size:0.88em; color:white; margin-bottom:4px; }
+    .event-impact { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .impact-badge { padding:2px 8px; border-radius:10px; font-size:0.72em; font-weight:700; }
+    .impact-1 { background:#fef3c7; color:#92400e; }
+    .impact-2 { background:#fee2e2; color:#991b1b; }
+    .impact-3 { background:#7f1d1d; color:white; }
+    .event-units { font-size:0.78em; color:#94a3b8; margin-top:3px; }
+    .event-states { font-size:0.75em; color:#64748b; margin-top:2px; }
+
+    /* Map controls */
+    .hm-map-controls { position:absolute; top:60px; left:330px; z-index:500; display:flex; gap:6px; background:rgba(26,26,46,0.9); padding:8px 12px; border-radius:8px; }
+    .map-ctrl-btn { padding:6px 12px; border-radius:5px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.1); color:white; cursor:pointer; font-size:0.8em; font-weight:600; }
+    .map-ctrl-btn.active { background:#c0392b; border-color:#c0392b; }
+
+    /* Map */
+    #hailMap { width:100%; height:100%; } #hailMap .leaflet-overlay-pane { mix-blend-mode: multiply; }
+
+    /* Popup */
+    .hm-popup h4 { margin:0 0 4px; color:#1a1a2e; font-size:0.95em; }
+    .hm-popup p { margin:2px 0; font-size:0.82em; color:#555; }
+    .hm-popup a { color:#c0392b; font-size:0.82em; font-weight:600; }
+
+    /* Legend */
+    .hm-legend { position:absolute; bottom:20px; right:10px; z-index:500; background:rgba(26,26,46,0.9); color:white; padding:10px 14px; border-radius:8px; font-size:0.78em; }
+    .hm-legend .leg-row { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+    .hm-legend .leg-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+
+    /* Loading */
+    .hm-loading { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:600; background:rgba(26,26,46,0.95); color:white; padding:20px 28px; border-radius:10px; text-align:center; }
+    .hm-loading .spinner { width:32px; height:32px; border:3px solid rgba(255,255,255,0.2); border-top-color:#c0392b; border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 10px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    @media (max-width:640px) {
+      .hailmap-app { grid-template-columns: 1fr; grid-template-rows: 52px auto 1fr; }
+      .hm-sidebar { max-height: 200px; }
+    }
+  </style>
+</head>
+<body>
+<div class="hailmap-app">
+
+  <!-- Nav -->
+  <nav class="hm-nav">
+    <div class="hm-brand">Storm<span>Check</span> Pro</div>
+    <div class="hm-nav-links">
+      <a href="/dashboard">Lookup</a>
+      <a href="/storms">⚡ Storms</a>
+      <a href="/hailmap" class="active">🗺️ Hail Map</a>
+      <a href="/watchlist">👥 Watch</a>
+      <a href="/leads">Leads</a>
+      <a href="#" onclick="logout()" class="btn-nav">Sign Out</a>
+    </div>
+  </nav>
+
+  <!-- Sidebar -->
+  <aside class="hm-sidebar">
+    <div class="hm-sidebar-header">
+      <h2>Recent Hail Events</h2>
+      <p id="sidebarSub">Loading storm data...</p>
+    </div>
+    <div class="date-tabs">
+      <div class="date-tab active" onclick="setDays(7)" id="tab7">7 Days</div>
+      <div class="date-tab" onclick="setDays(14)" id="tab14">14 Days</div>
+      <div class="date-tab" onclick="setDays(30)" id="tab30">30 Days</div>
+    </div>
+    <div class="event-list" id="eventList">
+      <div style="padding:20px;color:#64748b;font-size:0.85em;text-align:center">Loading...</div>
+    </div>
+  </aside>
+
+  <!-- Map -->
+  <div style="position:relative">
+    <div class="hm-map-controls">
+      <button class="map-ctrl-btn active" onclick="setLayer('hail')" id="layerHail">🌨️ Hail</button>
+      <button class="map-ctrl-btn" onclick="setLayer('wind')" id="layerWind">💨 Wind</button>
+      <button class="map-ctrl-btn" onclick="setLayer('tornado')" id="layerTornado">🌪️ Tornado</button>
+      <button class="map-ctrl-btn" onclick="setLayer('all')" id="layerAll">All</button>
+    </div>
+    <div id="hailMap"></div>
+    <div class="hm-legend">
+      <div style="font-weight:700;margin-bottom:6px;font-size:0.82em">HAIL SIZE</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#7c3aed"></div> Tornado</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#8B0000"></div> 2"+ Baseball</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#c0392b"></div> 1.5" Golf Ball</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#e67e22"></div> 1" Quarter</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#f39c12"></div> 0.75" Penny</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#3498db"></div> Wind</div>
+    </div>
+    <div class="hm-loading" id="loadingOverlay" style="display:none">
+      <div class="spinner"></div>
+      <div>Loading storm data...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const map = L.map('hailMap', { zoomControl: true }).setView([33.5, -97.5], 6);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap', maxZoom: 18
+}).addTo(map);
+
+let allEvents = [], activeDays = 7, activeLayer = 'all';
+let markerGroup = L.layerGroup().addTo(map);
+let selectedDate = null;
+
+const TX_COUNTIES_POP = { 'Tarrant': 2100000, 'Dallas': 2600000, 'Collin': 1100000, 'Denton': 1000000, 'Parker': 150000, 'Wise': 85000, 'Clay': 11000, 'Archer': 9000, 'Wichita': 130000, 'Jack': 9000 };
+
+function estimateHousingUnits(event) {
+  // Rough estimate: 1 housing unit per 2.5 people, county pop / radius
+  const countyPop = TX_COUNTIES_POP[event.county] || 50000;
+  return Math.round(countyPop / 2.5 / 10); // very rough
+}
+
+function getEventColor(e) {
+  if (e.type === 'tornado') return '#7c3aed';
+  if (e.type === 'wind') return '#3498db';
+  const s = e.size_in || 0;
+  if (s >= 2.0) return '#8B0000';
+  if (s >= 1.5) return '#c0392b';
+  if (s >= 1.0) return '#e67e22';
+  return '#f39c12';
+}
+
+function getImpactLevel(events) {
+  const maxHail = Math.max(...events.map(e => e.size_in || 0));
+  const hasTornado = events.some(e => e.type === 'tornado');
+  if (hasTornado || maxHail >= 2.0) return 3;
+  if (maxHail >= 1.5) return 2;
+  return 1;
+}
+
+async function loadEvents(days) {
+  document.getElementById('loadingOverlay').style.display = 'block';
+  try {
+    const res = await fetch(`/api/storms?days=${days}`);
+    const data = await res.json();
+    allEvents = data.events || [];
+    renderSidebar();
+    renderMap();
+    document.getElementById('sidebarSub').textContent = `${allEvents.length} events in last ${days} days`;
+  } catch (e) {
+    document.getElementById('sidebarSub').textContent = 'Error loading data';
+  } finally {
+    document.getElementById('loadingOverlay').style.display = 'none';
+  }
+}
+
+function renderSidebar() {
+  // Group by date
+  const byDate = {};
+  allEvents.forEach(e => {
+    if (!byDate[e.date]) byDate[e.date] = [];
+    byDate[e.date].push(e);
+  });
+
+  const el = document.getElementById('eventList');
+  const dates = Object.keys(byDate).sort((a,b) => new Date(b)-new Date(a));
+
+  if (!dates.length) {
+    el.innerHTML = '<div style="padding:20px;color:#64748b;font-size:0.85em;text-align:center">No significant events in this period.</div>';
+    return;
+  }
+
+  el.innerHTML = dates.map(date => {
+    const events = byDate[date];
+    const level = getImpactLevel(events);
+    const dp = date.split('-');
+    const dateLabel = new Date(date).toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric', year:'numeric' });
+    const maxHail = Math.max(...events.filter(e=>e.size_in).map(e=>e.size_in), 0);
+    const hasTornado = events.some(e=>e.type==='tornado');
+    const states = [...new Set(events.map(e=>e.state))].join(', ');
+    const housingEst = events.reduce((s,e) => s + estimateHousingUnits(e), 0);
+
+    return `<div class="event-item ${selectedDate===date?'active':''}" onclick="selectDate('${date}')">
+      <div class="event-date">${dateLabel}</div>
+      <div class="event-impact">
+        <span class="impact-badge impact-${level}">Impact ${level}</span>
+        ${hasTornado?'<span class="impact-badge impact-3">🌪️ Tornado</span>':''}
+        ${maxHail>=1.5?`<span class="impact-badge impact-2">🌨️ ${maxHail}"</span>`:''}
+      </div>
+      <div class="event-units">~${housingEst.toLocaleString()} housing units</div>
+      <div class="event-states">${events.length} events · ${states}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderMap() {
+  markerGroup.clearLayers();
+  const filtered = allEvents.filter(e => {
+    if (!e.lat || !e.lon) return false;
+    if (activeLayer === 'hail' && e.type !== 'hail') return false;
+    if (activeLayer === 'wind' && e.type !== 'wind') return false;
+    if (activeLayer === 'tornado' && e.type !== 'tornado') return false;
+    if (selectedDate && e.date !== selectedDate) return false;
+    return true;
+  });
+
+  filtered.forEach(e => {
+    const color = getEventColor(e);
+    const radius = e.type === 'tornado' ? 15000 : Math.max(5000, (e.size_in||0.5) * 10000);
+    const dp = e.date.split('-');
+    const dateLabel = `${dp[1]}/${dp[2]}/${dp[0]}`;
+
+    L.circle([e.lat, e.lon], {
+      color, fillColor: color, fillOpacity: 0.12, opacity: 0.35, radius, weight: 0.8
+    }).bindPopup(`
+      <div class="hm-popup">
+        <h4>${dateLabel} — ${e.type === 'tornado' ? `EF${e.ef||'?'} Tornado` : e.type === 'wind' ? `${e.mph||'?'} mph Wind` : `${e.size_in}" Hail (${e.size_desc||''})`}</h4>
+        <p>📍 ${e.location}</p>
+        <p>~${estimateHousingUnits(e).toLocaleString()} housing units in area</p>
+        <a href="/leads">Generate Lead List →</a>
+      </div>
+    `).addTo(markerGroup);
+  });
+
+  // Fit map if date selected
+  if (selectedDate && filtered.length > 0) {
+    const lats = filtered.map(e=>e.lat), lons = filtered.map(e=>e.lon);
+    map.fitBounds([[Math.min(...lats)-0.5,Math.min(...lons)-0.5],[Math.max(...lats)+0.5,Math.max(...lons)+0.5]]);
+  }
+}
+
+function selectDate(date) {
+  selectedDate = selectedDate === date ? null : date;
+  renderSidebar();
+  renderMap();
+}
+
+function setDays(d) {
+  activeDays = d;
+  selectedDate = null;
+  ['7','14','30'].forEach(n => {
+    document.getElementById('tab'+n).classList.toggle('active', parseInt(n)===d);
+  });
+  loadEvents(d);
+}
+
+function setLayer(layer) {
+  activeLayer = layer;
+  ['Hail','Wind','Tornado','All'].forEach(l => {
+    document.getElementById('layer'+l).classList.toggle('active', l.toLowerCase()===layer);
+  });
+  renderMap();
+}
+
+async function logout() { await fetch('/api/auth/logout',{method:'POST'}); window.location='/login'; }
+
+// Init
+(async () => {
+  const res = await fetch('/api/me');
+  if (!res.ok) return window.location='/login';
+  await loadEvents(7);
+})();
+</script>
+</body>
+</html>

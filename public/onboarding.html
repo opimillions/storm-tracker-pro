@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#172235"><link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Choose Your States — StormCheck Pro</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    body { background: var(--navy); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .ob-wrap { width: 100%; max-width: 680px; }
+    .ob-logo { text-align: center; margin-bottom: 24px; }
+    .ob-brand { font-size: 1.5em; font-weight: 900; color: white; }
+    .ob-brand span { color: #f59e0b; }
+    .ob-card { background: white; border-radius: 14px; padding: 32px; }
+    .ob-card h2 { font-size: 1.3em; color: var(--navy); margin-bottom: 6px; }
+    .ob-card .sub { color: var(--muted); font-size: 0.9em; margin-bottom: 24px; }
+    .states-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-bottom: 20px; max-height: 320px; overflow-y: auto; padding-right: 4px; }
+    .state-btn { padding: 10px 12px; border-radius: 8px; border: 2px solid var(--border); background: white; cursor: pointer; font-size: 0.85em; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; transition: all 0.15s; text-align: left; }
+    .state-btn:hover { border-color: var(--red); }
+    .state-btn.selected { background: var(--red); color: white; border-color: var(--red); }
+    .state-btn.disabled { opacity: 0.4; cursor: not-allowed; }
+    .state-flag { font-size: 1.1em; }
+    .tier-info { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 0.88em; color: #166534; }
+    .selected-count { font-size: 0.88em; color: var(--muted); margin-bottom: 12px; }
+    .selected-count strong { color: var(--navy); }
+    .popular-states { margin-bottom: 16px; }
+    .popular-states h4 { font-size: 0.82em; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .popular-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .pop-btn { padding: 7px 14px; border-radius: 20px; border: 2px solid var(--border); background: white; font-size: 0.82em; font-weight: 600; cursor: pointer; }
+    .pop-btn.selected { background: var(--red); color: white; border-color: var(--red); }
+  </style>
+</head>
+<body>
+<div class="ob-wrap">
+  <div class="ob-logo">
+    <div class="ob-brand">Storm<span>Check</span> Pro</div>
+    <div style="color:rgba(255,255,255,0.6);font-size:0.85em;margin-top:4px">Welcome! Let's set up your coverage area.</div>
+  </div>
+
+  <div class="ob-card">
+    <h2>Choose Your Coverage States</h2>
+    <div class="sub" id="tierSub">Select the states where you work. You can change this anytime in settings.</div>
+
+    <div class="tier-info" id="tierInfo"></div>
+
+    <div class="selected-count" id="selCount">0 states selected</div>
+
+    <div class="popular-states">
+      <h4>Popular for Insurance Professionals</h4>
+      <div class="popular-row">
+        <button class="pop-btn" onclick="toggleState('TX', this)">🌵 Texas</button>
+        <button class="pop-btn" onclick="toggleState('OK', this)">Oklahoma</button>
+        <button class="pop-btn" onclick="toggleState('CO', this)">Colorado</button>
+        <button class="pop-btn" onclick="toggleState('FL', this)">Florida</button>
+        <button class="pop-btn" onclick="toggleState('KS', this)">Kansas</button>
+        <button class="pop-btn" onclick="toggleState('NE', this)">Nebraska</button>
+        <button class="pop-btn" onclick="toggleState('MO', this)">Missouri</button>
+        <button class="pop-btn" onclick="toggleState('IL', this)">Illinois</button>
+      </div>
+    </div>
+
+    <div style="font-size:0.82em;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">All States</div>
+    <div class="states-grid" id="statesGrid"></div>
+
+    <div id="alertMsg" class="alert" style="display:none;margin-bottom:12px"></div>
+    <button class="btn btn-primary btn-block" onclick="saveStates()" id="saveBtn" style="font-size:1.05em;padding:14px">Continue to Dashboard →</button>
+  </div>
+</div>
+
+<script>
+const US_STATES = [
+  ['AL','Alabama'],['AK','Alaska'],['AZ','Arizona'],['AR','Arkansas'],['CA','California'],
+  ['CO','Colorado'],['CT','Connecticut'],['DE','Delaware'],['FL','Florida'],['GA','Georgia'],
+  ['HI','Hawaii'],['ID','Idaho'],['IL','Illinois'],['IN','Indiana'],['IA','Iowa'],
+  ['KS','Kansas'],['KY','Kentucky'],['LA','Louisiana'],['ME','Maine'],['MD','Maryland'],
+  ['MA','Massachusetts'],['MI','Michigan'],['MN','Minnesota'],['MS','Mississippi'],['MO','Missouri'],
+  ['MT','Montana'],['NE','Nebraska'],['NV','Nevada'],['NH','New Hampshire'],['NJ','New Jersey'],
+  ['NM','New Mexico'],['NY','New York'],['NC','North Carolina'],['ND','North Dakota'],['OH','Ohio'],
+  ['OK','Oklahoma'],['OR','Oregon'],['PA','Pennsylvania'],['RI','Rhode Island'],['SC','South Carolina'],
+  ['SD','South Dakota'],['TN','Tennessee'],['TX','Texas'],['UT','Utah'],['VT','Vermont'],
+  ['VA','Virginia'],['WA','Washington'],['WV','West Virginia'],['WI','Wisconsin'],['WY','Wyoming']
+];
+
+const TIER_LIMITS = { trial:1, starter:1, pro:3, team:5, enterprise:-1, client:-1, admin:-1 };
+let selectedStates = new Set();
+let maxStates = 1;
+let userTier = 'trial';
+
+async function init() {
+  const res = await fetch('/api/me');
+  if (!res.ok) return window.location='/login';
+  const { user } = await res.json();
+  userTier = user.tier || 'trial';
+  maxStates = TIER_LIMITS[userTier] || 1;
+
+  // Pre-select existing states if coming from settings
+  const existing = user.watchedStates || [];
+  if (existing.length) existing.forEach(s => selectedStates.add(s));
+  // Default TX for new users
+  if (!existing.length && (userTier === 'trial' || userTier === 'starter')) selectedStates.add('TX');
+
+  const tierNames = { trial:'Free Trial', starter:'Starter', pro:'Pro', team:'Team', enterprise:'Enterprise' };
+  const limits = { trial:'1 state (TX only)', starter:'1 state of your choice', pro:'up to 3 states', team:'up to 5 states', enterprise:'all 50 states (nationwide)' };
+  document.getElementById('tierInfo').innerHTML = `Your <strong>${tierNames[userTier]||userTier}</strong> plan includes ${limits[userTier]||'1 state'}.${maxStates===-1?'':' <a href="/upgrade">Upgrade to monitor more states →</a>'}`;
+
+  // Build grid
+  const grid = document.getElementById('statesGrid');
+  grid.innerHTML = US_STATES.map(([code, name]) => `
+    <button class="state-btn ${selectedStates.has(code)?'selected':''} ${maxStates!==-1&&!selectedStates.has(code)&&selectedStates.size>=maxStates?'disabled':''}"
+      id="state-${code}" onclick="toggleState('${code}', this)">
+      <span>${code}</span><span style="font-weight:400;font-size:0.9em">${name}</span>
+    </button>`).join('');
+
+  // Sync popular buttons
+  document.querySelectorAll('.pop-btn').forEach(btn => {
+    const code = btn.textContent.trim().split(' ').pop();
+    // Map display names to codes
+  });
+
+  updateCount();
+}
+
+function toggleState(code, btn) {
+  if (maxStates === -1) {
+    // Enterprise: toggle all
+    if (selectedStates.has(code)) { selectedStates.delete(code); }
+    else { selectedStates.add(code); }
+  } else {
+    if (selectedStates.has(code)) {
+      selectedStates.delete(code);
+    } else if (selectedStates.size < maxStates) {
+      selectedStates.add(code);
+    } else {
+      const errEl = document.getElementById('alertMsg');
+      errEl.className = 'alert alert-warning';
+      errEl.textContent = `Your ${userTier} plan allows up to ${maxStates} state(s). Upgrade to add more.`;
+      errEl.style.display = 'block';
+      setTimeout(() => errEl.style.display='none', 3000);
+      return;
+    }
+  }
+  // Refresh all buttons
+  US_STATES.forEach(([c]) => {
+    const b = document.getElementById('state-'+c);
+    if (b) {
+      b.classList.toggle('selected', selectedStates.has(c));
+      b.classList.toggle('disabled', maxStates!==-1 && !selectedStates.has(c) && selectedStates.size>=maxStates);
+    }
+  });
+  // Sync popular buttons
+  document.querySelectorAll('.pop-btn').forEach(pb => {
+    const match = US_STATES.find(([c,n]) => pb.textContent.includes(n) || pb.textContent.includes(c));
+    if (match) pb.classList.toggle('selected', selectedStates.has(match[0]));
+  });
+  updateCount();
+}
+
+function updateCount() {
+  const max = maxStates === -1 ? '∞' : maxStates;
+  document.getElementById('selCount').innerHTML = `<strong>${selectedStates.size}</strong> of ${max} states selected`;
+}
+
+async function saveStates() {
+  if (selectedStates.size === 0) {
+    document.getElementById('alertMsg').className='alert alert-error';
+    document.getElementById('alertMsg').textContent='Please select at least one state.';
+    document.getElementById('alertMsg').style.display='block';
+    return;
+  }
+  const btn = document.getElementById('saveBtn');
+  btn.textContent='Saving...'; btn.disabled=true;
+  // Always save the explicit selection so /api/storms filters correctly
+  const states = [...selectedStates];
+  const res = await fetch('/api/me/states', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ states })
+  });
+  if (res.ok) { window.location = '/dashboard'; }
+  else { btn.textContent='Continue to Dashboard →'; btn.disabled=false; window.location='/dashboard'; }
+}
+
+init();
+</script>
+</body>
+</html>

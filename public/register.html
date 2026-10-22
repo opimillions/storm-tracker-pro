@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#172235"><link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register — StormCheck Pro</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    body { background: var(--navy); display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    .register-wrap { width: 100%; max-width: 460px; }
+    .login-logo { text-align: center; margin-bottom: 24px; }
+    .login-logo .brand { font-size: 1.5em; font-weight: 900; color: white; }
+    .login-logo .brand span { color: var(--gold); }
+    .login-logo .sub { color: rgba(255,255,255,0.6); font-size: 0.88em; margin-top: 4px; }
+    .register-card { background: white; border-radius: 12px; padding: 32px; }
+    .register-card h2 { font-size: 1.3em; margin-bottom: 6px; color: var(--navy); }
+    .register-card .trial-badge { background: #fef3c7; color: #92400e; padding: 6px 14px; border-radius: 20px; font-size: 0.82em; font-weight: 700; display: inline-block; margin-bottom: 20px; }
+    .login-footer { text-align: center; margin-top: 16px; font-size: 0.88em; color: rgba(255,255,255,0.6); }
+    .login-footer a { color: var(--gold); text-decoration: none; }
+    .trial-info { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 7px; padding: 12px 14px; margin-bottom: 20px; font-size: 0.85em; color: #166534; }
+  </style>
+</head>
+<body>
+<div class="register-wrap">
+  <div class="login-logo">
+    <div class="brand">Storm<span>Check</span> Pro</div>
+    <div class="sub">Powered by First Call Public Adjusters</div>
+  </div>
+
+  <div class="register-card">
+    <h2>Create Your Account</h2>
+    <span class="trial-badge">1 Free Hail Report — No Credit Card</span>
+
+    <div class="trial-info">
+      ✅ No credit card required<br>
+      ✅ 1 free hail history report included<br>
+      ✅ Upgrade to Pro for unlimited lookups ($79/mo)
+    </div>
+
+    <div id="errorMsg" class="alert alert-error" style="display:none"></div>
+
+    <form id="registerForm">
+      <div class="form-group">
+        <label>Full Name *</label>
+        <input type="text" id="name" placeholder="John Smith" required>
+      </div>
+      <div class="form-group">
+        <label>Company Name</label>
+        <input type="text" id="company" placeholder="Smith Roofing LLC">
+      </div>
+      <div class="form-group">
+        <label>Email Address *</label>
+        <input type="email" id="email" placeholder="you@company.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>Password * (min 8 characters)</label>
+        <input type="password" id="password" placeholder="••••••••" required autocomplete="new-password" minlength="8">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="regBtn">Create Free Account</button>
+    </form>
+  </div>
+
+  <div class="login-footer">
+    Already have an account? <a href="/login">Sign in</a>
+  </div>
+</div>
+
+<script>
+  document.getElementById('registerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('regBtn');
+    const errEl = document.getElementById('errorMsg');
+    errEl.style.display = 'none';
+    btn.innerHTML = '<span class="spinner"></span> Creating account...';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: document.getElementById('name').value,
+          company: document.getElementById('company').value,
+          email: document.getElementById('email').value,
+          password: document.getElementById('password').value,
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.location = data.redirect;
+      } else {
+        errEl.textContent = data.error;
+        errEl.style.display = 'block';
+        btn.innerHTML = 'Create Free Account';
+        btn.disabled = false;
+      }
+    } catch (err) {
+      errEl.textContent = 'Connection error. Please try again.';
+      errEl.style.display = 'block';
+      btn.innerHTML = 'Create Free Account';
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

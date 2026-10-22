@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#172235"><link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — StormCheck Pro</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    body { background: var(--navy); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .login-wrap { width: 100%; max-width: 420px; padding: 20px; }
+    .login-logo { text-align: center; margin-bottom: 28px; }
+    .login-logo .brand { font-size: 1.6em; font-weight: 900; color: white; letter-spacing: 1px; }
+    .login-logo .brand span { color: var(--gold); }
+    .login-logo .sub { color: rgba(255,255,255,0.6); font-size: 0.9em; margin-top: 4px; }
+    .login-card { background: white; border-radius: 12px; padding: 32px; }
+    .login-card h2 { font-size: 1.3em; margin-bottom: 22px; color: var(--navy); }
+    .login-footer { text-align: center; margin-top: 18px; font-size: 0.88em; color: rgba(255,255,255,0.6); }
+    .login-footer a { color: var(--gold); text-decoration: none; }
+    .divider { text-align: center; color: var(--muted); font-size: 0.82em; margin: 14px 0; position: relative; }
+    .divider::before, .divider::after { content: ''; position: absolute; top: 50%; width: 42%; height: 1px; background: var(--border); }
+    .divider::before { left: 0; }
+    .divider::after { right: 0; }
+  </style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-logo">
+    <div class="brand">Storm<span>Check</span> Pro</div>
+    <div class="sub">Powered by First Call Public Adjusters</div>
+  </div>
+
+  <div class="login-card">
+    <h2>Sign In</h2>
+    <div id="errorMsg" class="alert alert-error" style="display:none"></div>
+    <div id="infoMsg" class="alert alert-info" style="display:none"></div>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="email" placeholder="you@company.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Sign In</button>
+      <div style="text-align:center;margin-top:12px;font-size:0.85em">
+        <a href="/forgot-password" style="color:var(--muted);text-decoration:none">Forgot your password?</a>
+      </div>
+    </form>
+
+    <div class="divider">or</div>
+    <a href="/register" class="btn btn-outline btn-block">Create Free Trial Account</a>
+  </div>
+
+  <div class="login-footer">
+    Questions? Call <a href="tel:8176189884">(817) 618-9884</a>
+  </div>
+</div>
+
+<script>
+  // Show error from URL params
+  const params = new URLSearchParams(location.search);
+  if (params.get('error') === 'suspended') {
+    document.getElementById('errorMsg').textContent = 'Your account has been suspended. Contact (817) 618-9884.';
+    document.getElementById('errorMsg').style.display = 'block';
+  }
+
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('loginBtn');
+    const errEl = document.getElementById('errorMsg');
+    errEl.style.display = 'none';
+    btn.innerHTML = '<span class="spinner"></span> Signing in...';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: document.getElementById('email').value,
+          password: document.getElementById('password').value,
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.location = data.redirect;
+      } else {
+        errEl.textContent = data.error;
+        errEl.style.display = 'block';
+        btn.innerHTML = 'Sign In';
+        btn.disabled = false;
+      }
+    } catch (err) {
+      errEl.textContent = 'Connection error. Please try again.';
+      errEl.style.display = 'block';
+      btn.innerHTML = 'Sign In';
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
