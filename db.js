@@ -7,10 +7,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Use Railway persistent volume if available, otherwise local data dir
-const DATA_DIR = process.env.RAILWAY_VOLUME_MOUNT_PATH
-  ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'data')
-  : path.join(__dirname, 'data');
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+const { DATA_DIR } = require('./lib/paths');
 
 const users = Datastore.create({ filename: path.join(DATA_DIR, 'users.db'), autoload: true });
 const lookups = Datastore.create({ filename: path.join(DATA_DIR, 'lookups.db'), autoload: true });
@@ -25,21 +22,25 @@ const watchlist = Datastore.create({ filename: path.join(DATA_DIR, 'watchlist.db
 watchlist.ensureIndex({ fieldName: 'userId' });
 const resultsCache = Datastore.create({ filename: path.join(DATA_DIR, 'results-cache.db'), autoload: true });
 resultsCache.ensureIndex({ fieldName: 'cacheKey', unique: true });
+const freeAlerts = Datastore.create({ filename: path.join(DATA_DIR, 'free-alerts.db'), autoload: true });
+freeAlerts.ensureIndex({ fieldName: 'token', unique: true });
+const reviews = Datastore.create({ filename: path.join(DATA_DIR, 'reviews.db'), autoload: true });
 
 // Indexes
 users.ensureIndex({ fieldName: 'email', unique: true });
 users.ensureIndex({ fieldName: 'stripeCustomerId', sparse: true });
 
 // ── Tier Configuration ───────────────────────────────────────────────────────
+// maxStates: -1 = nationwide. predictive = NWS warning heads-up alerts. playback = animated radar swaths.
 const TIERS = {
-  trial:      { lookupLimit: 1,  price: 0,    users: 1, maxStates: 1,  states: ['TX'],   branding: false, logo: false, whitelabel: false, label: 'Free Trial' },
-  starter:    { lookupLimit: -1, price: 79,   users: 1, maxStates: 1,  states: null,     branding: false, logo: false, whitelabel: false, label: 'Starter' },
-  pro:        { lookupLimit: -1, price: 99,   users: 1, maxStates: 3,  states: null,     branding: true,  logo: false, whitelabel: false, label: 'Pro' },
-  team:       { lookupLimit: -1, price: 149,  users: 5, maxStates: 5,  states: null,     branding: true,  logo: true,  whitelabel: false, label: 'Team' },
-  enterprise: { lookupLimit: -1, price: 199,  users: -1,maxStates: -1, states: null,     branding: true,  logo: true,  whitelabel: true,  label: 'Enterprise' },
-  client:     { lookupLimit: -1, price: 0,    users: 1, maxStates: -1, states: null,     branding: false, logo: false, whitelabel: false, label: 'Client' },
-  admin:      { lookupLimit: -1, price: 0,    users: -1,maxStates: -1, states: null,     branding: true,  logo: true,  whitelabel: true,  label: 'Admin' },
-  suspended:  { lookupLimit: 0,  price: 0,    users: 0, maxStates: 0,  states: [],       branding: false, logo: false, whitelabel: false, label: 'Suspended' },
+  trial:      { lookupLimit: 1,  price: 0,    users: 1, maxStates: 1,  states: null, branding: false, logo: false, whitelabel: false, predictive: false, playback: false, label: 'Free Trial' },
+  starter:    { lookupLimit: -1, price: 39,   users: 1, maxStates: 1,  states: null, branding: false, logo: false, whitelabel: false, predictive: false, playback: false, label: 'Starter' },
+  pro:        { lookupLimit: -1, price: 79,   users: 1, maxStates: -1, states: null, branding: true,  logo: false, whitelabel: false, predictive: false, playback: true,  label: 'Pro' },
+  team:       { lookupLimit: -1, price: 149,  users: 5, maxStates: -1, states: null, branding: true,  logo: true,  whitelabel: false, predictive: true,  playback: true,  label: 'Team' },
+  enterprise: { lookupLimit: -1, price: 199,  users: -1,maxStates: -1, states: null, branding: true,  logo: true,  whitelabel: true,  predictive: true,  playback: true,  label: 'Enterprise' },
+  client:     { lookupLimit: -1, price: 0,    users: 1, maxStates: -1, states: null, branding: false, logo: false, whitelabel: false, predictive: false, playback: true,  label: 'Client' },
+  admin:      { lookupLimit: -1, price: 0,    users: -1,maxStates: -1, states: null, branding: true,  logo: true,  whitelabel: true,  predictive: true,  playback: true,  label: 'Admin' },
+  suspended:  { lookupLimit: 0,  price: 0,    users: 0, maxStates: 0,  states: [],   branding: false, logo: false, whitelabel: false, predictive: false, playback: false, label: 'Suspended' },
 };
 
 function tierLookupLimit(tier) {
@@ -91,8 +92,7 @@ const userOps = {
   },
 
   async updateTier(id, tier, lookupLimit) {
-    const limits = { admin: -1, pro: -1, client: -1, trial: 10, suspended: 0 };
-    const limit = lookupLimit !== undefined ? lookupLimit : (limits[tier] ?? 10);
+    const limit = lookupLimit !== undefined ? lookupLimit : tierLookupLimit(tier);
     return users.update({ _id: id }, { $set: { tier, lookupLimit: limit } });
   },
 
@@ -215,8 +215,12 @@ const alertOps = {
 
 // ── Seed Admin ────────────────────────────────────────────────────────────────
 async function seedAdmin() {
-  const adminEmail = process.env.ADMIN_EMAIL || 'ryan@thepublicadjustertx.com';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'FirstCall2026!';
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminEmail || !adminPassword) {
+    console.warn('ADMIN_EMAIL / ADMIN_PASSWORD not set — admin account not seeded or synced.');
+    return;
+  }
   const existing = await userOps.findByEmail(adminEmail);
   if (!existing) {
     await userOps.create({
@@ -355,7 +359,7 @@ const affiliateOps = {
   async recordReferral(affiliateCode, referredUserId, tier) {
     const aff = await affiliates.findOne({ code: affiliateCode.toUpperCase() });
     if (!aff) return;
-    const tierPrices = { starter:79, pro:99, team:149, enterprise:199 };
+    const tierPrices = { starter:39, pro:79, team:149, enterprise:199 };
     const monthlyCommission = (tierPrices[tier] || 99) * AFFILIATE_COMMISSION;
     await affiliates.update({ code: affiliateCode.toUpperCase() }, {
       $inc: { totalReferrals: 1, activeReferrals: 1, pendingPayout: monthlyCommission }
@@ -457,4 +461,34 @@ const alertSettingsOps = {
   }
 };
 
-module.exports = { userOps, lookupOps, alertOps, profileOps, resultsCacheOps, affiliateOps, watchlistOps, alertSettingsOps, AFFILIATE_COMMISSION, TIERS, tierFeatures, tierLookupLimit };
+// ── Free Alert Subscribers (public, no account) ─────────────────────────────────
+const freeAlertOps = {
+  async subscribe({ email, label, lat, lon, zip, radiusMi = 15, minIn = 1 }) {
+    const crypto = require('crypto');
+    email = String(email).toLowerCase().trim();
+    const existing = await freeAlerts.findOne({ email, zip: zip || null, active: true });
+    if (existing) return existing;
+    return freeAlerts.insert({
+      email, label, lat, lon, zip: zip || null, radiusMi, minIn,
+      token: crypto.randomBytes(20).toString('hex'),
+      active: true, createdAt: new Date().toISOString(),
+    });
+  },
+  async unsubscribe(token) { return freeAlerts.update({ token }, { $set: { active: false, unsubscribedAt: new Date().toISOString() } }); },
+  async getActive() { return freeAlerts.find({ active: true }); },
+  async count() { return freeAlerts.count({ active: true }); },
+  async recent(limit = 50) { return freeAlerts.find({}).sort({ createdAt: -1 }).limit(limit); },
+};
+
+// ── Meteorologist Review Orders ────────────────────────────────────────────────
+const reviewOps = {
+  async create(data) {
+    return reviews.insert({ ...data, status: data.status || 'awaiting_payment', createdAt: new Date().toISOString() });
+  },
+  async get(id) { return reviews.findOne({ _id: id }); },
+  async forUser(userId) { return reviews.find({ userId }).sort({ createdAt: -1 }); },
+  async all() { return reviews.find({}).sort({ createdAt: -1 }); },
+  async update(id, data) { return reviews.update({ _id: id }, { $set: { ...data, updatedAt: new Date().toISOString() } }); },
+};
+
+module.exports = { freeAlertOps, reviewOps, userOps, lookupOps, alertOps, profileOps, resultsCacheOps, affiliateOps, watchlistOps, alertSettingsOps, AFFILIATE_COMMISSION, TIERS, tierFeatures, tierLookupLimit };

@@ -8,9 +8,15 @@ const cookieParser = require('cookie-parser');
 const path = require('path');
 const cron = require('node-cron');
 
-const { userOps, lookupOps, alertOps, profileOps, resultsCacheOps, affiliateOps, watchlistOps, alertSettingsOps, AFFILIATE_COMMISSION, TIERS, tierFeatures, tierLookupLimit } = require('./db');
+const db = require('./db');
+const { userOps, lookupOps, alertOps, profileOps, resultsCacheOps, affiliateOps, watchlistOps, alertSettingsOps, freeAlertOps, reviewOps, AFFILIATE_COMMISSION, TIERS, tierFeatures, tierLookupLimit } = db;
+const compression = require('compression');
+const reportEngine = require('./lib/report-engine');
+const spcStore = require('./lib/spc-store');
+const dataJobs = require('./lib/data-jobs');
 const { generateToken, requireAuth, requireAdmin, requireActiveSubscription } = require('./auth');
 const { geocodeAddress, fetchHailHistory, getImpactScore, getImpactRating } = require('./hail-engine');
+const axios = require('axios');
 
 // Simple in-memory cache for lookup results (saves re-scanning same address)
 const lookupCache = new Map();
@@ -24,7 +30,59 @@ const { startStormMonitor } = require('./storm-alerts');
 
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
+// ── Stripe Webhook ────────────────────────────────────────────────────────────
+// Registered before express.json() so the raw body is available for the
+// signature check (with JSON parsing first, every webhook failed verification).
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!process.env.STRIPE_SECRET_KEY) return res.status(500).send('Stripe not configured');
+  const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object;
+        const meta = session.metadata || {};
+        if (meta.kind === 'review' && meta.reviewId) {
+          await reviewOps.update(meta.reviewId, { status: 'paid', stripeSessionId: session.id });
+          break;
+        }
+        const purchasedTier = meta.tier || 'pro';
+        const email = session.customer_email || (session.customer_details && session.customer_details.email);
+        const user = (meta.userId && await userOps.findById(meta.userId)) || (email && await userOps.findByEmail(email));
+        if (user) {
+          await userOps.updateSubscription(user._id, { customerId: session.customer, subscriptionId: session.subscription, status: 'active', tier: purchasedTier });
+          await userOps.updateTier(user._id, purchasedTier, tierLookupLimit(purchasedTier));
+          if (user.referredBy) { try { await affiliateOps.recordReferral(user.referredBy, user._id, purchasedTier); } catch (e) { /* non-fatal */ } }
+          console.log('Subscription activated: ' + user.email + ' -> ' + purchasedTier);
+        }
+        break;
+      }
+      case 'customer.subscription.deleted':
+      case 'customer.subscription.updated': {
+        const sub = event.data.object;
+        const user = await userOps.findByStripeCustomer(sub.customer);
+        if (user) {
+          const active = sub.status === 'active' || sub.status === 'trialing';
+          await userOps.updateSubscription(user._id, { status: sub.status, tier: active ? user.tier : 'trial' });
+          if (!active) await userOps.updateTier(user._id, 'trial', tierLookupLimit('trial'));
+        }
+        break;
+      }
+    }
+  } catch (err) {
+    console.error('Webhook handling error:', err.message);
+  }
+  res.json({ received: true });
+});
+
+app.use(compression());
+app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
@@ -273,7 +331,6 @@ app.get('/leads', requireAuth, (req, res) => res.sendFile(path.join(__dirname, '
 
 // Storm events API — pulls SPC data for the user's watched states
 app.get('/api/storms', requireAuth, async (req, res) => {
-  const axios = require('axios');
   const days = Math.min(parseInt(req.query.days) || 7, 730); // max 2 years
   const events = [];
   const today = new Date();
@@ -288,46 +345,27 @@ app.get('/api/storms', requireAuth, async (req, res) => {
   } else if (features.maxStates === -1) {
     stateFilter = null; // unlimited tier, no selection → show every state SPC reports
   } else {
-    stateFilter = { TX: true, OK: true, CO: true };
+    stateFilter = null; // no selection yet → nationwide
   }
 
+  const sizeName = require('./lib/hail-scale').sizeName;
   for (let d = 0; d < days; d++) {
-    const date = new Date(today.getTime() - d * 86400000);
-    const yr2 = String(date.getFullYear()).slice(2);
-    const mo  = String(date.getMonth() + 1).padStart(2, '0');
-    const dy  = String(date.getDate()).padStart(2, '0');
-    const fullDate = `${date.getFullYear()}-${mo}-${dy}`;
-
-    // Check hail, wind, and tornado
-    for (const type of ['hail', 'wind', 'torn']) {
-      try {
-        const url = `https://www.spc.noaa.gov/climo/reports/${yr2}${mo}${dy}_rpts_${type}.csv`;
-        const r = await axios.get(url, { timeout: 6000, headers: { 'User-Agent': 'StormCheckPro/1.0' } });
-        for (const line of r.data.split('\n').slice(1)) {
-          if (!line.trim()) continue;
-          const p = line.split(',');
-          if (p.length < 7) continue;
-          const state = p[4]?.trim();
-          if (stateFilter && !stateFilter[state]) continue;
-          const lat = parseFloat(p[5]), lon = parseFloat(p[6]);
-          if (isNaN(lat) || isNaN(lon)) continue;
-          const mag = parseFloat(p[1]);
-
-          if (type === 'hail') {
-            const size_in = mag / 100;
-            if (size_in < 0.75) continue;
-            const sizeMap = { 0.75:'Penny', 0.88:'Nickel', 1.0:'Quarter', 1.25:'Half Dollar', 1.5:'Ping Pong', 1.75:'Golf Ball', 2.0:'Hen Egg', 2.75:'Baseball', 4.5:'Grapefruit' };
-            const desc = Object.entries(sizeMap).reverse().find(([s]) => size_in >= parseFloat(s))?.[1] || '';
-            events.push({ type:'hail', date:fullDate, size_in: Math.round(size_in*100)/100, size_desc:desc, location:[p[2],p[3],p[4]].filter(Boolean).join(', '), county:p[3]?.trim(), state, lat, lon });
-          } else if (type === 'torn') {
-            events.push({ type:'tornado', date:fullDate, ef: mag >= 0 ? mag : 'U', location:[p[2],p[3],p[4]].filter(Boolean).join(', '), county:p[3]?.trim(), state, lat, lon, comments:p[7]?.trim() });
-          } else if (type === 'wind') {
-            const mph = mag > 0 ? Math.round(mag * 1.151) : null;
-            if (!mph || mph < 58) continue; // only damaging wind (58mph+)
-            events.push({ type:'wind', date:fullDate, mph, location:[p[2],p[3],p[4]].filter(Boolean).join(', '), county:p[3]?.trim(), state, lat, lon });
-          }
-        }
-      } catch (e) { /* quiet day */ }
+    const fullDate = new Date(Date.parse(spcStore.today() + 'T00:00:00Z') - d * 86400000).toISOString().slice(0, 10);
+    const r = spcStore.reportsForDay(fullDate);
+    const ok = e => !stateFilter || stateFilter[e.state];
+    for (const e of r.hail) {
+      if (!ok(e) || !(e.mag >= 0.75)) continue;
+      events.push({ type: 'hail', date: fullDate, size_in: e.mag, size_desc: sizeName(e.mag), location: [e.loc, e.state].filter(Boolean).join(', '), county: e.county, state: e.state, lat: e.lat, lon: e.lon, comments: e.n });
+    }
+    for (const e of r.tornado) {
+      if (!ok(e)) continue;
+      events.push({ type: 'tornado', date: fullDate, ef: String(e.ef || 'EFU').replace('EF', ''), location: [e.loc, e.state].filter(Boolean).join(', '), county: e.county, state: e.state, lat: e.lat, lon: e.lon, comments: e.n });
+    }
+    for (const e of r.wind) {
+      if (!ok(e)) continue;
+      const mph = e.mag ? Math.round(e.mag * 1.151) : null;
+      if (!mph || mph < 58) continue;
+      events.push({ type: 'wind', date: fullDate, mph, location: [e.loc, e.state].filter(Boolean).join(', '), county: e.county, state: e.state, lat: e.lat, lon: e.lon });
     }
   }
 
@@ -345,44 +383,36 @@ app.get('/api/storms', requireAuth, async (req, res) => {
 // Home dashboard data API
 app.get('/api/home', requireAuth, async (req, res) => {
   try {
-    const axios = require('axios');
     const recentLookups = await lookupOps.getForUser(req.user._id, 5);
     const recentAlerts = await alertOps.getRecent(10);
 
-    // Get active NWS alerts for DFW
+    // Active NWS warnings near the user's first alert region (if any)
     let activeAlerts = [];
     try {
-      const r = await axios.get('https://api.weather.gov/alerts/active?point=32.9440,-97.1341', {
-        headers: { 'User-Agent': 'StormCheckPro/1.0' }, timeout: 5000
-      });
-      activeAlerts = (r.data.features || [])
-        .filter(a => a.properties.severity === 'Severe' || a.properties.severity === 'Extreme')
-        .slice(0, 3)
-        .map(a => ({ event: a.properties.event, headline: a.properties.headline, severity: a.properties.severity, onset: a.properties.onset }));
-    } catch (e) { /* silent */ }
-
-    // Also check SPC for recent TX hail events (last 7 days) to show storm count
-    let recentSPCCount = 0; const recentStormDates = [];
-    try {
-      const today = new Date();
-      for (let d = 0; d < 7; d++) {
-        const date = new Date(today.getTime() - d * 86400000);
-        const yr2 = String(date.getFullYear()).slice(2);
-        const mo = String(date.getMonth() + 1).padStart(2, '0');
-        const dy = String(date.getDate()).padStart(2, '0');
-        const url = `https://www.spc.noaa.gov/climo/reports/${yr2}${mo}${dy}_rpts_hail.csv`;
-        const r = await axios.get(url, { timeout: 5000, headers: { 'User-Agent': 'StormCheckPro/1.0' } });
-        const lines = r.data.split('\n').slice(1).filter(l => l.includes(',TX,') || l.includes(',OK,') || l.includes(',CO,'));
-        const yr = date.getFullYear(); const m0 = String(date.getMonth()+1).padStart(2,'0'); const d0 = String(date.getDate()).padStart(2,'0');
-        const sigLines = lines.filter(l => { const parts = l.split(','); const size = parseFloat(parts[1]) / 100; return size >= 1.0; });
-        const maxSize = sigLines.length ? sigLines.reduce((m, l) => { const s = parseFloat(l.split(',')[1])/100; return s>m?s:m; }, 0) : 0;
-        if (sigLines.length > 0) { recentSPCCount++; recentStormDates.push({ date: fullDate, count: sigLines.length, maxSize }); }
+      const settings = await alertSettingsOps.get(req.user._id);
+      const r0 = (settings.regions || [])[0];
+      if (r0) {
+        const r = await axios.get(`https://api.weather.gov/alerts/active?point=${r0.lat.toFixed(4)},${r0.lon.toFixed(4)}`, {
+          headers: { 'User-Agent': 'StormCheckPro/2.0' }, timeout: 5000
+        });
+        activeAlerts = (r.data.features || [])
+          .filter(a => a.properties.severity === 'Severe' || a.properties.severity === 'Extreme')
+          .slice(0, 3)
+          .map(a => ({ event: a.properties.event, headline: a.properties.headline, severity: a.properties.severity, onset: a.properties.onset }));
       }
     } catch (e) { /* silent */ }
 
+    // Hail days (1"+ ground reports) in the user's watched states over the last 7 days
+    const watched = Array.isArray(req.user.watchedStates) && req.user.watchedStates.length ? req.user.watchedStates.map(s => String(s).toUpperCase()) : null;
+    const recentStormDates = [];
+    for (const date of spcStore.recentDays(7)) {
+      const hail = spcStore.reportsForDay(date, watched).hail.filter(e => e.mag >= 1);
+      if (hail.length) recentStormDates.push({ date, count: hail.length, maxSize: Math.max(...hail.map(e => e.mag)) });
+    }
+    const recentSPCCount = recentStormDates.length;
+    const watchArea = watched ? watched.join(', ') : 'Nationwide';
 
-
-    res.json({ recentLookups, recentAlerts, activeAlerts, recentSPCCount, recentStormDates });
+    res.json({ recentLookups, recentAlerts, activeAlerts, recentSPCCount, recentStormDates, watchArea });
   } catch (err) {
     res.json({ recentLookups: [], recentAlerts: [], activeAlerts: [], recentSPCCount: 0, recentStormDates: [] });
   }
@@ -419,7 +449,17 @@ app.post('/api/lookup', requireAuth, requireActiveSubscription, async (req, res)
   const geo = await geocodeAddress(address);
   if (!geo) return res.status(400).json({ error: 'Address not found. Please check and try again.' });
 
-  // Check cache
+  // Fast path: local radar + NCEI + SPC stores (milliseconds).
+  if (reportEngine.storesReady()) {
+    const result = reportEngine.buildReport(geo.lat, geo.lon, { years: Math.min(parseInt(years) || 10, 30) });
+    result.impact = getImpactRating(result.score);
+    result.address = geo.formattedAddress;
+    await userOps.incrementLookups(req.user._id);
+    await lookupOps.create({ userId: req.user._id, address: geo.formattedAddress, lat: geo.lat, lon: geo.lon, eventsFound: result.stats.total, impactScore: result.score });
+    return res.json(result);
+  }
+
+  // Legacy path (until the data stores finish their first load): live SPC scan.
   const cacheKey = `${geo.lat.toFixed(4)},${geo.lon.toFixed(4)},${parseInt(years)||5}`;
   // Check persistent DB cache first, then memory cache
   const dbCached = await resultsCacheOps.get(cacheKey);
@@ -543,47 +583,6 @@ app.get('/api/admin/lookups', requireAuth, requireAdmin, async (req, res) => {
   res.json(await lookupOps.getRecent(50));
 });
 
-// ── Stripe Webhook ────────────────────────────────────────────────────────────
-
-app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-  const sig = req.headers['stripe-signature'];
-  let event;
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-  } catch (err) {
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-
-  switch (event.type) {
-    case 'checkout.session.completed': {
-      const session = event.data.object;
-      const purchasedTier = (session.metadata && session.metadata.tier) || 'pro';
-      const user = await userOps.findByEmail(session.customer_email);
-      if (user) {
-        await userOps.updateSubscription(user._id, { customerId: session.customer, subscriptionId: session.subscription, status: 'active', tier: purchasedTier });
-        await userOps.updateTier(user._id, purchasedTier, tierLookupLimit(purchasedTier));
-        console.log('Subscription activated: ' + session.customer_email + ' -> ' + purchasedTier);
-      }
-      break;
-    }
-    case 'customer.subscription.deleted':
-    case 'customer.subscription.updated': {
-      const sub = event.data.object;
-      const user = await userOps.findByStripeCustomer(sub.customer);
-      if (user) {
-        const active = sub.status === 'active';
-        const newTier = active ? user.tier : 'trial';
-        await userOps.updateSubscription(user._id, { status: sub.status, tier: newTier });
-        if (!active) await userOps.updateTier(user._id, 'trial', 1);
-      }
-      break;
-    }
-  }
-  res.json({ received: true });
-  res.json({ received: true });
-});
-
 // Stripe checkout session — supports multiple tier price IDs
 app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
   if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ error: 'Stripe not configured yet' });
@@ -619,6 +618,10 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
   }
 });
 
+// ── Radar platform + public pages ────────────────────────────────────────────
+require('./platform-routes')(app, { requireAuth, requireAdmin, requireActiveSubscription, tierFeatures, db });
+require('./public-pages')(app, { db });
+
 // ── Root redirect ─────────────────────────────────────────────────────────────
 
 app.get('/', (req, res) => {
@@ -653,4 +656,5 @@ app.listen(PORT, () => {
 });
 
 startStormMonitor(alertOps, pushSubscriptionStore);
+dataJobs.start({ db, tierFeatures, freeAlertOps });
 module.exports = app;
