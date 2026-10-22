@@ -155,16 +155,17 @@ module.exports = function platformRoutes(app, { requireAuth, requireAdmin, requi
     }
 
     // No payment configured: notify the admin to quote and fulfil manually.
+    // Respond first; email can be slow or blocked and must not hold up the customer.
+    res.json({ success: true, orderId: order._id, status: order.status });
     if (process.env.ADMIN_EMAIL) {
-      await sendMail({
+      sendMail({
         to: process.env.ADMIN_EMAIL,
         subject: `Review request: ${order.address} (${order.dateOfLoss})`,
         html: layout('New meteorologist review request', `<p><strong>${escapeHtml(order.name)}</strong> (${escapeHtml(order.email)}) requested a reviewed report.</p>
           <p>${escapeHtml(order.address)}<br>Date of loss: ${order.dateOfLoss}</p><p>${escapeHtml(order.notes)}</p>
           <p><a href="${baseUrl()}/admin#reviews">Open review queue</a></p>`),
-      });
+      }).catch(() => {});
     }
-    res.json({ success: true, orderId: order._id, status: order.status });
   });
 
   app.get('/api/reviews', requireAuth, async (req, res) => {

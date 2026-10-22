@@ -919,6 +919,7 @@ function openReviewModal() {
   const opts = (lastReport.dateOfLoss || []).map(s => `<option value="${s.date}">${fmtDate(s.date)} (${s.bestEstimateIn.toFixed(2)}")</option>`).join('');
   document.getElementById('reviewDate').innerHTML = opts || '<option value="">No damaging dates found</option>';
   document.getElementById('reviewMsg').style.display = 'none';
+  const sb = document.getElementById('reviewSubmit'); sb.disabled = !opts; sb.textContent = 'Request review';
   document.getElementById('reviewModal').style.display = 'flex';
 }
 function closeReviewModal() { document.getElementById('reviewModal').style.display = 'none'; }
@@ -926,17 +927,20 @@ async function submitReview() {
   const msg = document.getElementById('reviewMsg');
   const date = document.getElementById('reviewDate').value;
   if (!date) return;
-  const btn = document.getElementById('reviewSubmit'); btn.disabled = true;
+  const btn = document.getElementById('reviewSubmit'); btn.disabled = true; btn.textContent = 'Sending…';
+  msg.className = 'alert alert-info'; msg.textContent = 'Sending your request…'; msg.style.display = 'block';
+  const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 30000);
   try {
-    const r = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const r = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctrl.signal,
       body: JSON.stringify({ address: lastReport.address, lat: lastReport.lat, lon: lastReport.lon, dateOfLoss: date, notes: document.getElementById('reviewNotes').value }) });
-    const j = await r.json();
-    if (j.checkoutUrl) { window.location = j.checkoutUrl; return; }
+    const j = await r.json().catch(() => ({}));
+    if (j.checkoutUrl) { msg.textContent = 'Opening secure checkout…'; window.location = j.checkoutUrl; return; }
     msg.className = 'alert ' + (r.ok ? 'alert-success' : 'alert-error');
-    msg.textContent = r.ok ? 'Request received. We will email you a quote and turnaround time.' : (j.error || 'Request failed.');
-    msg.style.display = 'block';
-  } catch (e) { msg.className = 'alert alert-error'; msg.textContent = 'Connection error.'; msg.style.display = 'block'; }
-  btn.disabled = false;
+    msg.textContent = r.ok ? 'Request received. We will email you a quote and turnaround time.' : (j.error || `Request failed (${r.status}).`);
+    if (r.ok) { btn.textContent = 'Requested'; setTimeout(closeReviewModal, 2500); clearTimeout(t); return; }
+  } catch (e) { msg.className = 'alert alert-error'; msg.textContent = e.name === 'AbortError' ? 'The server took too long to respond. Please try again.' : 'Connection error. Please try again.'; }
+  clearTimeout(t);
+  btn.disabled = false; btn.textContent = 'Request review';
 }
 window.openReviewModal = openReviewModal; window.closeReviewModal = closeReviewModal; window.submitReview = submitReview;
 
