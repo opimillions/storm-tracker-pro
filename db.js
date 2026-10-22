@@ -453,6 +453,10 @@ const watchlistOps = {
     return watchlist.update({ _id: id }, { $set: data });
   },
 
+  async updateContactForUser(id, userId, data) {
+    return watchlist.update({ _id: id, userId }, { $set: data });
+  },
+
   async getAllWithCoords() {
     return watchlist.find({ lat: { $exists: true }, lon: { $exists: true } });
   },
