@@ -445,9 +445,15 @@ app.post('/api/lookup', requireAuth, requireActiveSubscription, async (req, res)
   const { address, years = 5 } = req.body;
   if (!address) return res.status(400).json({ error: 'Address is required' });
 
-  // Geocode first (fast, ~200ms)
-  const geo = await geocodeAddress(address);
-  if (!geo) return res.status(400).json({ error: 'Address not found. Please check and try again.' });
+  // Portfolio properties are already located: use their coordinates directly.
+  const lat = parseFloat(req.body.lat), lon = parseFloat(req.body.lon);
+  const geo = Number.isFinite(lat) && Number.isFinite(lon)
+    ? { lat, lon, formattedAddress: address, state: req.body.state || null }
+    : await geocodeAddress(address);
+  if (!geo) {
+    const hint = /\d{5}/.test(address) ? '' : ' Include the city, state and ZIP code.';
+    return res.status(400).json({ error: 'Address not found.' + hint });
+  }
 
   // Starter covers one state: reports outside the user's chosen state need Pro.
   if (req.user.tier === 'starter' && Array.isArray(req.user.watchedStates) && req.user.watchedStates.length && geo.state

@@ -31,17 +31,8 @@
 </head>
 <body>
 
-<nav class="nav">
-  <div class="brand">Storm<span>Check</span> Pro</div>
-  <div class="nav-links">
-    <a href="/dashboard">Lookup</a>
-    <a href="/hailmap">Hail Map</a>
-    <a href="/watchlist" style="color:white;font-weight:700">Portfolio</a>
-    <a href="/leads">Lead Lists</a>
-    <a href="/settings">Settings</a>
-    <a href="#" onclick="logout()" class="btn-nav btn">Sign Out</a>
-  </div>
-</nav>
+<nav id="appNav" class="app-nav"></nav>
+<script src="/js/app-nav.js"></script>
 
 <div class="page-wrap">
 
@@ -69,7 +60,8 @@
     <div class="csv-template">
       <strong>Required columns:</strong> name, address<br>
       <strong>Optional:</strong> phone, email, tags<br>
-      <strong>Example:</strong> John Smith, 1105 Portland Dr Roanoke TX 76262, 817-555-0100, john@email.com
+      <strong>Example:</strong> John Smith, 123 Main St, Springfield, MO 65806, 555-555-0100, john@email.com<br>
+      <strong>Tip:</strong> include city, state and ZIP with each address (in the address column or in separate city, state, zip columns).
     </div>
   </div>
 
@@ -106,7 +98,9 @@ function fmtD(iso) { const [y,m,d] = iso.split('-'); return `${m}/${d}/${y}`; }
 let lastContacts = [], lastSummary = {};
 async function loadContacts() {
   const [res, sres] = await Promise.all([fetch('/api/watchlist'), fetch('/api/watchlist/summary')]);
-  const { contacts } = await res.json();
+  const { contacts, locating } = await res.json();
+  clearTimeout(window._locTimer);
+  if (locating || contacts.some(c => c.lat == null && !c.geocodeFailed)) window._locTimer = setTimeout(loadContacts, 15000);
   const summary = sres.ok ? (await sres.json()).summary : [];
   const byId = Object.fromEntries(summary.map(s => [s._id, s]));
   lastContacts = contacts; lastSummary = byId;
@@ -130,11 +124,12 @@ async function loadContacts() {
         ${c.phone ? esc(c.phone) : ''}
         ${c.email ? `<br>${esc(c.email)}` : ''}
       </div>
-      ${s.geocoded === false ? '<div style="font-size:0.75em;color:var(--muted);margin-top:6px">Locating address…</div>' : ''}
+      ${c.geocodeFailed ? `<div style="font-size:0.78em;color:#b45309;margin-top:6px">Couldn't locate this address. <a href="#" onclick="editAddress('${c._id}');return false">Fix address</a></div>` : (s.geocoded === false ? '<div style="font-size:0.75em;color:var(--muted);margin-top:6px">Locating address…</div>' : '')}
       ${s.lastHit ? `<div class="hit-badge">Last hit ${fmtD(s.lastHit.date)}: ${s.lastHit.sizeIn.toFixed(2)}" hail</div>` : (s.geocoded ? '<div style="font-size:0.75em;color:#166534;margin-top:6px">No 0.75"+ hail in 3 years</div>' : '')}
       ${s.largest3yr && s.hitDays3yr > 1 ? `<div style="font-size:0.75em;color:var(--red);margin-top:4px">${s.hitDays3yr} hail days · largest ${s.largest3yr.sizeIn.toFixed(2)}" on ${fmtD(s.largest3yr.date)}</div>` : ''}
       <div style="margin-top:8px;display:flex;gap:6px">
-        <button class="btn btn-sm btn-outline" onclick="lookupContact(${JSON.stringify(c.formattedAddress || c.address).replace(/"/g, '&quot;')})">Full report</button>
+        <button class="btn btn-sm btn-outline" onclick="lookupContact('${c._id}')" ${c.geocodeFailed ? 'disabled title="Fix the address first"' : ''}>Full report</button>
+        <button class="btn btn-sm btn-outline" onclick="editAddress('${c._id}')">Edit</button>
         <button class="btn btn-sm btn-danger" onclick="deleteContact('${c._id}')">Delete</button>
       </div>
     </div>`;
@@ -176,8 +171,23 @@ async function deleteContact(id) {
   loadContacts();
 }
 
-function lookupContact(address) {
-  window.location = '/dashboard?address=' + encodeURIComponent(address);
+function lookupContact(id) {
+  const c = lastContacts.find(x => x._id === id);
+  if (!c) return;
+  const q = new URLSearchParams({ address: c.formattedAddress || c.address });
+  if (c.lat != null && c.lon != null) { q.set('lat', c.lat); q.set('lon', c.lon); }
+  window.location = '/dashboard?' + q.toString();
+}
+
+async function editAddress(id) {
+  const c = lastContacts.find(x => x._id === id);
+  if (!c) return;
+  const v = prompt('Full property address (street, city, state, ZIP):', c.address);
+  if (!v || !v.trim()) return;
+  const res = await fetch('/api/watchlist/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: v.trim() }) });
+  const d = await res.json();
+  if (!res.ok) alert(d.error || 'Could not update.');
+  loadContacts();
 }
 
 function parseCsvText(text) {
@@ -259,7 +269,7 @@ function exportPortfolio() {
 }
 
 function downloadTemplate() {
-  const csv = 'name,address,phone,email\nJohn Smith,"1105 Portland Dr, Roanoke TX 76262",817-555-0100,john@email.com\nJane Doe,"100 E Southlake Blvd, Southlake TX 76092",817-555-0200,jane@email.com';
+  const csv = 'name,address,city,state,zip,phone,email\nJohn Smith,123 Main St,Springfield,MO,65806,555-555-0100,john@email.com\nJane Doe,456 Oak Ave,Fairview,OR,97024,555-555-0101,jane@email.com\n';
   const a = document.createElement('a'); a.href = 'data:text/csv,' + encodeURIComponent(csv); a.download = 'stormcheck-watchlist-template.csv'; a.click();
 }
 

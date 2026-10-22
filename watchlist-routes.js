@@ -4,16 +4,38 @@
 const path = require('path');
 const axios = require('axios');
 
-// Geocode an address using Census Bureau (free)
-async function geocodeAddr(address) {
+const { geocodeAddress: geocodeAddr } = require('./hail-engine');
+
+// The old CSV importer split "Street, City ST 12345" on the comma, so the city,
+// state and ZIP landed in the phone (or email) field and the street alone could
+// not be located. Put them back together.
+function repairFields(c) {
+  const looksLikeCityLine = v => v && /[a-z]/i.test(v) && /\b\d{5}(-\d{4})?\b/.test(v) && !/@/.test(v);
+  if (/\b\d{5}\b/.test(c.address || '')) return null;
+  if (looksLikeCityLine(c.phone)) return { address: `${c.address}, ${c.phone}`, phone: c.email && /^[\d\s().+-]{7,}$/.test(c.email) ? c.email : '', email: c.email && /@/.test(c.email) ? c.email : '' };
+  if (looksLikeCityLine(c.email)) return { address: `${c.address}, ${c.email}`, email: '' };
+  return null;
+}
+
+const geocodingUsers = new Set();
+// Retry failed addresses once a day in case the geocoder was briefly down.
+const needsGeocode = c => c.lat == null && (!c.geocodeFailed || Date.now() - (c.geocodeFailedAt || 0) > 86400000);
+async function geocodeMissing(watchlistOps, userId) {
+  if (geocodingUsers.has(userId)) return;
+  geocodingUsers.add(userId);
   try {
-    const r = await axios.get('https://geocoding.geo.census.gov/geocoder/locations/onelineaddress', {
-      params: { address, benchmark: 'Public_AR_Current', format: 'json' }, timeout: 8000
-    });
-    const matches = r.data.result?.addressMatches || [];
-    if (!matches.length) return null;
-    return { lat: parseFloat(matches[0].coordinates.y), lon: parseFloat(matches[0].coordinates.x), formattedAddress: matches[0].matchedAddress };
-  } catch (e) { return null; }
+    const all = await watchlistOps.getForUser(userId);
+    for (const c of all) {
+      const fix = repairFields(c);
+      if (fix) { await watchlistOps.updateContact(c._id, { ...fix, lat: null, lon: null, geocodeFailed: false }); Object.assign(c, fix, { lat: null, geocodeFailed: false }); }
+    }
+    for (const c of all.filter(needsGeocode)) {
+      const geo = await geocodeAddr(c.address);
+      if (geo) await watchlistOps.updateContact(c._id, { lat: geo.lat, lon: geo.lon, formattedAddress: geo.formattedAddress, state: geo.state || null });
+      else await watchlistOps.updateContact(c._id, { geocodeFailed: true, geocodeFailedAt: Date.now() });
+      await new Promise(r => setTimeout(r, 1100)); // stay within free geocoder limits
+    }
+  } finally { geocodingUsers.delete(userId); }
 }
 
 // Check if a lat/lon was hit by a storm event on a given date
@@ -34,7 +56,19 @@ module.exports = function(app, { requireAuth, watchlistOps }) {
   // Get contacts for current user
   app.get('/api/watchlist', requireAuth, async (req, res) => {
     const contacts = await watchlistOps.getForUser(req.user._id);
-    res.json({ contacts });
+    if (contacts.some(needsGeocode) || contacts.some(c => repairFields(c))) geocodeMissing(watchlistOps, req.user._id);
+    res.json({ contacts, locating: geocodingUsers.has(req.user._id) });
+  });
+
+  // Edit one contact's address (re-locates it)
+  app.patch('/api/watchlist/:id', requireAuth, async (req, res) => {
+    const address = String(req.body.address || '').trim();
+    if (!address) return res.status(400).json({ error: 'Address required' });
+    const geo = await geocodeAddr(address);
+    if (!geo) return res.status(400).json({ error: 'Could not locate that address. Include city, state and ZIP.' });
+    const n = await watchlistOps.updateContactForUser(req.params.id, req.user._id, { address, lat: geo.lat, lon: geo.lon, formattedAddress: geo.formattedAddress, state: geo.state || null, geocodeFailed: false });
+    if (!n) return res.status(404).json({ error: 'Not found' });
+    res.json({ success: true, formattedAddress: geo.formattedAddress });
   });
 
   // Add single contact
@@ -46,8 +80,9 @@ module.exports = function(app, { requireAuth, watchlistOps }) {
       const geo = await geocodeAddr(address);
       const contact = await watchlistOps.addContact(req.user._id, {
         name, address, phone: phone||'', email: email||'',
-        lat: geo?.lat || null, lon: geo?.lon || null,
-        formattedAddress: geo?.formattedAddress || address
+        lat: geo?.lat ?? null, lon: geo?.lon ?? null,
+        formattedAddress: geo?.formattedAddress || address,
+        state: geo?.state || null, geocodeFailed: !geo
       });
       res.json({ success: true, contact });
     } catch (err) {
@@ -64,19 +99,7 @@ module.exports = function(app, { requireAuth, watchlistOps }) {
     const docs = contacts.slice(0, 2000).map(c => ({ name: String(c.name || '').slice(0, 200), address: String(c.address || '').slice(0, 300), phone: String(c.phone || '').slice(0, 40), email: String(c.email || '').slice(0, 200), lat: null, lon: null }));
     await watchlistOps.bulkAdd(req.user._id, docs);
     
-    // Geocode in background
-    (async () => {
-      const all = await watchlistOps.getForUser(req.user._id);
-      const ungeocoded = all.filter(c => !c.lat);
-      for (const c of ungeocoded) {
-        const geo = await geocodeAddr(c.address || c.formattedAddress);
-        if (geo) {
-          await watchlistOps.updateContact(c._id, { lat: geo.lat, lon: geo.lon, formattedAddress: geo.formattedAddress });
-        }
-        await new Promise(r => setTimeout(r, 200)); // rate limit
-      }
-      console.log(`Geocoded ${ungeocoded.length} watchlist contacts for user ${req.user._id}`);
-    })();
+    geocodeMissing(watchlistOps, req.user._id);
 
     res.json({ success: true, imported: docs.length });
   });

@@ -43,17 +43,8 @@
 </head>
 <body>
 
-<nav class="nav">
-  <div class="brand">Storm<span>Check</span> Pro</div>
-  <div class="nav-links">
-    <a href="/dashboard">Lookup</a>
-    <a href="/storms" style="color:white;font-weight:700">⚡ Storms</a>
-    <a href="/leads">Lead Lists</a>
-    <a href="/settings">Settings</a>
-    <a href="#" id="adminLink" style="display:none">Admin</a>
-    <a href="#" onclick="logout()" class="btn-nav btn">Sign Out</a>
-  </div>
-</nav>
+<nav id="appNav" class="app-nav"></nav>
+<script src="/js/app-nav.js"></script>
 
 <div class="page-wrap">
 
@@ -338,7 +329,7 @@ async function init() {
   if (!res.ok) return window.location='/login';
   const { user, features } = await res.json();
   userTier = user.tier || 'trial';
-  if (user.role === 'admin') document.getElementById('adminLink').style.display = 'inline';
+
   renderStateIndicator(user, features);
   // Style locked buttons for trial users
   if (userTier === 'trial') {

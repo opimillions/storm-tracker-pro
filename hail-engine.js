@@ -28,21 +28,46 @@ function getDistanceMiles(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+const STATE_ABBR = { alabama:'AL',alaska:'AK',arizona:'AZ',arkansas:'AR',california:'CA',colorado:'CO',connecticut:'CT',delaware:'DE','district of columbia':'DC',florida:'FL',georgia:'GA',hawaii:'HI',idaho:'ID',illinois:'IL',indiana:'IN',iowa:'IA',kansas:'KS',kentucky:'KY',louisiana:'LA',maine:'ME',maryland:'MD',massachusetts:'MA',michigan:'MI',minnesota:'MN',mississippi:'MS',missouri:'MO',montana:'MT',nebraska:'NE',nevada:'NV','new hampshire':'NH','new jersey':'NJ','new mexico':'NM','new york':'NY','north carolina':'NC','north dakota':'ND',ohio:'OH',oklahoma:'OK',oregon:'OR',pennsylvania:'PA','rhode island':'RI','south carolina':'SC','south dakota':'SD',tennessee:'TN',texas:'TX',utah:'UT',vermont:'VT',virginia:'VA',washington:'WA','west virginia':'WV',wisconsin:'WI',wyoming:'WY' };
+
+// Census geocoder first (exact rooftop-ish matches); OpenStreetMap as a fallback
+// for addresses Census can't match (new builds, odd formatting, missing ZIP).
 async function geocodeAddress(address) {
+  const q = String(address || '').replace(/\s+/g, ' ').trim();
+  if (!q) return null;
   try {
     const response = await axios.get('https://geocoding.geo.census.gov/geocoder/locations/onelineaddress', {
-      params: { address, benchmark: 'Public_AR_Current', format: 'json' },
+      params: { address: q, benchmark: 'Public_AR_Current', format: 'json' },
       timeout: 10000
     });
     const matches = response.data.result?.addressMatches || [];
-    if (matches.length === 0) return null;
-    const m = matches[0];
+    if (matches.length) {
+      const m = matches[0];
+      return {
+        lat: parseFloat(m.coordinates.y),
+        lon: parseFloat(m.coordinates.x),
+        formattedAddress: m.matchedAddress,
+        state: m.addressComponents.state,
+        zip: m.addressComponents.zip,
+      };
+    }
+  } catch (err) { /* fall through */ }
+  try {
+    const r = await axios.get('https://nominatim.openstreetmap.org/search', {
+      params: { q, format: 'jsonv2', countrycodes: 'us', addressdetails: 1, limit: 1 },
+      headers: { 'User-Agent': 'StormCheckPro/2.0 (stormcheckpro.thepublicadjustertx.com)' },
+      timeout: 10000
+    });
+    const m = (r.data || [])[0];
+    if (!m) return null;
+    const a = m.address || {};
+    const state = STATE_ABBR[String(a.state || '').toLowerCase()] || '';
+    const line1 = [a.house_number, a.road].filter(Boolean).join(' ');
+    const city = a.city || a.town || a.village || a.hamlet || a.suburb || '';
     return {
-      lat: parseFloat(m.coordinates.y),
-      lon: parseFloat(m.coordinates.x),
-      formattedAddress: m.matchedAddress,
-      state: m.addressComponents.state,
-      zip: m.addressComponents.zip,
+      lat: parseFloat(m.lat), lon: parseFloat(m.lon),
+      formattedAddress: [line1, city, [state, a.postcode].filter(Boolean).join(' ')].filter(Boolean).join(', ').toUpperCase() || q,
+      state, zip: a.postcode || '',
     };
   } catch (err) {
     return null;

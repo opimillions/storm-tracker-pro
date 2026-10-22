@@ -129,26 +129,8 @@
 </head>
 <body>
 
-<nav class="nav">
-  <div class="brand">Storm<span>Check</span> Pro</div>
-  <button class="hamburger" onclick="toggleMobileMenu()">&#9776;</button>
-    <div class="mobile-menu" id="mobileMenu">
-      <a href="/hailmap" onclick="closeMobileMenu()">Hail Map</a>
-      <a href="/storms" onclick="closeMobileMenu()">Storms</a>
-      <a href="/watchlist" onclick="closeMobileMenu()">Watch List</a>
-      <a href="/leads" onclick="closeMobileMenu()">Lead Lists</a>
-      <a href="/affiliate" onclick="closeMobileMenu()">Affiliate</a>
-      <a href="/settings" onclick="closeMobileMenu()">Settings</a>
-      <a href="#" onclick="logout()">Sign Out</a>
-    </div>
-    <div class="nav-links">
-    <span id="userBadge" style="font-size:0.82em;opacity:0.7"></span>
-    <a href="/hailmap">Hail Map</a><a href="/storms">Storms</a><a href="/watchlist">Watch List</a><a href="/leads">Lead Lists</a>
-    <a href="/affiliate">&#129309; Affiliate</a><a href="/settings">Settings</a>
-    <a href="/admin" id="adminLink" style="display:none">Admin</a>
-    <a href="#" onclick="logout()" class="btn-nav btn">Sign Out</a>
-  </div>
-</nav>
+<nav id="appNav" class="app-nav"></nav>
+<script src="/js/app-nav.js"></script>
 
 <div class="page-wrap">
 
@@ -356,8 +338,8 @@ async function init() {
     window.location = '/onboarding';
     return;
   }
-  document.getElementById('userBadge').textContent = user.name + ' · ' + user.tier.toUpperCase();
-  if (user.role === 'admin') document.getElementById('adminLink').style.display = 'inline';
+  
+
 
   // Show upgrade banner for trial/inactive
   if (user.tier === 'trial' || user.subscription_status === 'inactive') {
@@ -387,6 +369,7 @@ async function init() {
   // Check for subscribed param
   const params = new URLSearchParams(location.search);
   let pending = params.get('address');
+  if (pending && params.get('lat') && params.get('lon')) pendingCoords = { address: pending, lat: +params.get('lat'), lon: +params.get('lon') };
   try { if (!pending) { pending = localStorage.getItem('pendingAddress'); } localStorage.removeItem('pendingAddress'); } catch (e) {}
   if (pending) { document.getElementById('addressInput').value = pending; setTimeout(runLookup, 200); }
   if (params.get('review') === 'paid') showAlert('Payment received. Your reviewed report is in the queue; we will email you when it is ready.', 'success');
@@ -412,7 +395,7 @@ async function runLookup() {
     const startRes = await fetch('/api/lookup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address, years })
+      body: JSON.stringify(Object.assign({ address, years }, (pendingCoords && pendingCoords.address === address) ? { lat: pendingCoords.lat, lon: pendingCoords.lon } : {}))
     });
     const startData = await startRes.json();
 
@@ -487,7 +470,7 @@ async function runLookup() {
 }
 
 // ── Render Results ────────────────────────────────────────────────────────────
-let lastReport = null, swathLayer = null, swathOpacity = 0.65;
+let lastReport = null, swathLayer = null, swathOpacity = 0.65, pendingCoords = null;
 function renderResults(data) {
   const { address, lat, lon, events, score, impact, stats } = data;
   currentLat = lat; currentLon = lon; lastReport = data;
