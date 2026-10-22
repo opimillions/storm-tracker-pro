@@ -3,6 +3,10 @@
  * stormcheckpro.thepublicadjustertx.com
  */
 require('dotenv').config();
+
+// Log instead of crashing: one failed background task must not take the site down.
+process.on('unhandledRejection', err => console.error('Unhandled rejection:', err && err.stack || err));
+process.on('uncaughtException', err => console.error('Uncaught exception:', err && err.stack || err));
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const path = require('path');

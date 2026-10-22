@@ -56,7 +56,7 @@ module.exports = function(app, { requireAuth, watchlistOps }) {
   // Get contacts for current user
   app.get('/api/watchlist', requireAuth, async (req, res) => {
     const contacts = await watchlistOps.getForUser(req.user._id);
-    if (contacts.some(needsGeocode) || contacts.some(c => repairFields(c))) geocodeMissing(watchlistOps, req.user._id);
+    if (contacts.some(needsGeocode) || contacts.some(c => repairFields(c))) geocodeMissing(watchlistOps, req.user._id).catch(e => console.error('geocode:', e.message));
     res.json({ contacts, locating: geocodingUsers.has(req.user._id) });
   });
 
@@ -99,7 +99,7 @@ module.exports = function(app, { requireAuth, watchlistOps }) {
     const docs = contacts.slice(0, 2000).map(c => ({ name: String(c.name || '').slice(0, 200), address: String(c.address || '').slice(0, 300), phone: String(c.phone || '').slice(0, 40), email: String(c.email || '').slice(0, 200), lat: null, lon: null }));
     await watchlistOps.bulkAdd(req.user._id, docs);
     
-    geocodeMissing(watchlistOps, req.user._id);
+    geocodeMissing(watchlistOps, req.user._id).catch(e => console.error('geocode:', e.message));
 
     res.json({ success: true, imported: docs.length });
   });
