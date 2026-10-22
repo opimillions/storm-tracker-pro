@@ -427,8 +427,26 @@ const watchlistOps = {
     return watchlist.find({ userId }).sort({ name: 1 });
   },
 
-  async deleteContact(id) {
-    return watchlist.remove({ _id: id });
+  async deleteContact(id, userId) {
+    return watchlist.remove({ _id: id, userId });
+  },
+
+  async deleteAllForUser(userId) {
+    return watchlist.remove({ userId }, { multi: true });
+  },
+
+  // Remove repeat entries of the same address (keeps the first one added).
+  async deleteDuplicates(userId) {
+    const all = await watchlist.find({ userId }).sort({ createdAt: 1 });
+    const norm = c => String(c.formattedAddress || c.address || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const seen = new Set(), dupes = [];
+    for (const c of all) {
+      const k = norm(c);
+      if (!k) continue;
+      if (seen.has(k)) dupes.push(c._id); else seen.add(k);
+    }
+    if (dupes.length) await watchlist.remove({ _id: { $in: dupes }, userId }, { multi: true });
+    return dupes.length;
   },
 
   async updateContact(id, data) {

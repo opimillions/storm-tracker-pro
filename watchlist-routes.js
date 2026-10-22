@@ -61,7 +61,7 @@ module.exports = function(app, { requireAuth, watchlistOps }) {
     if (!contacts || !contacts.length) return res.status(400).json({ error: 'No contacts provided' });
     
     // Add all contacts immediately (geocode async in background)
-    const docs = contacts.slice(0, 500).map(c => ({ ...c, lat: null, lon: null }));
+    const docs = contacts.slice(0, 2000).map(c => ({ name: String(c.name || '').slice(0, 200), address: String(c.address || '').slice(0, 300), phone: String(c.phone || '').slice(0, 40), email: String(c.email || '').slice(0, 200), lat: null, lon: null }));
     await watchlistOps.bulkAdd(req.user._id, docs);
     
     // Geocode in background
@@ -81,9 +81,23 @@ module.exports = function(app, { requireAuth, watchlistOps }) {
     res.json({ success: true, imported: docs.length });
   });
 
-  // Delete contact
+  // Delete every contact (requires typing DELETE in the UI)
+  app.delete('/api/watchlist', requireAuth, async (req, res) => {
+    if (!req.body || req.body.confirm !== 'DELETE') return res.status(400).json({ error: 'Confirmation required' });
+    const removed = await watchlistOps.deleteAllForUser(req.user._id);
+    res.json({ success: true, removed });
+  });
+
+  // Remove duplicate addresses
+  app.post('/api/watchlist/dedupe', requireAuth, async (req, res) => {
+    const removed = await watchlistOps.deleteDuplicates(req.user._id);
+    res.json({ success: true, removed });
+  });
+
+  // Delete one contact (only your own)
   app.delete('/api/watchlist/:id', requireAuth, async (req, res) => {
-    await watchlistOps.deleteContact(req.params.id);
+    const removed = await watchlistOps.deleteContact(req.params.id, req.user._id);
+    if (!removed) return res.status(404).json({ error: 'Not found' });
     res.json({ success: true });
   });
 };
