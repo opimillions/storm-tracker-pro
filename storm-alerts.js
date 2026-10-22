@@ -23,20 +23,15 @@ const MRMS_MIN_HAIL_IN = 0.75; // minimum hail size to alert (inches)
 let pushSubscriptions = []; // filled by server registration
 
 async function sendStormEmail(subject, html) {
-  if (!process.env.SMTP_HOST || !process.env.ADMIN_EMAIL) {
+  if (!require('./lib/mailer').isConfigured() || !process.env.ADMIN_EMAIL) {
     console.log('Storm alert (no SMTP):', subject);
     return;
   }
   try {
-    const nodemailer = require('nodemailer');
-    const t = nodemailer.createTransport({
-      host: process.env.SMTP_HOST, port: parseInt(process.env.SMTP_PORT || '587'),
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-    });
+    const t = { sendMail: o => require('./lib/mailer').deliver(o), verify: async () => true };
     const recipients = [process.env.ADMIN_EMAIL];
     if (process.env.ALERT_PHONE_EMAIL) recipients.push(process.env.ALERT_PHONE_EMAIL);
     await t.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
       to: recipients.join(','),
       subject,
       text: subject, // plain text for SMS delivery
