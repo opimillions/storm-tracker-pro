@@ -184,19 +184,15 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       await userOps.setResetToken(email, token, expires);
       const baseUrl = process.env.BASE_URL || 'https://stormcheckpro.thepublicadjustertx.com';
       const resetUrl = `${baseUrl}/reset-password?token=${token}`;
-      // Send email via nodemailer if configured, otherwise log to console
-      if (process.env.SMTP_HOST) {
-        const nodemailer = require('nodemailer');
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST, port: parseInt(process.env.SMTP_PORT || '587'),
-          auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-        });
-        await transporter.sendMail({
-          from: `StormCheck Pro <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+      // Send the reset email (Resend or SMTP); if email isn't configured, log the link.
+      const mailer = require('./lib/mailer');
+      if (mailer.isConfigured()) {
+        const sent = await mailer.sendMail({
           to: email,
           subject: 'Reset your StormCheck Pro password',
-          html: `<p>Hi,</p><p>Click the link below to reset your password. This link expires in 1 hour.</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>If you didn't request this, ignore this email.</p><p>— StormCheck Pro / First Call Public Adjusters</p>`
+          html: mailer.layout('Password reset', `<p>Click the button below to reset your password. This link expires in 1 hour.</p><p><a href="${resetUrl}" style="background:#172235;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold">Reset password</a></p><p style="color:#5b6a80;font-size:13px">Or paste this link: ${resetUrl}</p><p style="color:#5b6a80;font-size:13px">If you didn't request this, ignore this email.</p>`),
         });
+        if (!sent) console.log(`\nPASSWORD RESET LINK for ${email} (email failed):\n${resetUrl}\n`);
       } else {
         // No email configured — log the reset URL so admin can share manually
         console.log(`\nPASSWORD RESET LINK for ${email}:\n${resetUrl}\n`);
@@ -265,13 +261,7 @@ app.post('/api/admin/clear-cache', requireAuth, requireAdmin, async (req, res) =
 
 // SMTP test route
 app.get('/api/admin/test-smtp', requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const nodemailer = require('nodemailer');
-    const t = nodemailer.createTransport({ host: process.env.SMTP_HOST, port: parseInt(process.env.SMTP_PORT||'587'), auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
-    await t.verify();
-    await t.sendMail({ from: process.env.SMTP_FROM||process.env.SMTP_USER, to: process.env.ADMIN_EMAIL, subject: 'StormCheck Pro SMTP Test', text: 'SMTP is working correctly! You will receive storm alerts and promo emails.' });
-    res.json({ success: true, message: 'Test email sent to ' + process.env.ADMIN_EMAIL, smtp: { host: process.env.SMTP_HOST, user: process.env.SMTP_USER, configured: !!process.env.SMTP_PASS } });
-  } catch(err) { res.json({ success: false, error: err.message, smtp: { host: process.env.SMTP_HOST, user: process.env.SMTP_USER, configured: !!process.env.SMTP_PASS } }); }
+  res.json(await require('./lib/mailer').testSend(process.env.ADMIN_EMAIL));
 });
 
 // Promo routes

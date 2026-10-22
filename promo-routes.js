@@ -4,16 +4,10 @@
 module.exports = function(app, { requireAuth, requireAdmin, userOps }) {
 
   async function sendPromoMail(to, name, base, coupon) {
-    if (!process.env.SMTP_HOST) return false;
-    const nodemailer = require('nodemailer');
-    const t = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-    });
+    if (!require('./lib/mailer').isConfigured()) return false;
+    const t = { sendMail: o => require('./lib/mailer').deliver(o), verify: async () => true };
     await t.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to,
+            to,
       subject: 'Your exclusive offer: 50% off StormCheck Pro for 6 months',
       html: `
         <div style="font-family:Arial,sans-serif;max-width:600px">

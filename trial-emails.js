@@ -5,17 +5,12 @@
  */
 module.exports = function(cron, userOps, env) {
   async function sendTrialEmails() {
-    if (!env.SMTP_HOST) return;
+    if (!require('./lib/mailer').isConfigured()) return;
     try {
-      const nodemailer = require('nodemailer');
-      const t = nodemailer.createTransport({
-        host: env.SMTP_HOST,
-        port: parseInt(env.SMTP_PORT || '587'),
-        auth: { user: env.SMTP_USER, pass: env.SMTP_PASS }
-      });
+      const t = { sendMail: o => require('./lib/mailer').deliver(o), verify: async () => true };
       const base = env.BASE_URL || 'https://stormcheckpro.thepublicadjustertx.com';
       const coupon = env.TRIAL_COUPON_CODE || 'STORM50';
-      const from = env.SMTP_FROM || env.SMTP_USER;
+      const from = undefined; // mailer picks EMAIL_FROM
 
       const allUsers = await userOps.getAll();
       const trialUsers = allUsers.filter(u => u.tier === 'trial' && u.createdAt);

@@ -278,12 +278,13 @@ async function testSmtp() {
   try {
     const res = await fetch('/api/admin/test-smtp');
     const data = await res.json();
-    if (!data.success) throw new Error(data.error || 'SMTP test failed');
-    setAdminToolStatus(data.message || 'Test email sent');
-    alert(data.message || 'Test email sent.');
+    if (!data.success) throw new Error((data.provider ? '[' + data.provider + '] ' : '[no email service set] ') + (data.error || 'not configured'));
+    const msg = 'Test email sent via ' + data.provider + ' from ' + data.from + '. Check your inbox.';
+    setAdminToolStatus(msg);
+    alert(msg);
   } catch (err) {
-    setAdminToolStatus('SMTP test failed', true);
-    alert('SMTP test failed: ' + err.message);
+    setAdminToolStatus('Email test failed', true);
+    alert('Email test failed: ' + err.message);
   } finally {
     btn.disabled = false;
     btn.textContent = 'Test Email';
