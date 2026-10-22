@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Storm Report</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+  :root { --ink: #172235; --muted: #4A5A70; --line: #D5DCE6; --accent: #1D4E89; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; color: var(--ink); background: #EEF1F5; font-size: 12pt; line-height: 1.45; }
+  .toolbar { position: sticky; top: 0; background: #172235; color: #fff; padding: 12px 16px; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .toolbar button { min-height: 44px; padding: 0 18px; border-radius: 8px; border: 0; font-weight: 700; font-size: 15px; cursor: pointer; background: #F2A93B; color: #172235; }
+  .toolbar a { color: #D5DCE6; }
+  .doc { max-width: 8.5in; margin: 20px auto; background: #fff; padding: 0.6in 0.65in; box-shadow: 0 4px 20px rgba(0,0,0,.12); }
+  header.brand { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 3px solid var(--accent); padding-bottom: 14px; margin-bottom: 18px; }
+  header.brand img { max-height: 56px; max-width: 200px; }
+  .co { font-weight: 800; font-size: 16pt; }
+  .co-sub { color: var(--muted); font-size: 10pt; }
+  h1 { font-size: 18pt; margin: 0 0 4px; }
+  h2 { font-size: 13pt; margin: 22px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+  .meta { color: var(--muted); font-size: 10pt; }
+  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }
+  .summary div { border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+  .summary b { display: block; font-size: 16pt; }
+  .summary span { font-size: 9pt; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+  th { text-align: left; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); border-bottom: 1.5px solid var(--ink); padding: 6px 6px; }
+  td { border-bottom: 1px solid var(--line); padding: 6px; vertical-align: top; }
+  .conf { font-weight: 700; font-size: 9pt; }
+  .conf-Verified { color: #166534; } .conf-Radar { color: #1d4e89; } .conf-Ground { color: #8a4b00; }
+  .narr { color: var(--muted); font-size: 9pt; }
+  .disclaimer { margin-top: 22px; font-size: 8.5pt; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
+  .empty { color: var(--muted); font-style: italic; }
+  @media print {
+    body { background: #fff; }
+    .toolbar { display: none; }
+    .doc { box-shadow: none; margin: 0; max-width: none; padding: 0; }
+    tr { break-inside: avoid; }
+    @page { margin: 0.5in; }
+  }
+  @media (max-width: 640px) { .doc { padding: 20px 16px; margin: 0; } .summary { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <span id="tbTitle">Storm report</span>
+  <span><a href="#" id="switchLink"></a>&nbsp;&nbsp;<button onclick="window.print()">Print / Save as PDF</button></span>
+</div>
+<div class="doc" id="doc"><p class="empty">Loading report...</p></div>
+
+<script>
+function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(iso) { if (!iso) return '—'; const [y, m, d] = iso.slice(0, 10).split('-'); return `${m}/${d}/${y}`; }
+const inch = v => (v || 0).toFixed(2) + '"';
+const confCls = c => 'conf conf-' + (c === 'Ground report' ? 'Ground' : c);
+
+async function init() {
+  const type = new URLSearchParams(location.search).get('type') === 'disclosure' ? 'disclosure' : 'standard';
+  const other = type === 'disclosure' ? 'standard' : 'disclosure';
+  document.getElementById('switchLink').textContent = type === 'disclosure' ? 'Switch to full report' : 'Switch to Storm Disclosure';
+  document.getElementById('switchLink').href = '/report/print?type=' + other;
+  let r;
+  try { r = JSON.parse(sessionStorage.getItem('lastReport')); } catch (e) {}
+  if (!r) { document.getElementById('doc').innerHTML = '<p class="empty">Run a property lookup on your dashboard first, then open the report from there.</p>'; return; }
+
+  let profile = null, features = {};
+  try { const me = await (await fetch('/api/me')).json(); profile = me.profile; features = me.features || {}; } catch (e) {}
+  const brandName = (profile && profile.companyName) || 'StormCheck Pro';
+  const brandSub = profile ? [profile.companyPhone, profile.reportFooter].filter(Boolean).join(' · ') : '';
+  const logo = profile && profile.logoUrl && features.logo ? `<img src="${esc(profile.logoUrl)}" alt="${esc(brandName)} logo">` : '';
+  const poweredBy = profile && profile.whitelabelEnabled ? '' : 'Storm data compiled by StormCheck Pro from NOAA sources.';
+
+  const title = type === 'disclosure' ? 'Property Storm History Disclosure' : 'Property Storm Report';
+  document.title = `${title} — ${r.address}`;
+  document.getElementById('tbTitle').textContent = title;
+
+  const sd = (r.stormDates || []);
+  const damaging = sd.filter(s => s.bestEstimateIn >= 0.75 || (s.groundReports.nearestTornadoMi != null && s.groundReports.nearestTornadoMi <= 1) || (s.groundReports.maxWindMph || 0) >= 58);
+  const years = r.years || 10;
+
+  let body = `
+  <header class="brand">
+    <div><div class="co">${esc(brandName)}</div><div class="co-sub">${esc(brandSub)}</div></div>
+    ${logo}
+  </header>
+  <h1>${title}</h1>
+  <div><strong>${esc(r.address)}</strong></div>
+  <div class="meta">Period covered: ${fmtDate(r.since)} to ${fmtDate(new Date().toISOString())} (${years} years) · Generated ${new Date().toLocaleString()}</div>
+  <div class="summary">
+    <div><b>${r.score}/100</b><span>Impact score</span></div>
+    <div><b>${inch(r.stats.largestAtPropertyIn)}</b><span>Largest hail at property</span></div>
+    <div><b>${damaging.length}</b><span>Damaging storm days</span></div>
+    <div><b>${r.stats.verifiedDays}</b><span>Verified (radar + ground)</span></div>
+  </div>`;
+
+  if (type === 'disclosure') {
+    body += `<h2>Storm events affecting this property</h2>
+    ${damaging.length ? `<table><thead><tr><th>Date</th><th>Event</th><th>Estimated size at property</th><th>Likely impact</th><th>Basis</th></tr></thead><tbody>
+    ${damaging.map(s => {
+      const g = s.groundReports;
+      const ev = [s.bestEstimateIn >= 0.75 ? 'Hail' : '', (g.maxWindMph || 0) >= 58 ? `Wind ${g.maxWindMph} mph` : '', g.nearestTornadoMi != null && g.nearestTornadoMi <= 1 ? 'Tornado nearby' : ''].filter(Boolean).join(', ');
+      return `<tr><td>${fmtDate(s.date)}</td><td>${ev}</td><td>${s.bestEstimateIn ? inch(s.bestEstimateIn) + ' ' + esc(s.sizeName || '') : '—'}</td><td>${esc(s.severity)}</td><td><span class="${confCls(s.confidence)}">${esc(s.confidence)}</span></td></tr>`;
+    }).join('')}</tbody></table>` : '<p class="empty">No hail of 0.75" or larger, damaging wind or tornado activity was recorded at this property during the period covered.</p>'}
+    <h2>What this means</h2>
+    <p>${damaging.length
+      ? `Records show ${damaging.length} storm day${damaging.length > 1 ? 's' : ''} with potentially damaging weather at this property${r.stats.largestAtPropertyIn >= 1 ? `, including hail estimated up to ${inch(r.stats.largestAtPropertyIn)}` : ''}. A roof and exterior inspection by a qualified professional is recommended to confirm condition and any repairs made.`
+      : 'No significant storm activity was recorded at this property in the period covered. This does not guarantee the absence of damage.'}</p>`;
+  } else {
+    body += `<h2>Most likely dates of loss</h2>
+    ${(r.dateOfLoss || []).length ? `<table><thead><tr><th>#</th><th>Date</th><th>Hail at property</th><th>Radar within 1 mi</th><th>Ground reports (3 mi)</th><th>Wind / tornado</th><th>Confidence</th></tr></thead><tbody>
+    ${r.dateOfLoss.map((s, i) => `<tr><td>${i + 1}</td><td>${fmtDate(s.date)}</td><td><strong>${inch(s.bestEstimateIn)}</strong> ${esc(s.sizeName || '')}</td><td>${s.radar ? inch(s.radar.within1miIn) : '—'}</td><td>${s.groundReports.hailWithin3mi}</td><td>${[s.groundReports.maxWindMph ? s.groundReports.maxWindMph + ' mph' : '', s.groundReports.nearestTornadoMi != null ? 'Tornado ' + s.groundReports.nearestTornadoMi + ' mi' : ''].filter(Boolean).join(', ') || '—'}</td><td><span class="${confCls(s.confidence)}">${esc(s.confidence)}</span></td></tr>`).join('')}
+    </tbody></table>` : '<p class="empty">No damaging storm dates found.</p>'}
+    <h2>All storm dates (radar estimates)</h2>
+    <table><thead><tr><th>Date</th><th>At property</th><th>1 mi</th><th>3 mi</th><th>10 mi</th><th>Ground hail reports</th><th>Confidence</th></tr></thead><tbody>
+    ${sd.filter(s => s.radar || s.groundReports.hailCount).slice(0, 60).map(s => `<tr><td>${fmtDate(s.date)}</td><td>${s.radar ? inch(s.radar.atPropertyIn) : '—'}</td><td>${s.radar ? inch(s.radar.within1miIn) : '—'}</td><td>${s.radar ? inch(s.radar.within3miIn) : '—'}</td><td>${s.radar ? inch(s.radar.within10miIn) : '—'}</td><td>${s.groundReports.hailCount ? s.groundReports.hailCount + ' (max ' + inch(s.groundReports.largestHailIn) + ')' : '—'}</td><td><span class="${confCls(s.confidence)}">${esc(s.confidence)}</span></td></tr>`).join('') || '<tr><td colspan="7" class="empty">None</td></tr>'}
+    </tbody></table>
+    <h2>Storm reports within 10 miles</h2>
+    <table><thead><tr><th>Date</th><th>Type</th><th>Size / speed</th><th>Distance</th><th>Location and details</th><th>Source</th></tr></thead><tbody>
+    ${(r.events || []).slice(0, 80).map(e => `<tr><td>${fmtDate(e.date)}</td><td>${esc(e.typeLabel)}</td><td>${esc(e.magnitude_label)}</td><td>${e.distance_miles} mi</td><td>${esc(e.location)}${e.comments ? `<div class="narr">${esc(e.comments)}</div>` : ''}</td><td class="narr">${esc(e.source || '')}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">None</td></tr>'}
+    </tbody></table>`;
+  }
+
+  body += `<div class="disclaimer">
+    <strong>Sources:</strong> NOAA MRMS radar Maximum Estimated Size of Hail (1 km grid); NOAA NCEI Storm Events Database; NOAA Storm Prediction Center storm reports.
+    <strong>Verified</strong> means radar estimated 0.75" or larger hail at the property and at least one ground report within 3 miles on the same day.
+    Radar estimates and storm reports indicate likely conditions and can differ from what occurred at a specific structure. This report is not an inspection, engineering assessment or determination of coverage. ${esc(poweredBy)}
+  </div>`;
+  document.getElementById('doc').innerHTML = body;
+}
+init();
+</script>
+</body>
+</html>

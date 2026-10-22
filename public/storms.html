@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/icons/icon-192.png" type="image/png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recent Storm Activity — StormCheck Pro</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <style>
+    .storm-header { background: linear-gradient(135deg, #1a1a2e, #7f1d1d); color: white; padding: 28px 20px; border-radius: 12px; margin-bottom: 24px; }
+    .storm-header h1 { font-size: 1.5em; margin-bottom: 6px; }
+    .storm-header p { opacity: 0.8; font-size: 0.9em; }
+    .storm-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid var(--border); }
+    .storm-tab { padding: 10px 20px; cursor: pointer; font-weight: 600; font-size: 0.9em; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; }
+    .storm-tab.active { color: var(--red); border-bottom-color: var(--red); }
+    .storm-tab-panel { display: none; }
+    .storm-tab-panel.active { display: block; }
+    .storm-card { background: white; border-radius: 10px; padding: 18px 20px; margin-bottom: 12px; border-left: 4px solid var(--border); box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+    .storm-card.tornado { border-left-color: #7c3aed; }
+    .storm-card.hail-large { border-left-color: #c0392b; }
+    .storm-card.hail-med { border-left-color: #e67e22; }
+    .storm-card.wind { border-left-color: #3498db; }
+    .storm-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+    .storm-type-badge { padding: 3px 10px; border-radius: 20px; font-size: 0.75em; font-weight: 700; }
+    .badge-tornado { background: #f3e8ff; color: #7c3aed; }
+    .badge-hail-large { background: #fef2f2; color: #c0392b; }
+    .badge-hail-med { background: #fff7ed; color: #e67e22; }
+    .badge-wind { background: #eff6ff; color: #3498db; }
+    .storm-size { font-size: 1.4em; font-weight: 900; }
+    .storm-location { font-weight: 700; color: var(--navy); font-size: 0.95em; }
+    .storm-meta { font-size: 0.82em; color: var(--muted); margin-top: 4px; }
+    .storm-action { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+    #stormMap { height: 420px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 16px; min-height: 300px; } #stormMap .leaflet-overlay-pane { mix-blend-mode: multiply; }
+    .map-legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 10px 14px; background: #f8f9fa; border-radius: 6px; margin-bottom: 16px; font-size: 0.82em; }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; }
+    .loading-msg { text-align: center; padding: 40px; color: var(--muted); }
+    .date-filter { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .date-btn { padding: 7px 14px; border-radius: 6px; border: 1.5px solid var(--border); background: white; cursor: pointer; font-size: 0.85em; font-weight: 600; }
+    .date-btn.active { background: var(--navy); color: white; border-color: var(--navy); }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="brand">Storm<span>Check</span> Pro</div>
+  <div class="nav-links">
+    <a href="/dashboard">Lookup</a>
+    <a href="/storms" style="color:white;font-weight:700">⚡ Storms</a>
+    <a href="/leads">Lead Lists</a>
+    <a href="/settings">Settings</a>
+    <a href="#" id="adminLink" style="display:none">Admin</a>
+    <a href="#" onclick="logout()" class="btn-nav btn">Sign Out</a>
+  </div>
+</nav>
+
+<div class="page-wrap">
+
+  <div class="storm-header">
+    <h1>⚡ Recent Storm Activity</h1>
+    <p>Significant hail, tornado, and wind events in your service areas — last 14 days. Click any event to generate a lead list.</p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="storm-tabs">
+    <div class="storm-tab active" onclick="switchTab('map')">🗺️ Storm Map</div>
+    <div class="storm-tab" onclick="switchTab('list')">📋 Event List</div>
+  </div>
+
+  <!-- Map Tab -->
+  <div class="storm-tab-panel active" id="tab-map">
+    <a id="stateIndicator" href="/onboarding"
+       style="display:none;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-radius:8px;margin-bottom:14px;text-decoration:none;border:1px solid var(--border);background:#f8fafc;color:var(--navy);font-size:0.9em">
+      <span><span id="stateIndicatorText" style="font-weight:700"></span> <span id="stateIndicatorSub" style="color:var(--muted);font-weight:500"></span></span>
+      <span id="stateIndicatorAction" style="font-size:0.85em;color:var(--red);font-weight:700">+ Add states →</span>
+    </a>
+    <div class="date-filter" id="dateFilter">
+      <button class="date-btn active" onclick="setDays(3)" id="btn3">3 days</button>
+      <button class="date-btn" onclick="setDays(7)" id="btn7">7 days</button>
+      <button class="date-btn" onclick="setDays(14)" id="btn14" data-pro="1">14 days (Pro)</button>
+      <button class="date-btn" onclick="setDays(30)" id="btn30" data-pro="1">30 days (Pro)</button>
+      <button class="date-btn" onclick="setDays(90)" id="btn90" data-pro="1">90 days (Pro)</button>
+      <button class="date-btn" onclick="setDays(180)" id="btn180" data-pro="1">6 months (Pro)</button>
+      <button class="date-btn" onclick="setDays(365)" id="btn365" data-pro="1">1 year (Pro)</button>
+      <button class="date-btn" onclick="setDays(730)" id="btn730" data-pro="1">2 years (Pro)</button>
+    </div>
+    <div id="trialNotice" style="display:none;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:0.85em;color:#92400e;margin-bottom:12px">
+      ?? Extended history (14 days+) requires a paid plan. <a href="/upgrade" style="color:#c0392b;font-weight:700">Upgrade from $39/mo ?</a>
+    </div>
+    <div id="stormMapWrap" style="height:420px;min-height:300px;width:100%;border-radius:10px;border:1px solid var(--border);margin-bottom:16px;background:#f0f4f8;display:flex;align-items:center;justify-content:center">
+      <div id='mapPlaceholder' style='text-align:center;color:#555;cursor:pointer' onclick="initMap()"><div style='font-size:2.5em;margin-bottom:8px'>🗺️</div><div style='font-weight:600'>Tap to load map</div><div style='font-size:0.82em;color:#888;margin-top:4px'>Shows hail, wind &amp; tornado events</div></div>
+      <div id='stormMap' style='height:420px;width:100%;display:none'></div>
+    </div>
+    <div class="map-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#7c3aed"></div> Tornado</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#8B0000"></div> 2"+ Hail (Baseball+)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#c0392b"></div> 1.5" Hail (Golf Ball)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#e67e22"></div> 1" Hail (Quarter)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f39c12"></div> 0.75" Hail (Penny)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#3498db"></div> High Wind</div>
+    </div>
+  </div>
+
+  <!-- List Tab -->
+  <div class="storm-tab-panel" id="tab-list">
+    <div id="stormList"><div class="loading-msg">Loading storm events...</div></div>
+  </div>
+
+</div>
+
+<script>
+let allEvents = [];
+let map, activeDays = 3, userTier = 'trial';
+
+function initMap() {
+  if (map) {
+    map.invalidateSize();
+    return;
+  }
+
+  const wrap = document.getElementById('stormMapWrap');
+  const placeholder = document.getElementById('mapPlaceholder');
+  const mapEl = document.getElementById('stormMap');
+  // Clear wrap-level styling/handlers so map clicks don't bubble back into init
+  wrap.style.cursor = '';
+  wrap.onclick = null;
+
+  if (typeof L === 'undefined') {
+    mapEl.style.display = 'block';
+    placeholder.style.display = 'none';
+    mapEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#f8f9fa;border-radius:10px;flex-direction:column;gap:10px"><div style="font-size:2em">🗺️</div><div style="color:#555;font-size:0.9em;text-align:center">Map unavailable.<br>Try <a href="/hailmap" style="color:#c0392b">Hail Map</a> instead.</div></div>';
+    return;
+  }
+
+  placeholder.style.display = 'none';
+  mapEl.style.display = 'block';
+
+  map = L.map('stormMap').setView([31.5, -99.3], 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 18,
+  }).addTo(map);
+
+  requestAnimationFrame(() => {
+    map.invalidateSize();
+    const overlayPane = document.querySelector('.leaflet-overlay-pane');
+    if (overlayPane) overlayPane.style.mixBlendMode = 'multiply';
+    renderMap();
+  });
+}
+
+async function loadStorms(days) {
+  activeDays = days;
+  document.getElementById('stormList').innerHTML = '<div class="loading-msg">Scanning NOAA SPC records...</div>';
+  
+  const res = await fetch(`/api/storms?days=${days}`);
+  const data = await res.json();
+  allEvents = data.events || [];
+  
+  // New data set → allow one re-fit to the new event bounds
+  renderMap._refit = true;
+  renderMap();
+  renderList();
+}
+
+function setDays(d) {
+  // Check if pro feature required
+  if (d > 7 && userTier === 'trial') {
+    document.getElementById('trialNotice').style.display = 'block';
+    return;
+  }
+  document.getElementById('trialNotice').style.display = 'none';
+  activeDays = d;
+  ['3','7','14','30','90','180','365','730'].forEach(n => {
+    const btn = document.getElementById('btn'+n);
+    if (btn) btn.classList.toggle('active', parseInt(n) === d);
+  });
+  loadStorms(d);
+}
+
+function getEventColor(e) {
+  if (e.type === 'tornado') return '#7c3aed';
+  const s = e.size_in || 0;
+  if (s >= 2.0) return '#8B0000';
+  if (s >= 1.5) return '#c0392b';
+  if (s >= 1.0) return '#e67e22';
+  if (s >= 0.75) return '#f39c12';
+  return '#3498db';
+}
+
+function getEventBadge(e) {
+  if (e.type === 'tornado') return `<span class="storm-type-badge badge-tornado">🌪️ EF${e.ef||'?'} Tornado</span>`;
+  const s = e.size_in || 0;
+  if (s >= 1.5) return `<span class="storm-type-badge badge-hail-large">🌨️ ${s}" Hail</span>`;
+  if (s >= 0.75) return `<span class="storm-type-badge badge-hail-med">🌨️ ${s}" Hail</span>`;
+  return `<span class="storm-type-badge badge-wind">💨 Wind</span>`;
+}
+
+function renderMap() {
+  if (!map || typeof L === 'undefined') return;
+
+  // Clear existing layers
+  map.eachLayer(l => {
+    if (l instanceof L.TileLayer) return;
+    if (l instanceof L.Circle || l instanceof L.CircleMarker || l instanceof L.Polyline || l instanceof L.Marker) {
+      map.removeLayer(l);
+    }
+  });
+  if (allEvents.length === 0) return;
+
+  // Group events by date for storm path lines
+  const byDate = {};
+  allEvents.forEach(e => {
+    if (!e.lat || !e.lon) return;
+    if (!byDate[e.date]) byDate[e.date] = [];
+    byDate[e.date].push(e);
+  });
+
+  // Draw storm path lines + epicenter markers per date
+  Object.values(byDate).forEach(events => {
+    if (events.length < 2) return;
+    // Sort by time (SPC reports have time in location field, use lon as proxy for W->E movement)
+    const sorted = [...events].sort((a, b) => a.lon - b.lon);
+    const path = sorted.map(e => [e.lat, e.lon]);
+
+    // Storm path line
+    L.polyline(path, {
+      color: '#ffffff', weight: 1.5, opacity: 0.5, dashArray: '4,6'
+    }).addTo(map);
+
+    // Epicenter = largest hail event
+    const epicenter = events.reduce((m, e) => (e.size_in||0) > (m.size_in||0) ? e : m, events[0]);
+    const epicColor = getEventColor(epicenter);
+
+    // Bold star/diamond at epicenter
+    L.circleMarker([epicenter.lat, epicenter.lon], {
+      radius: 8, color: '#ffffff', fillColor: epicColor, fillOpacity: 1, weight: 2
+    }).bindPopup(`
+      <b>Storm Epicenter</b><br>
+      ${epicenter.date}<br>
+      ${epicenter.size_in || '?'}" ${epicenter.size_desc || 'Hail'} (largest in storm)<br>
+      ${epicenter.location}<br>
+      <a href="/leads">Generate Lead List ?</a>
+    `).addTo(map);
+  });
+
+  // Draw individual hail circles � SMALLER radius for canvassing accuracy
+  allEvents.forEach(e => {
+    if (!e.lat || !e.lon) return;
+    const color = getEventColor(e);
+    // Max 1.5 km radius (~1 mile) for accuracy � not inflated 8km circles
+    const radiusM = e.type === 'tornado' ? 3000 : Math.min(2400, Math.max(800, (e.size_in||0.5) * 1600));
+    L.circle([e.lat, e.lon], {
+      color, fillColor: color, fillOpacity: 0.20, opacity: 0.5, radius: radiusM, weight: 1
+    }).bindPopup(`
+      <b>${e.date}</b><br>
+      ${e.type === 'tornado' ? `EF${e.ef||'?'} Tornado` : `${e.size_in||'?'}" Hail (${e.size_desc||''})`}<br>
+      ${e.location}<br>
+      <a href="/leads">Generate Lead List ?</a>
+    `).addTo(map);
+  });
+
+  // Fit map ONLY on first render or when data refreshes — never on a re-render from
+  // an incidental click, otherwise we yank the user out of their zoom.
+  if (!map._hasFitBounds || renderMap._refit) {
+    const lats = allEvents.filter(e=>e.lat).map(e=>e.lat);
+    const lons = allEvents.filter(e=>e.lon).map(e=>e.lon);
+    if (lats.length > 0) {
+      map.fitBounds([[Math.min(...lats)-0.3, Math.min(...lons)-0.3],[Math.max(...lats)+0.3, Math.max(...lons)+0.3]]);
+      map._hasFitBounds = true;
+      renderMap._refit = false;
+    }
+  }
+}
+
+function renderList() {
+  const el = document.getElementById('stormList');
+  if (allEvents.length === 0) {
+    el.innerHTML = '<div class="loading-msg">No significant storm events found in the last ' + activeDays + ' days for your watch areas.</div>';
+    return;
+  }
+
+  // Group by date
+  const byDate = {};
+  allEvents.forEach(e => {
+    if (!byDate[e.date]) byDate[e.date] = [];
+    byDate[e.date].push(e);
+  });
+
+  const html = Object.keys(byDate).sort((a,b) => new Date(b)-new Date(a)).map(date => {
+    const dp = date.split('-');
+    const dateLabel = `${dp[1]}/${dp[2]}/${dp[0]}`;
+    const events = byDate[date];
+    const maxHail = Math.max(...events.filter(e=>e.size_in).map(e=>e.size_in), 0);
+    const hasTornado = events.some(e=>e.type==='tornado');
+    const cardClass = hasTornado ? 'tornado' : maxHail >= 1.5 ? 'hail-large' : maxHail >= 0.75 ? 'hail-med' : 'wind';
+
+    return `
+      <div class="storm-card ${cardClass}">
+        <div class="storm-card-header">
+          <div>
+            <div style="font-size:0.82em;color:var(--muted);margin-bottom:4px">${dateLabel}</div>
+            <div class="storm-location">${[...new Set(events.map(e=>e.state))].join(' / ')} — ${events.length} event(s)</div>
+            <div class="storm-meta">
+              ${hasTornado ? '🌪️ Tornado reported · ' : ''}
+              ${maxHail > 0 ? `Max hail: ${maxHail}" · ` : ''}
+              Areas: ${[...new Set(events.map(e=>e.county).filter(Boolean))].slice(0,4).join(', ')}
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+            ${hasTornado ? '<span class="storm-type-badge badge-tornado">🌪️ Tornado</span>' : ''}
+            ${maxHail >= 1.5 ? `<span class="storm-type-badge badge-hail-large">🌨️ ${maxHail}" Hail</span>` : ''}
+            ${maxHail >= 0.75 && maxHail < 1.5 ? `<span class="storm-type-badge badge-hail-med">🌨️ ${maxHail}" Hail</span>` : ''}
+          </div>
+        </div>
+        <div class="storm-action">
+          <a href="/leads" class="btn btn-primary btn-sm" onclick="sessionStorage.setItem('stormDate','${date}')">📋 Generate Lead List</a>
+          <a href="/dashboard" class="btn btn-outline btn-sm">🔍 Look Up Address</a>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  el.innerHTML = html;
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.storm-tab').forEach((t,i) => t.classList.toggle('active', ['map','list'][i]===name));
+  document.querySelectorAll('.storm-tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if (name === 'map') setTimeout(() => map?.invalidateSize(), 100);
+}
+
+async function logout() { await fetch('/api/auth/logout',{method:'POST'}); window.location='/login'; }
+async function init() {
+  const res = await fetch('/api/me');
+  if (!res.ok) return window.location='/login';
+  const { user, features } = await res.json();
+  userTier = user.tier || 'trial';
+  if (user.role === 'admin') document.getElementById('adminLink').style.display = 'inline';
+  renderStateIndicator(user, features);
+  // Style locked buttons for trial users
+  if (userTier === 'trial') {
+    document.querySelectorAll('[data-pro]').forEach(btn => {
+      btn.style.opacity = '0.5';
+      btn.style.cursor = 'not-allowed';
+    });
+  } else {
+    document.querySelectorAll('[data-pro]').forEach(btn => {
+      btn.textContent = btn.textContent.replace(' ??','');
+    });
+  }
+  loadStorms(3);
+}
+
+function renderStateIndicator(user, features) {
+  const watched = Array.isArray(user.watchedStates) ? user.watchedStates.filter(Boolean) : [];
+  const max = (features && typeof features.maxStates === 'number') ? features.maxStates : 1;
+  const el = document.getElementById('stateIndicator');
+  const txt = document.getElementById('stateIndicatorText');
+  const sub = document.getElementById('stateIndicatorSub');
+  const action = document.getElementById('stateIndicatorAction');
+  if (!el) return;
+
+  const have = watched.length;
+  const maxLabel = max === -1 ? '∞' : max;
+  const statesPreview = have ? watched.slice(0, 6).join(', ') + (have > 6 ? ` +${have - 6}` : '') : 'none selected';
+
+  if (max === -1) {
+    // Unlimited tier
+    txt.textContent = `🗺️ Monitoring ${have || 0} state${have === 1 ? '' : 's'}`;
+    sub.textContent = have ? `(${statesPreview})` : '— pick states to start tracking storms';
+    action.textContent = have ? 'Edit →' : '+ Pick states →';
+  } else {
+    txt.textContent = `🗺️ ${have} of ${maxLabel} state${maxLabel === 1 ? '' : 's'} selected`;
+    sub.textContent = have ? `(${statesPreview})` : '';
+    if (have < max) {
+      action.textContent = have === 0 ? '+ Pick states →' : `+ Add ${max - have} more →`;
+      action.style.color = 'var(--red)';
+    } else {
+      action.textContent = 'Edit →';
+      action.style.color = 'var(--muted)';
+    }
+  }
+  el.style.display = 'flex';
+}
+
+window.setDays = setDays;
+window.switchTab = switchTab;
+window.initMap = initMap;
+window.logout = logout;
+init();
+</script>
+</body>
+</html>

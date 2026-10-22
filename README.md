@@ -1,63 +1,47 @@
-# Storm Tracker Pro — PWA
+# StormCheck Pro
 
-A Progressive Web App for OPI Millions investors to look up hail history on any U.S. property.
+Hail, wind and tornado history for any U.S. address, for roofers, public
+adjusters, insurance agents, realtors, property managers and real estate investors.
 
-## What It Does
-- Search any U.S. address or ZIP code
-- Pulls real hail event data from NOAA SPC storm reports (free, no API key)
-- Calculates a claim potential score (High / Medium / Low)
-- Shows storm history: date, hail size, distance from property
-- Gives OPI-specific recommendations
-- Exports a text report
-- Saves recent searches locally
-- Works as a home screen app on iPhone and Android
+Live: https://stormcheckpro.thepublicadjustertx.com
 
-## How to Deploy (Free Options)
+## What it does
 
-### Option A — GitHub Pages (free, instant)
-1. Push this folder to a GitHub repo
-2. Go to repo Settings → Pages → Deploy from main branch
-3. Your app is live at `https://yourusername.github.io/storm-tracker-pro`
+- **Property reports**: radar-estimated hail at the property (NOAA MRMS MESH),
+  official NWS storm records with narratives (NCEI), and recent spotter reports
+  (SPC), combined into verified storm dates, a ranked date-of-loss list and an
+  impact score. Printable full report and one-page Storm Disclosure.
+- **Hail swath maps**: by day, with transparency control, ground reports and
+  hourly storm playback.
+- **Lead lists**: every ZIP and city inside the swath at a chosen size, with CSV,
+  GeoJSON and KML exports.
+- **Portfolio monitoring**: alerts when any monitored property is hit.
+- **Alerts**: territory alerts, free ZIP-code alerts, and NWS hail-warning heads-ups.
+- **Public SEO pages**: daily storm maps, state and city hail history, sitemap.
+- **Meteorologist reviewed reports**: order flow and admin queue.
 
-### Option B — Netlify (free, custom domain)
-1. Go to netlify.com → New site from Git
-2. Connect your repo
-3. Deploy — done
-4. Add your custom domain (e.g. stormtrackerpro.com)
+## Run locally
 
-### Option C — Vercel (free)
-1. vercel.com → Import project
-2. Connect repo → Deploy
+```bash
+npm install
+cp .env.example .env   # set ADMIN_EMAIL, ADMIN_PASSWORD, JWT_SECRET at minimum
+DATA_JOBS=off npm start   # skip background downloads
+npm test
+```
 
-## How Users Install It (No App Store Needed)
+Data commands: `npm run data -- status` (see `scripts/data.js`).
+Deployment: see `DEPLOY.md`.
 
-### iPhone:
-1. Open the URL in Safari
-2. Tap the Share button (box with arrow)
-3. Tap "Add to Home Screen"
-4. App icon appears on home screen
+## Layout
 
-### Android:
-1. Open the URL in Chrome
-2. Tap the menu (3 dots)
-3. Tap "Add to Home Screen" or "Install App"
-4. App icon appears on home screen
-
-## Icons Needed
-Create two icon files and place in `/icons/`:
-- `icon-192.png` — 192x192px
-- `icon-512.png` — 512x512px
-
-Use the OPI Millions logo or a storm/lightning bolt icon.
-
-## Data Source
-NOAA Storm Prediction Center: https://www.spc.noaa.gov/climo/reports/
-Free, public data. No API key required.
-
-## Next Steps / Future Features
-- [ ] Interactive storm map view
-- [ ] Save/sync reports to account
-- [ ] Stripe subscription gate (trial → paid)
-- [ ] Push notifications for new storms in watched areas
-- [ ] Integration with measuring tool
-- [ ] PDF report export
+| Path | What |
+|---|---|
+| `server.js` | Express app, auth, lookups, Stripe |
+| `platform-routes.js` | Swath, playback, lead, portfolio, review and admin APIs |
+| `public-pages.js` | Public storm/city pages, free alerts, sitemap |
+| `lib/grib2.js` | GRIB2 decoder for MRMS radar files |
+| `lib/mesh-store.js`, `ncei-store.js`, `spc-store.js` | Tiled local data stores |
+| `lib/report-engine.js` | Combines sources into the property report |
+| `lib/alerts.js`, `lib/data-jobs.js` | Alerts and scheduled data jobs |
+| `public/` | Web app pages |
+| `pwa/` | The original one-page Storm Tracker PWA (OPI Millions) |

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#172235">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.json">
+  <title>Post-Storm Lead Lists — StormCheck Pro</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/lib/leaflet.min.css"/>
+  <script src="/lib/leaflet.min.js"></script>
+  <script src="/js/swath-layer.js"></script>
+  <style>
+    .lead-card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    .lead-card h2 { font-size: 1.15em; color: var(--navy); margin-bottom: 6px; }
+    .field-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+    .field-row .form-group { flex: 1; min-width: 180px; margin-bottom: 0; }
+    #map { height: 420px; border-radius: 10px; margin-top: 16px; }
+    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .summary div { background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+    .summary b { display: block; font-size: 1.5em; color: var(--navy); }
+    .summary span { font-size: 0.82em; color: var(--muted); }
+    .exports { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .prio { font-weight: 700; font-size: 0.8em; padding: 2px 8px; border-radius: 10px; }
+    .prio-HIGH { background: #fee2e2; color: #b91c1c; } .prio-MEDIUM { background: #ffedd5; color: #c2410c; } .prio-STANDARD { background: #f1f5f9; color: #475569; }
+    .how-to { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 18px; font-size: 0.9em; color: #166534; line-height: 1.6; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+<nav class="nav">
+  <div class="brand">Storm<span>Check</span> Pro</div>
+  <div class="nav-links">
+    <a href="/dashboard">Lookup</a><a href="/hailmap">Hail Map</a><a href="/watchlist">Portfolio</a>
+    <a href="/leads" style="color:white;font-weight:700">Lead Lists</a>
+    <a href="#" onclick="logout()" class="btn-nav btn">Sign Out</a>
+  </div>
+</nav>
+
+<div class="page-wrap">
+  <div class="page-title">Post-storm lead lists</div>
+  <div class="how-to">
+    Pick a storm date and the area you work. We find every ZIP code and city inside the radar hail swath at your chosen size, ranked by the largest hail. Export the ZIPs for EDDM or direct mail, or the swath boundary (GeoJSON or KML) to load into your canvassing or mapping app.
+  </div>
+
+  <div class="lead-card">
+    <h2>1. Choose the storm</h2>
+    <div id="errorMsg" class="alert alert-error" style="display:none"></div>
+    <div class="field-row">
+      <div class="form-group"><label for="stormDate">Storm date</label><select id="stormDate"><option value="">Loading recent storms…</option></select></div>
+      <div class="form-group"><label for="minIn">Minimum hail size</label>
+        <select id="minIn">
+          <option value="0.75">0.75" (penny) and up</option>
+          <option value="1" selected>1.00" (quarter) and up</option>
+          <option value="1.5">1.50" (ping pong) and up</option>
+          <option value="1.75">1.75" (golf ball) and up</option>
+          <option value="2">2.00" (egg) and up</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:0 0 auto"><button class="btn btn-primary" id="goBtn" onclick="generate()">Find affected areas</button></div>
+    </div>
+    <p style="font-size:0.85em;color:var(--muted);margin-top:10px">Area: the map view below. Pan and zoom to your territory first (up to about 16° across).</p>
+    <div id="map"></div>
+  </div>
+
+  <div class="lead-card" id="results" style="display:none">
+    <h2>2. Affected areas</h2>
+    <div class="summary" id="summary"></div>
+    <div class="exports">
+      <a class="btn btn-secondary btn-sm" id="csvLink" href="#">Download ZIP list (CSV)</a>
+      <a class="btn btn-outline btn-sm" id="geoLink" href="#">Swath boundary (GeoJSON)</a>
+      <a class="btn btn-outline btn-sm" id="kmlLink" href="#">Swath boundary (KML / Google Earth)</a>
+    </div>
+    <div style="overflow-x:auto">
+      <table><thead><tr><th>ZIP</th><th>City</th><th>State</th><th>Largest hail</th><th>Swath cells in ZIP</th><th>Priority</th></tr></thead><tbody id="zipBody"></tbody></table>
+    </div>
+    <h3 style="margin:20px 0 8px;font-size:1em;color:var(--navy)">Cities in the swath</h3>
+    <div id="cityList" style="font-size:0.9em;line-height:1.8"></div>
+  </div>
+</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+let map, swath;
+function fmtDate(iso) { const [y,m,d] = iso.split('-'); return `${m}/${d}/${y}`; }
+function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function bboxQ() {
+  const b = map.getBounds(), c = map.getCenter(), max = 16;
+  let w = b.getWest(), e = b.getEast(), s = b.getSouth(), n = b.getNorth();
+  if (e - w > max) { w = c.lng - max/2; e = c.lng + max/2; }
+  if (n - s > max) { s = c.lat - max/2; n = c.lat + max/2; }
+  return `w=${w.toFixed(3)}&s=${s.toFixed(3)}&e=${e.toFixed(3)}&n=${n.toFixed(3)}`;
+}
+
+async function init() {
+  const me = await fetch('/api/me');
+  if (!me.ok) return location = '/login';
+  map = L.map('map');
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 16 }).addTo(map);
+  swath = new L.SwathLayer([], { opacity: 0.7 }).addTo(map);
+  const w = +params.get('w'), s = +params.get('s'), e = +params.get('e'), n = +params.get('n');
+  if (params.get('w')) map.fitBounds([[s, w], [n, e]]);
+  else {
+    let center = [37.5, -96], zoom = 5;
+    try { const st = await (await fetch('/api/alert-settings')).json(); const r0 = st.settings && st.settings.regions && st.settings.regions[0]; if (r0) { center = [r0.lat, r0.lon]; zoom = 8; } } catch (err) {}
+    map.setView(center, zoom);
+  }
+  await loadDates();
+  if (params.get('date')) { document.getElementById('stormDate').value = params.get('date'); generate(); }
+  let t; map.on('moveend', () => { clearTimeout(t); t = setTimeout(loadDates, 400); });
+}
+
+async function loadDates() {
+  const sel = document.getElementById('stormDate');
+  const keep = sel.value || params.get('date');
+  const r = await fetch(`/api/mesh/days?${bboxQ()}&minIn=0.75&limit=90`);
+  const j = await r.json();
+  const days = (j.days || []);
+  if (keep && !days.some(d => d.date === keep)) days.unshift({ date: keep, maxIn: 0 });
+  sel.innerHTML = days.length ? days.map(d => `<option value="${d.date}">${fmtDate(d.date)}${d.maxIn ? ` — up to ${d.maxIn.toFixed(2)}"` : ''}</option>`).join('') : '<option value="">No hail days in this view yet</option>';
+  if (keep) sel.value = keep;
+}
+
+async function generate() {
+  const date = document.getElementById('stormDate').value;
+  const minIn = document.getElementById('minIn').value;
+  const err = document.getElementById('errorMsg'); err.style.display = 'none';
+  if (!date) { err.textContent = 'Pick a storm date.'; err.style.display = 'block'; return; }
+  const btn = document.getElementById('goBtn'); btn.disabled = true; btn.textContent = 'Working...';
+  const q = `date=${date}&${bboxQ()}&minIn=${minIn}`;
+  try {
+    const [sw, ar] = await Promise.all([fetch('/api/mesh/swath?' + q), fetch('/api/leads/areas?' + q)]);
+    const swj = await sw.json(), j = await ar.json();
+    if (!ar.ok) throw new Error(j.error);
+    swath.setCells((swj.cells || []).filter(c => c[2] >= +minIn));
+    document.getElementById('summary').innerHTML = `
+      <div><b>${j.zips.length}</b><span>ZIP codes</span></div>
+      <div><b>${j.cities.length}</b><span>Cities</span></div>
+      <div><b>${j.areaSqMi.toLocaleString()}</b><span>Square miles at ${(+minIn).toFixed(2)}"+</span></div>
+      <div><b>${(j.zips[0] ? j.zips[0].maxIn : 0).toFixed(2)}"</b><span>Largest hail</span></div>`;
+    document.getElementById('zipBody').innerHTML = j.zips.map(z => {
+      const p = z.maxIn >= 1.75 ? 'HIGH' : z.maxIn >= 1.25 ? 'MEDIUM' : 'STANDARD';
+      return `<tr><td><strong>${z.zip}</strong></td><td>${esc(z.city)}</td><td>${z.state}</td><td style="color:${hailColor(z.maxIn)};font-weight:700">${z.maxIn.toFixed(2)}"</td><td>${z.cells}</td><td><span class="prio prio-${p}">${p}</span></td></tr>`;
+    }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:16px">No ZIP codes in the swath at this size. Try a smaller size or a wider view.</td></tr>';
+    document.getElementById('cityList').innerHTML = j.cities.map(c => `${esc(c.name)}, ${c.state} <span style="color:var(--muted)">(${c.maxIn.toFixed(2)}")</span>`).join(' · ') || '<span style="color:var(--muted)">None</span>';
+    document.getElementById('csvLink').href = '/api/leads/areas?' + q + '&format=csv';
+    document.getElementById('geoLink').href = '/api/leads/areas?' + q + '&format=geojson';
+    document.getElementById('kmlLink').href = '/api/leads/areas?' + q + '&format=kml';
+    document.getElementById('results').style.display = 'block';
+    history.replaceState({}, '', '/leads?' + q);
+  } catch (e) { err.innerHTML = esc(e.message || 'Could not build the list.') + (String(e.message).includes('Upgrade') ? ' <a href="/upgrade">Upgrade</a>' : ''); err.style.display = 'block'; }
+  btn.disabled = false; btn.textContent = 'Find affected areas';
+}
+async function logout() { await fetch('/api/auth/logout', { method: 'POST' }); location = '/login'; }
+init();
+</script>
+</body>
+</html>

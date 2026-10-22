@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#172235"><link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Watch List — StormCheck Pro</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .wl-header { background: linear-gradient(135deg, #1a1a2e, #1e3a5f); color: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .wl-header h1 { font-size: 1.4em; margin-bottom: 6px; }
+    .wl-header p { opacity: 0.8; font-size: 0.88em; }
+    .upload-box { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; border: 2px dashed var(--border); text-align: center; }
+    .upload-box.dragging { border-color: var(--red); background: #fef2f2; }
+    .upload-box .icon { font-size: 2.5em; margin-bottom: 10px; }
+    .upload-box h3 { color: var(--navy); margin-bottom: 8px; }
+    .upload-box p { color: var(--muted); font-size: 0.88em; margin-bottom: 16px; }
+    .contact-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 20px; }
+    .contact-card { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.07); border-left: 3px solid var(--border); }
+    .contact-card.hit { border-left-color: var(--red); background: #fff8f8; }
+    .contact-card h4 { color: var(--navy); margin-bottom: 4px; font-size: 0.95em; }
+    .contact-card .addr { font-size: 0.82em; color: var(--muted); margin-bottom: 6px; }
+    .contact-card .contact-info { font-size: 0.8em; color: #555; }
+    .contact-card .hit-badge { background: #fef2f2; color: var(--red); padding: 2px 8px; border-radius: 10px; font-size: 0.72em; font-weight: 700; margin-top: 6px; display: inline-block; }
+    .csv-template { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; font-size: 0.82em; color: #166534; margin-top: 12px; }
+    .stats-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+    .stat-pill { background: white; border-radius: 8px; padding: 12px 18px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); font-size: 0.88em; }
+    .stat-pill strong { color: var(--navy); font-size: 1.3em; display: block; }
+    .add-single { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    .add-single input { flex: 1; min-width: 140px; }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="brand">Storm<span>Check</span> Pro</div>
+  <div class="nav-links">
+    <a href="/dashboard">Lookup</a>
+    <a href="/hailmap">Hail Map</a>
+    <a href="/watchlist" style="color:white;font-weight:700">Portfolio</a>
+    <a href="/leads">Lead Lists</a>
+    <a href="/settings">Settings</a>
+    <a href="#" onclick="logout()" class="btn-nav btn">Sign Out</a>
+  </div>
+</nav>
+
+<div class="page-wrap">
+
+  <div class="wl-header">
+    <h1>Portfolio monitoring</h1>
+    <p>Add the properties you manage, insure, own or serve. We check every address against NOAA radar every day and against storm reports every 15 minutes, and email you when one is hit. Team and Enterprise plans also get a heads-up when a hail warning covers your properties.</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row" id="statsRow">
+    <div class="stat-pill"><strong id="statTotal">0</strong> Properties monitored</div>
+    <div class="stat-pill"><strong id="statHits">0</strong> Hit by 0.75"+ hail (3 years)</div>
+    <div class="stat-pill"><strong id="statRecent">0</strong> Hit in the last 90 days</div>
+    <div class="stat-pill"><button class="btn btn-sm btn-outline" onclick="exportPortfolio()">Download storm summary (CSV)</button></div>
+  </div>
+
+  <!-- Upload CSV -->
+  <div class="upload-box" id="uploadBox">
+    <div class="icon">📋</div>
+    <h3>Import properties from CSV</h3>
+    <p>Upload a CSV of properties or clients (up to 500 at a time). We geocode each address and start monitoring automatically.</p>
+    <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="handleCSV(this)">
+    <button class="btn btn-primary" onclick="document.getElementById('csvFile').click()">📤 Upload CSV</button>
+    <button class="btn btn-outline" onclick="downloadTemplate()" style="margin-left:8px">⬇️ Download Template</button>
+    <div class="csv-template">
+      <strong>Required columns:</strong> name, address<br>
+      <strong>Optional:</strong> phone, email, tags<br>
+      <strong>Example:</strong> John Smith, 1105 Portland Dr Roanoke TX 76262, 817-555-0100, john@email.com
+    </div>
+  </div>
+
+  <!-- Add single contact -->
+  <div class="card" style="margin-bottom:20px">
+    <div style="font-weight:700;color:var(--navy);margin-bottom:12px">Add Single Contact</div>
+    <div id="addMsg" class="alert" style="display:none"></div>
+    <div class="add-single">
+      <input type="text" id="addName" placeholder="Client name" style="max-width:180px">
+      <input type="text" id="addAddress" placeholder="Full property address">
+      <input type="tel" id="addPhone" placeholder="Phone (optional)" style="max-width:160px">
+      <input type="email" id="addEmail" placeholder="Email (optional)" style="max-width:180px">
+      <button class="btn btn-primary btn-sm" onclick="addContact()">+ Add</button>
+    </div>
+  </div>
+
+  <!-- Contact cards -->
+  <div id="contactsWrap">
+    <div id="contactList" class="contact-grid"></div>
+    <div id="emptyState" style="text-align:center;padding:40px;color:var(--muted)">
+      No contacts yet. Import a CSV or add contacts one by one above.
+    </div>
+  </div>
+
+</div>
+
+<script>
+function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtD(iso) { const [y,m,d] = iso.split('-'); return `${m}/${d}/${y}`; }
+let lastContacts = [], lastSummary = {};
+async function loadContacts() {
+  const [res, sres] = await Promise.all([fetch('/api/watchlist'), fetch('/api/watchlist/summary')]);
+  const { contacts } = await res.json();
+  const summary = sres.ok ? (await sres.json()).summary : [];
+  const byId = Object.fromEntries(summary.map(s => [s._id, s]));
+  lastContacts = contacts; lastSummary = byId;
+  document.getElementById('statTotal').textContent = contacts.length;
+  document.getElementById('statHits').textContent = summary.filter(s => s.hitDays3yr > 0).length;
+  const d90 = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
+  document.getElementById('statRecent').textContent = summary.filter(s => s.lastHit && s.lastHit.date >= d90).length;
+
+  const el = document.getElementById('contactList');
+  document.getElementById('emptyState').style.display = contacts.length ? 'none' : 'block';
+  if (!contacts.length) { el.innerHTML = ''; return; }
+
+  el.innerHTML = contacts.map(c => {
+    const s = byId[c._id] || {};
+    return `
+    <div class="contact-card ${s.hitDays3yr ? 'hit' : ''}">
+      <h4>${esc(c.name)}</h4>
+      <div class="addr">${esc(c.formattedAddress || c.address)}</div>
+      <div class="contact-info">
+        ${c.phone ? esc(c.phone) : ''}
+        ${c.email ? `<br>${esc(c.email)}` : ''}
+      </div>
+      ${s.geocoded === false ? '<div style="font-size:0.75em;color:var(--muted);margin-top:6px">Locating address…</div>' : ''}
+      ${s.lastHit ? `<div class="hit-badge">Last hit ${fmtD(s.lastHit.date)}: ${s.lastHit.sizeIn.toFixed(2)}" hail</div>` : (s.geocoded ? '<div style="font-size:0.75em;color:#166534;margin-top:6px">No 0.75"+ hail in 3 years</div>' : '')}
+      ${s.largest3yr && s.hitDays3yr > 1 ? `<div style="font-size:0.75em;color:var(--red);margin-top:4px">${s.hitDays3yr} hail days · largest ${s.largest3yr.sizeIn.toFixed(2)}" on ${fmtD(s.largest3yr.date)}</div>` : ''}
+      <div style="margin-top:8px;display:flex;gap:6px">
+        <button class="btn btn-sm btn-outline" onclick="lookupContact(${JSON.stringify(c.formattedAddress || c.address).replace(/"/g, '&quot;')})">Full report</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteContact('${c._id}')">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function addContact() {
+  const name = document.getElementById('addName').value.trim();
+  const address = document.getElementById('addAddress').value.trim();
+  const phone = document.getElementById('addPhone').value.trim();
+  const email = document.getElementById('addEmail').value.trim();
+  const msgEl = document.getElementById('addMsg');
+  msgEl.style.display = 'none';
+
+  if (!name || !address) { msgEl.className='alert alert-error'; msgEl.textContent='Name and address required.'; msgEl.style.display='block'; return; }
+
+  const res = await fetch('/api/watchlist', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, address, phone, email })
+  });
+  const data = await res.json();
+  if (data.success) {
+    document.getElementById('addName').value = '';
+    document.getElementById('addAddress').value = '';
+    document.getElementById('addPhone').value = '';
+    document.getElementById('addEmail').value = '';
+    msgEl.className='alert alert-success'; msgEl.textContent='✅ Contact added and geocoded!'; msgEl.style.display='block';
+    setTimeout(() => msgEl.style.display='none', 3000);
+    loadContacts();
+  } else {
+    msgEl.className='alert alert-error'; msgEl.textContent=data.error||'Failed to add.'; msgEl.style.display='block';
+  }
+}
+
+async function deleteContact(id) {
+  if (!confirm('Remove this contact from monitoring?')) return;
+  await fetch(`/api/watchlist/${id}`, { method: 'DELETE' });
+  loadContacts();
+}
+
+function lookupContact(address) {
+  window.location = '/dashboard?address=' + encodeURIComponent(address);
+}
+
+function handleCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const text = e.target.result;
+    const lines = text.trim().split('\n');
+    const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g,''));
+    const contacts = [];
+    for (let i = 1; i < lines.length; i++) {
+      const vals = lines[i].split(',').map(v => v.trim().replace(/"/g,''));
+      const row = {};
+      headers.forEach((h, idx) => { row[h] = vals[idx] || ''; });
+      if (row.name && row.address) contacts.push({ name: row.name, address: row.address, phone: row.phone||row.mobile||'', email: row.email||'' });
+    }
+    if (!contacts.length) { alert('No valid contacts found. Check your CSV format.'); return; }
+    const res = await fetch('/api/watchlist/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contacts })
+    });
+    const data = await res.json();
+    alert(`✅ Imported ${data.imported} contacts. Geocoding in progress — check back in a moment.`);
+    loadContacts();
+  };
+  reader.readAsText(file);
+}
+
+function exportPortfolio() {
+  const rows = [['name', 'address', 'phone', 'email', 'last_hail_date', 'last_hail_in', 'largest_3yr_in', 'largest_3yr_date', 'hail_days_3yr']];
+  for (const c of lastContacts) {
+    const s = lastSummary[c._id] || {};
+    rows.push([c.name, c.formattedAddress || c.address, c.phone || '', c.email || '', s.lastHit ? s.lastHit.date : '', s.lastHit ? s.lastHit.sizeIn : '', s.largest3yr ? s.largest3yr.sizeIn : '', s.largest3yr ? s.largest3yr.date : '', s.hitDays3yr || 0]);
+  }
+  const csv = rows.map(r => r.map(v => /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : v).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = 'portfolio-storm-summary.csv'; a.click();
+}
+
+function downloadTemplate() {
+  const csv = 'name,address,phone,email\nJohn Smith,"1105 Portland Dr, Roanoke TX 76262",817-555-0100,john@email.com\nJane Doe,"100 E Southlake Blvd, Southlake TX 76092",817-555-0200,jane@email.com';
+  const a = document.createElement('a'); a.href = 'data:text/csv,' + encodeURIComponent(csv); a.download = 'stormcheck-watchlist-template.csv'; a.click();
+}
+
+async function logout() { await fetch('/api/auth/logout',{method:'POST'}); window.location='/login'; }
+
+// Pre-fill lookup from session if coming from lookupContact
+window.addEventListener('DOMContentLoaded', () => {
+  const addr = sessionStorage.getItem('lookupAddress');
+  if (addr) { /* handled by dashboard */ }
+  loadContacts();
+});
+</script>
+</body>
+</html>

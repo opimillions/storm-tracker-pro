@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/icons/icon-192.png" type="image/png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="StormCheck Pro">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <title>Dashboard — StormCheck Pro</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/lib/leaflet.min.css"/>
+  <script src="/lib/leaflet.min.js"></script>
+  <script src="/js/swath-layer.js"></script>
+  <style>
+    .dol-card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .dol-card h3 { margin: 0 0 4px; font-size: 1.1em; color: var(--navy); }
+    .dol-list { display: grid; gap: 10px; margin-top: 14px; }
+    .dol-item { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; cursor: pointer; }
+    .dol-item:hover { border-color: var(--navy); }
+    .dol-rank { width: 34px; height: 34px; border-radius: 50%; background: var(--navy); color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; }
+    .dol-size { font-size: 1.4em; font-weight: 900; color: var(--navy); text-align: right; }
+    .conf { display: inline-block; font-size: 0.75em; font-weight: 700; padding: 2px 9px; border-radius: 10px; margin-left: 6px; }
+    .conf-Verified { background: #e7f5ec; color: #166534; }
+    .conf-Radar { background: #e6eef8; color: #1d4e89; }
+    .conf-Ground { background: #fff4e0; color: #8a4b00; }
+    .conf-Nearby { background: #f1f5f9; color: #64748b; }
+    .src-note { font-size: 0.8em; color: var(--muted); margin-top: 12px; line-height: 1.5; }
+    .swath-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0; font-size: 0.85em; }
+    .swath-controls input[type=range] { width: 140px; }
+    .narr { font-size: 0.82em; color: #475569; margin-top: 4px; white-space: normal; }
+    #swathLegend span { display: inline-flex; align-items: center; gap: 5px; }
+    #swathLegend i { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+
+    .lookup-box { background: white; border-radius: 12px; padding: 28px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-bottom: 24px; }
+    .lookup-box h2 { font-size: 1.2em; margin-bottom: 16px; color: var(--navy); }
+    .search-row { display: flex; gap: 10px; }
+    .search-row input { flex: 1; padding: 13px 16px; border: 2px solid var(--border); border-radius: 8px; font-size: 1em; }
+    .search-row input:focus { outline: none; border-color: var(--red); }
+    .search-row select { padding: 13px 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 0.9em; }
+    .lookup-limit { font-size: 0.82em; color: var(--muted); margin-top: 8px; }
+    .lookup-limit .used { color: var(--red); font-weight: 700; }
+
+    /* Results */
+    .results-section { display: none; }
+    .impact-header { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+    .score-circle { width: 120px; height: 120px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; flex-shrink: 0; }
+    .score-circle .num { font-size: 2.5em; font-weight: 900; line-height: 1; }
+    .score-circle .lbl { font-size: 0.7em; opacity: 0.9; }
+    .impact-info h3 { font-size: 1.3em; margin-bottom: 6px; }
+    .impact-info .addr { color: var(--muted); font-size: 0.9em; margin-bottom: 12px; }
+    .stat-pills { display: flex; gap: 10px; flex-wrap: wrap; }
+    .pill { background: var(--light); border: 1px solid var(--border); border-radius: 20px; padding: 5px 14px; font-size: 0.82em; }
+    .pill strong { color: var(--navy); }
+
+    .map-section { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .events-section { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .events-section h3 { margin-bottom: 14px; font-size: 1.1em; color: var(--navy); }
+    .event-row { cursor: pointer; }
+    .event-row:hover td { background: #fef9f0 !important; }
+    .at-prop-badge { background: #fef2f2; color: var(--red); padding: 2px 8px; border-radius: 10px; font-size: 0.78em; font-weight: 700; }
+
+    /* History */
+    .history-section { background: white; border-radius: 12px; padding: 24px; }
+    .history-section h3 { margin-bottom: 14px; font-size: 1.1em; color: var(--navy); }
+    .history-empty { color: var(--muted); font-size: 0.9em; text-align: center; padding: 20px; }
+
+    /* Upgrade banner */
+    .upgrade-banner { background: linear-gradient(135deg, var(--navy), #2c3e50); color: white; border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .upgrade-banner h3 { font-size: 1.05em; margin-bottom: 4px; }
+    .upgrade-banner p { font-size: 0.88em; opacity: 0.8; }
+
+    .loading-overlay { text-align: center; padding: 60px 20px; }
+    .loading-overlay .spinner { width: 40px; height: 40px; border-width: 4px; border-color: rgba(0,0,0,0.1); border-top-color: var(--red); }
+
+    /* Mobile nav hamburger */
+    .hamburger { display:none; background:none; border:none; color:white; font-size:1.5em; cursor:pointer; padding:4px 8px; }
+    .mobile-menu { display:none; position:fixed; top:60px; left:0; right:0; background:var(--navy); z-index:200; flex-direction:column; padding:12px 0; border-bottom:2px solid var(--red); box-shadow:0 4px 12px rgba(0,0,0,0.3); }
+    .mobile-menu.open { display:flex; }
+    .mobile-menu a { padding:16px 24px; color:rgba(255,255,255,0.9); text-decoration:none; font-size:1em; border-bottom:1px solid rgba(255,255,255,0.08); display:block; font-weight:500; }
+    .mobile-menu a:hover { background:rgba(255,255,255,0.05); }
+    @media (max-width:640px) {
+      .nav .nav-links { display:none; }
+      .hamburger { display:block; margin-left:auto; }
+    }
+
+    /* Home briefing */
+    .home-brief { margin-bottom: 20px; }
+    .alert-banner-live { background:linear-gradient(135deg,#7f1d1d,#c0392b); color:white; border-radius:10px; padding:14px 18px; margin-bottom:12px; display:flex; align-items:center; gap:12px; }
+    .alert-banner-live .alert-icon { font-size:1.4em; flex-shrink:0; }
+    .alert-banner-live h4 { margin:0 0 2px; font-size:0.95em; }
+    .alert-banner-live p { margin:0; font-size:0.82em; opacity:0.85; }
+    .brief-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:12px; }
+    .brief-card { background:white; border-radius:10px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.07); }
+    .brief-card .bc-val { font-size:1.6em; font-weight:900; color:var(--navy); }
+    .brief-card .bc-lbl { font-size:0.78em; color:var(--muted); margin-top:2px; }
+    .brief-card.accent { border-left:4px solid var(--red); }
+    .recent-lookups-mini { background:white; border-radius:10px; padding:16px; margin-bottom:12px; }
+    .recent-lookups-mini h4 { font-size:0.88em; color:var(--navy); margin-bottom:10px; font-weight:700; }
+    .rl-item { display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid var(--border); cursor:pointer; }
+    .rl-item:last-child { border-bottom:none; }
+    .rl-item:hover { opacity:0.7; }
+    .rl-addr { flex:1; font-size:0.85em; color:var(--navy); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .rl-score { font-size:0.78em; font-weight:700; color:var(--red); }
+
+    /* Mobile responsive */
+    @media (max-width: 640px) {
+      .search-row { flex-direction: column; }
+      .search-row select { width: 100%; }
+      .impact-header { flex-direction: column; align-items: flex-start; }
+      .score-circle { width: 90px; height: 90px; }
+      .score-circle .num { font-size: 2em; }
+      .map-controls { flex-direction: column; align-items: flex-start; }
+      #hailMap { height: 300px !important; }
+      .stat-pills { gap: 6px; }
+      .pill { font-size: 0.75em; padding: 4px 10px; }
+      .nav .nav-links { gap: 8px; }
+      .nav .nav-links a { font-size: 0.75em; }
+      .radius-btn { padding: 8px 10px; font-size: 0.82em; }
+      table { font-size: 0.78em; }
+      td, th { padding: 7px 8px; }
+      .page-wrap { padding: 16px 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="brand">Storm<span>Check</span> Pro</div>
+  <button class="hamburger" onclick="toggleMobileMenu()">&#9776;</button>
+    <div class="mobile-menu" id="mobileMenu">
+      <a href="/hailmap" onclick="closeMobileMenu()">Hail Map</a>
+      <a href="/storms" onclick="closeMobileMenu()">Storms</a>
+      <a href="/watchlist" onclick="closeMobileMenu()">Watch List</a>
+      <a href="/leads" onclick="closeMobileMenu()">Lead Lists</a>
+      <a href="/affiliate" onclick="closeMobileMenu()">Affiliate</a>
+      <a href="/settings" onclick="closeMobileMenu()">Settings</a>
+      <a href="#" onclick="logout()">Sign Out</a>
+    </div>
+    <div class="nav-links">
+    <span id="userBadge" style="font-size:0.82em;opacity:0.7"></span>
+    <a href="/hailmap">Hail Map</a><a href="/storms">Storms</a><a href="/watchlist">Watch List</a><a href="/leads">Lead Lists</a>
+    <a href="/affiliate">&#129309; Affiliate</a><a href="/settings">Settings</a>
+    <a href="/admin" id="adminLink" style="display:none">Admin</a>
+    <a href="#" onclick="logout()" class="btn-nav btn">Sign Out</a>
+  </div>
+</nav>
+
+<div class="page-wrap">
+
+  <!-- Push Notification Enable -->
+  <div id="pushBanner" style="display:none;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:white;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+    <div><div style="font-weight:700;font-size:0.95em">Get instant hail alerts on this device</div><div style="font-size:0.82em;opacity:0.75;margin-top:2px">Tap to receive push notifications the moment hail is detected – even when the app is closed.</div></div>
+    <button onclick="enablePushNotifications()" class="btn btn-primary btn-sm" id="pushEnableBtn">Enable Alerts</button>
+  </div>
+  <!-- Upgrade banner (shown for trial/no sub) -->
+  <div class="upgrade-banner" id="upgradeBanner" style="display:none">
+    <div>
+      <h3>Upgrade to StormCheck Pro — starting at $39/month</h3>
+      <p style="font-size:0.88em;opacity:0.8">Unlimited reports · Radar hail swaths · Lead lists · Portfolio monitoring</p>
+    </div>
+    <a href="/upgrade" class="btn btn-primary">Upgrade Now</a>
+  </div>
+
+  
+  <!-- Home Briefing -->
+  <div class="home-brief" id="homeBrief">
+    <div id="activeAlertsSection"></div>
+    <div class="brief-grid" id="briefGrid"></div>
+    <div class="recent-lookups-mini" id="recentLookupsMini" style="display:none">
+      <h4>Recent Lookups &mdash; click to re-run</h4>
+      <div id="recentLookupsList"></div>
+    </div>
+  </div>
+
+<!-- Lookup Box -->
+  <div class="lookup-box">
+    <h2>🔍 Hail History Lookup</h2>
+    <div id="alertMsg" style="display:none"></div>
+    <div class="search-row">
+      <input type="text" id="addressInput" placeholder="Enter property address (e.g. 100 E Southlake Blvd, Southlake TX 76092)" />
+      <select id="yearsSelect">
+        <option value="1">1 Year</option>
+        <option value="2">2 Years</option>
+        <option value="3">3 Years</option>
+        <option value="5" selected>5 Years</option>
+        <option value="7">7 Years</option>
+        <option value="10">10 Years</option>
+        <option value="20">20 Years</option>
+      </select>
+      <button class="btn btn-primary" id="lookupBtn" onclick="runLookup()">Search</button>
+    </div>
+    <div class="lookup-limit" id="lookupLimit"></div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loadingSection" style="display:none" class="loading-overlay card">
+    <div class="spinner" style="margin: 0 auto 16px"></div>
+    <div style="font-weight:600;color:var(--navy);margin-bottom:6px">Checking radar and storm records...</div>
+    <div style="color:var(--muted);font-size:0.88em">NOAA radar hail estimates, National Weather Service storm events and recent spotter reports.</div>
+    <div style="margin-top:10px">
+      <div style="background:#e8f4fd;border-radius:20px;height:6px;width:200px;margin:0 auto;overflow:hidden">
+        <div id="progressBar" style="background:#3498db;height:100%;width:0%;transition:width 0.5s;border-radius:20px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="results-section" id="resultsSection">
+
+    <!-- Impact Header -->
+    <div class="impact-header card" id="impactHeader"></div>
+
+    <!-- Report actions -->
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-secondary btn-sm" onclick="openPrint('standard')">Print / Save as PDF</button>
+      <button class="btn btn-outline btn-sm" onclick="openPrint('disclosure')" title="One-page storm history for listings, buyers and due diligence">Storm Disclosure report</button>
+      <button class="btn btn-outline btn-sm" onclick="openReviewModal()">Request meteorologist review</button>
+      <button class="btn btn-outline btn-sm" onclick="copyReportLink()">Copy report link</button>
+    </div>
+
+    <!-- Date of loss finder -->
+    <div class="dol-card" id="dolCard" style="display:none">
+      <h3>Most likely dates of loss</h3>
+      <div style="font-size:0.85em;color:var(--muted)">Ranked by estimated hail size at this property, with radar and ground reports combined. Click a date to see its hail swath.</div>
+      <div class="dol-list" id="dolList"></div>
+      <div class="src-note" id="srcNote"></div>
+    </div>
+
+    <!-- Review request modal -->
+    <div id="reviewModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:500;align-items:center;justify-content:center;padding:16px">
+      <div style="background:white;border-radius:12px;padding:24px;max-width:480px;width:100%">
+        <h3 style="margin-bottom:6px;color:var(--navy)">Meteorologist reviewed report</h3>
+        <p style="font-size:0.88em;color:var(--muted);margin-bottom:14px">A meteorologist reviews the radar, ground reports and storm data for one date of loss and signs off on what hit the property. Useful for disputed claims and appraisal.</p>
+        <div class="form-group"><label for="reviewDate">Date of loss</label><select id="reviewDate"></select></div>
+        <div class="form-group"><label for="reviewNotes">Notes (optional)</label><textarea id="reviewNotes" rows="3" placeholder="Claim number, carrier, anything the reviewer should know"></textarea></div>
+        <div id="reviewMsg" style="display:none"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button class="btn btn-outline btn-sm" onclick="closeReviewModal()">Cancel</button>
+          <button class="btn btn-primary btn-sm" id="reviewSubmit" onclick="submitReview()">Request review</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Map -->
+    <div class="map-section">
+      <!-- Event type filter -->
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <strong style="font-size:0.88em;color:var(--navy)">Show:</strong>
+        <button class="radius-btn active" id="ftHail" onclick="toggleEventType('hail')">🌨️ Hail</button>
+        <button class="radius-btn active" id="ftWind" onclick="toggleEventType('wind')">💨 Wind</button>
+        <button class="radius-btn active" id="ftTornado" onclick="toggleEventType('tornado')">🌪️ Tornado</button>
+      </div>
+      <div class="map-controls">
+        <strong style="font-size:0.9em;color:var(--navy)">Radius:</strong>
+        <button class="radius-btn active" id="rbtn1" onclick="setRadius(1)">1 mi</button>
+        <button class="radius-btn" id="rbtn3" onclick="setRadius(3)">3 mi</button>
+        <button class="radius-btn" id="rbtn10" onclick="setRadius(10)">10 mi</button>
+        <button class="radius-btn" id="rbtn30" onclick="setRadius(30)">All</button>
+        <div style="width:1px;height:22px;background:var(--border)"></div>
+        <strong style="font-size:0.9em;color:var(--navy)">Date:</strong>
+        <select id="dateFilter" onchange="filterMapToDate(this.value)" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:0.85em">
+          <option value="all">All Dates</option>
+        </select>
+        <button class="btn btn-sm btn-outline" onclick="resetMapFilters()">Reset</button>
+        <span id="mapStatus" style="font-size:0.82em;color:var(--muted);margin-left:auto"></span>
+      </div>
+      <div class="swath-controls" id="swathControls" style="display:none">
+        <strong style="color:var(--navy)">Radar swath:</strong>
+        <span id="swathLabel">Pick a storm date</span>
+        <label for="swathOpacity" style="margin-left:8px">Transparency</label>
+        <input type="range" id="swathOpacity" min="0" max="100" value="65" oninput="setSwathOpacity(this.value)">
+        <a id="swathFullLink" href="/hailmap" style="font-weight:700">Open full map</a>
+      </div>
+      <div id="hailMap"></div>
+      <div class="map-legend">
+        <div style="font-size:0.78em;font-weight:700;color:#555;width:100%">Radar hail swath (when a date is selected):</div>
+        <div id="swathLegend" style="display:flex;flex-wrap:wrap;gap:8px 14px;font-size:0.78em;width:100%"></div>
+        <div style="font-size:0.78em;font-weight:700;color:#555;width:100%">Ground reports:</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#8B0000"></div> 2"+ Baseball</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#c0392b"></div> 1.5" Golf Ball</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#e67e22"></div> 1" Quarter</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f39c12"></div> 0.75" Penny</div>
+        <div style="font-size:0.78em;font-weight:700;color:#555;width:100%;margin-top:4px">Other Events:</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#3498db"></div> 💨 Wind</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#6c1a6c"></div> 🌪️ Tornado</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--navy);border:2px solid gold"></div> Property</div>
+      </div>
+    </div>
+
+    <!-- Event Table -->
+    <div class="events-section">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+        <h3 id="eventsTitle" style="margin:0">Hail Event History</h3>
+        <div style="display:flex;gap:8px">
+          <button onclick="setTableView('summary')" id="btnSummaryView" style="padding:6px 14px;border-radius:6px;border:2px solid #1a4faa;background:#1a4faa;color:white;font-weight:700;font-size:0.82em;cursor:pointer">📊 Impact Summary</button>
+          <button onclick="setTableView('detail')" id="btnDetailView" style="padding:6px 14px;border-radius:6px;border:2px solid #1a4faa;background:transparent;color:#1a4faa;font-weight:700;font-size:0.82em;cursor:pointer">📋 Detailed View</button>
+        </div>
+      </div>
+      <p style="font-size:0.82em;color:var(--muted);margin-bottom:12px" id="tableViewHint">Radar-estimated hail by date: at the property, within 1, 3 and 10 miles</p>
+
+      <!-- Summary View (default) -->
+      <div id="summaryTableWrap" style="overflow-x:auto">
+        <table id="summaryTable" style="width:100%;border-collapse:collapse;font-size:0.88em">
+          <thead>
+            <tr style="background:#f1f5f9">
+              <th style="text-align:left;padding:10px 12px;border-bottom:2px solid #e2e8f0">Date</th>
+              <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #e2e8f0">At Location</th>
+              <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #e2e8f0">1 mi</th>
+              <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #e2e8f0">3 mi</th>
+              <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #e2e8f0">10 mi</th>
+              <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #e2e8f0">Ground reports</th>
+              <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #e2e8f0">Confidence</th>
+            </tr>
+          </thead>
+          <tbody id="summaryBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Detail View -->
+      <div id="detailTableWrap" style="overflow-x:auto;display:none">
+        <table id="eventsTable">
+          <thead>
+            <tr><th>Date</th><th>Type</th><th>Magnitude</th><th>Description</th><th>Distance</th><th>Impact</th><th>Location &amp; details</th><th>Source</th></tr>
+          </thead>
+          <tbody id="eventsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Lookup History -->
+  <div class="history-section">
+    <h3>Recent Lookups</h3>
+    <div id="historyContent"><div class="history-empty">No lookups yet. Search for an address above.</div></div>
+  </div>
+
+</div>
+
+<script>
+let map, allLayers = [], ringLayers = {}, currentLat, currentLon, activeRadius = 1, activeDateFilter = 'all';
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  const res = await fetch('/api/me');
+  if (!res.ok) return window.location = '/login';
+  const { user, recentLookups } = await res.json();
+
+  // Redirect to onboarding if states not set yet
+  if (!user.onboardingComplete && user.tier !== 'admin') {
+    window.location = '/onboarding';
+    return;
+  }
+  document.getElementById('userBadge').textContent = user.name + ' · ' + user.tier.toUpperCase();
+  if (user.role === 'admin') document.getElementById('adminLink').style.display = 'inline';
+
+  // Show upgrade banner for trial/inactive
+  if (user.tier === 'trial' || user.subscription_status === 'inactive') {
+    document.getElementById('upgradeBanner').style.display = 'flex';
+  }
+
+  // Lookup limit display — handle both field name formats
+  const lookupLimit = user.lookupLimit ?? user.lookup_limit ?? -1;
+  const lookupsUsed = user.lookupsThisMonth ?? user.lookups_this_month ?? 0;
+  if (lookupLimit === -1) {
+    document.getElementById('lookupLimit').textContent = 'Unlimited lookups';
+  } else {
+    document.getElementById('lookupLimit').innerHTML = `<span class="used">${lookupsUsed}</span> of ${lookupLimit} lookups used this month`;
+  }
+
+  // History
+  if (recentLookups.length > 0) {
+    const rows = recentLookups.map(l => {
+      const d = new Date(l.createdAt || l.created_at).toLocaleDateString('en-US');
+      const eventsFound = l.eventsFound ?? l.events_found ?? 0;
+      const impactScore = l.impactScore ?? l.impact_score ?? 0;
+      return `<tr><td>${d}</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.address}</td><td>${eventsFound}</td><td>${impactScore}/100</td></tr>`;
+    }).join('');
+    document.getElementById('historyContent').innerHTML = `<table><thead><tr><th>Date</th><th>Address</th><th>Events</th><th>Score</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  // Check for subscribed param
+  const params = new URLSearchParams(location.search);
+  let pending = params.get('address');
+  try { if (!pending) { pending = localStorage.getItem('pendingAddress'); } localStorage.removeItem('pendingAddress'); } catch (e) {}
+  if (pending) { document.getElementById('addressInput').value = pending; setTimeout(runLookup, 200); }
+  if (params.get('review') === 'paid') showAlert('Payment received. Your reviewed report is in the queue; we will email you when it is ready.', 'success');
+  if (params.get('subscribed')) {
+    showAlert('🎉 Subscription activated! You now have unlimited lookups.', 'success');
+    history.replaceState({}, '', '/dashboard');
+  }
+}
+
+// ── Lookup — async job pattern ───────────────────────────────────────────────
+async function runLookup() {
+  const address = document.getElementById('addressInput').value.trim();
+  if (!address) return showAlert('Please enter an address.', 'error');
+  const years = document.getElementById('yearsSelect').value;
+
+  document.getElementById('loadingSection').style.display = 'block';
+  document.getElementById('resultsSection').style.display = 'none';
+  document.getElementById('lookupBtn').disabled = true;
+  hideAlert();
+
+  try {
+    // Step 1: Start the job (returns immediately with jobId)
+    const startRes = await fetch('/api/lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address, years })
+    });
+    const startData = await startRes.json();
+
+    if (!startRes.ok) {
+      if (startData.upgrade) {
+        showAlert(startData.error + ' <a href="/upgrade">Upgrade now →</a>', 'warning');
+      } else {
+        showAlert(startData.error || 'Lookup failed.', 'error');
+      }
+      document.getElementById('loadingSection').style.display = 'none';
+      document.getElementById('lookupBtn').disabled = false;
+      return;
+    }
+
+    // If cached result came back immediately, render it
+    if (startData.cached || startData.events) {
+      renderResults(startData);
+      document.getElementById('loadingSection').style.display = 'none';
+      document.getElementById('lookupBtn').disabled = false;
+      loadHomeBrief();
+      return;
+    }
+
+    // Step 2: Poll for job completion
+    const jobId = startData.jobId;
+    let elapsed = 0;
+    const maxWait = 120000; // 2 min max
+    const pollInterval = 2000; // check every 2 seconds
+
+    const poll = async () => {
+      if (elapsed >= maxWait) {
+        showAlert('Lookup is taking longer than expected. Please try again.', 'error');
+        document.getElementById('loadingSection').style.display = 'none';
+        document.getElementById('lookupBtn').disabled = false;
+        return;
+      }
+
+      const pollRes = await fetch(`/api/lookup/${jobId}`);
+      const pollData = await pollRes.json();
+
+      if (pollData.status === 'processing') {
+        elapsed += pollInterval;
+        // Update loading message with elapsed time
+        const secs = Math.round(elapsed / 1000);
+        const msgEl = document.querySelector('#loadingSection div:nth-child(2)');
+        if (msgEl) msgEl.textContent = `Scanning NOAA storm records... (${secs}s)`;
+        setTimeout(poll, pollInterval);
+        return;
+      }
+
+      if (pollData.status === 'error') {
+        showAlert(pollData.error || 'Lookup failed.', 'error');
+        document.getElementById('loadingSection').style.display = 'none';
+        document.getElementById('lookupBtn').disabled = false;
+        return;
+      }
+
+      // Done!
+      renderResults(pollData);
+      document.getElementById('loadingSection').style.display = 'none';
+      document.getElementById('lookupBtn').disabled = false;
+      loadHomeBrief();
+    };
+
+    setTimeout(poll, pollInterval);
+
+  } catch (err) {
+    showAlert('Connection error. Please try again.', 'error');
+    document.getElementById('loadingSection').style.display = 'none';
+    document.getElementById('lookupBtn').disabled = false;
+  }
+}
+
+// ── Render Results ────────────────────────────────────────────────────────────
+let lastReport = null, swathLayer = null, swathOpacity = 0.65;
+function renderResults(data) {
+  const { address, lat, lon, events, score, impact, stats } = data;
+  currentLat = lat; currentLon = lon; lastReport = data;
+  try { sessionStorage.setItem('lastReport', JSON.stringify(data)); } catch (e) {}
+
+  // Impact header
+  const colors = { extreme: '#8B0000', high: '#c0392b', moderate: '#e67e22', 'low-moderate': '#f39c12', low: '#27ae60' };
+  const color = colors[impact.cssClass] || '#555';
+  document.getElementById('impactHeader').innerHTML = `
+    <div class="score-circle" style="background:${color}">
+      <div class="num">${score}</div><div class="lbl">SCORE</div>
+    </div>
+    <div class="impact-info">
+      <h3 style="color:${color}">Impact Rating: ${impact.rating}</h3>
+      <div class="addr">📍 ${address}</div>
+      <div class="stat-pills">
+        <span class="pill"><strong>${stats.total}</strong> Events Found</span>
+        <span class="pill"><strong>${stats.atProperty}</strong> At Property</span>
+        ${stats.largestAtPropertyIn !== undefined ? `<span class="pill"><strong>${stats.largestAtPropertyIn.toFixed(2)}"</strong> Largest at property</span><span class="pill"><strong>${stats.verifiedDays}</strong> Verified hail days</span>` : `<span class="pill"><strong>${stats.largestHail}"</strong> Largest Hail</span>`}
+        <span class="pill"><strong>${stats.mostRecent ? fmtDate(stats.mostRecent) : 'N/A'}</strong> Most Recent</span>
+      </div>
+    </div>
+  `;
+
+  renderDateOfLoss(data);
+
+  // Populate date filter (storm dates include radar-only days)
+  const dates = [...new Set([...events.map(e => e.date), ...((data.stormDates || []).filter(s => s.bestEstimateIn >= 0.5).map(s => s.date))])].sort((a,b) => new Date(b)-new Date(a));
+  const sel = document.getElementById('dateFilter');
+  sel.innerHTML = '<option value="all">All Dates</option>' +
+    dates.map(d => `<option value="${d}">${fmtDate(d)}</option>`).join('');
+
+  // Populate events table
+  document.getElementById('eventsTitle').textContent = `Storm History — ${events.length} Reports Found`;
+  if (data.stormDates) buildStormDateTable(data.stormDates); else buildSummaryTable(events);
+  const tbody = document.getElementById('eventsBody');
+  tbody.innerHTML = events.length === 0
+    ? '<tr><td colspan="8" style="text-align:center;color:#888;padding:20px">No storm reports found near this address</td></tr>'
+    : events.map(e => {
+        const typeColors = {hail:'#c0392b',wind:'#3498db',tornado:'#8B0000'};
+        const typeBg = {hail:'#fdf2f2',wind:'#eff6ff',tornado:'#f3f0ff'};
+        const tc = typeColors[e.type||'hail'];
+        return `
+        <tr class="event-row" data-date="${e.date}" data-dist="${e.distance_miles||99}" data-type="${e.type||'hail'}" onclick="filterMapToDate('${e.date}')" style="background:${e.at_property?'#fff3cd':'white'}">
+          <td><a href="#" onclick="filterMapToDate('${e.date}');return false" style="color:var(--navy);font-weight:600;text-decoration:none">${fmtDate(e.date)}</a></td>
+          <td><span style="background:${typeBg[e.type||'hail']};color:${tc};padding:2px 8px;border-radius:10px;font-size:0.78em;font-weight:700">${e.icon||'🌨️'} ${e.typeLabel||'Hail'}</span></td>
+          <td style="color:${tc};font-weight:700">${e.magnitude_label||e.size_in+'"'}</td>
+          <td>${e.size_desc}</td>
+          <td>${e.distance_miles} mi</td>
+          <td>${e.at_property ? '<span class="at-prop-badge">⚠️ At Property</span>' : 'Nearby'}</td>
+          <td style="max-width:320px">${esc(e.location)}${e.comments ? `<div class="narr">${esc(e.comments)}</div>` : ''}${e.damage ? `<div class="narr">Property damage reported: ${esc(e.damage)}</div>` : ''}</td>
+          <td style="font-size:0.8em;color:var(--muted)">${esc(e.source || 'SPC Storm Report')}${e.reportedBy ? `<br>${esc(e.reportedBy)}` : ''}</td>
+        </tr>`;
+      }).join('');
+
+  document.getElementById('resultsSection').style.display = 'block';
+
+  // Build map only after the container is visible, otherwise Leaflet
+  // computes the wrong viewport size and renders partially blank.
+  buildMap(lat, lon, events);
+  requestAnimationFrame(() => map?.invalidateSize(true));
+
+  document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── Map ───────────────────────────────────────────────────────────────────────
+// ── Summary Table ───────────────────────────────────────────────────────────
+function hailColor(sizeIn) {
+  if (!sizeIn || sizeIn === 0) return { bg:'#f8fafc', text:'#94a3b8' };
+  if (sizeIn >= 2.0) return { bg:'#fee2e2', text:'#dc2626' };
+  if (sizeIn >= 1.5) return { bg:'#ffedd5', text:'#ea580c' };
+  if (sizeIn >= 1.0) return { bg:'#fef9c3', text:'#ca8a04' };
+  return { bg:'#dcfce7', text:'#16a34a' };
+}
+
+function buildSummaryTable(events) {
+  // Group events by date, find max hail size per radius
+  const byDate = {};
+  events.forEach(e => {
+    if (!e.date) return;
+    if (!byDate[e.date]) byDate[e.date] = { date: e.date, at: 0, mi1: 0, mi3: 0, mi10: 0, types: new Set() };
+    const d = e.distance_miles || 0;
+    const sz = parseFloat(e.size_in) || 0;
+    if (d <= 0.1) byDate[e.date].at = Math.max(byDate[e.date].at, sz);
+    if (d <= 1) byDate[e.date].mi1 = Math.max(byDate[e.date].mi1, sz);
+    if (d <= 3) byDate[e.date].mi3 = Math.max(byDate[e.date].mi3, sz);
+    if (d <= 10) byDate[e.date].mi10 = Math.max(byDate[e.date].mi10, sz);
+    byDate[e.date].types.add(e.type || 'hail');
+  });
+
+  const rows = Object.values(byDate).sort((a,b) => new Date(b.date)-new Date(a.date));
+
+  function cell(sz) {
+    if (!sz) return '<td style="text-align:center;padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#94a3b8">—</td>';
+    const c = hailColor(sz);
+    return `<td style="text-align:center;padding:10px 12px;border-bottom:1px solid #e2e8f0;background:${c.bg};color:${c.text};font-weight:700">${sz.toFixed(2)}"</td>`;
+  }
+
+  const tbody = document.getElementById('summaryBody');
+  tbody.innerHTML = rows.length === 0
+    ? '<tr><td colspan="6" style="text-align:center;color:#888;padding:20px">No hail events found</td></tr>'
+    : rows.map(r => {
+        const typeIcons = [...r.types].map(t => t==='hail'?'🌨️':t==='wind'?'💨':t==='tornado'?'🌪️':'⛈️').join(' ');
+        return `<tr onclick="filterMapToDate('${r.date}')" style="cursor:pointer" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+          <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#1e293b">${fmtDate(r.date)}</td>
+          ${cell(r.at)}${cell(r.mi1)}${cell(r.mi3)}${cell(r.mi10)}
+          <td style="text-align:center;padding:10px 12px;border-bottom:1px solid #e2e8f0">${typeIcons}</td>
+        </tr>`;
+      }).join('');
+}
+
+function setTableView(view) {
+  const isSummary = view === 'summary';
+  document.getElementById('summaryTableWrap').style.display = isSummary ? 'block' : 'none';
+  document.getElementById('detailTableWrap').style.display = isSummary ? 'none' : 'block';
+  document.getElementById('tableViewHint').textContent = isSummary
+    ? 'Showing hail impact by date — at property, 1 mi, 3 mi, 10 mi radius'
+    : 'Click any row to filter the map to that storm date';
+  document.getElementById('btnSummaryView').style.background = isSummary ? '#1a4faa' : 'transparent';
+  document.getElementById('btnSummaryView').style.color = isSummary ? 'white' : '#1a4faa';
+  document.getElementById('btnDetailView').style.background = isSummary ? 'transparent' : '#1a4faa';
+  document.getElementById('btnDetailView').style.color = isSummary ? '#1a4faa' : 'white';
+}
+
+function buildMap(lat, lon, events) {
+  if (map) { map.remove(); map = null; }
+  allLayers = []; ringLayers = {};
+
+  map = L.map('hailMap').setView([lat, lon], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap', maxZoom: 18
+  }).addTo(map);
+
+  // Property marker
+  L.marker([lat, lon], {
+    icon: L.divIcon({ html: '<div style="background:#1a1a2e;border:3px solid gold;width:16px;height:16px;border-radius:50%;box-shadow:0 0 6px rgba(0,0,0,0.4)"></div>', iconSize:[16,16], iconAnchor:[8,8] })
+  }).bindPopup('<b>📍 Subject Property</b>').addTo(map);
+
+  // Radius rings
+  const rings = [{miles:1,meters:1609,color:'#e74c3c'},{miles:3,meters:4828,color:'#e67e22'},{miles:10,meters:16093,color:'#3498db'}];
+  rings.forEach(r => {
+    ringLayers[r.miles] = L.circle([lat, lon], {color:r.color,fill:false,radius:r.meters,weight:1.5,dashArray:'4,5',opacity:0.6})
+      .addTo(map).bindTooltip(r.miles+' mi',{permanent:false,direction:'right'});
+  });
+
+  // Event circles
+  events.forEach(e => {
+    if (!e.size_in && e.type === 'hail') return;
+    if (e.type !== 'hail') e = Object.assign({}, e, { size_in: e.size_in || 0.75 });
+    const color = e.type==='tornado'?'#6c1a6c':e.type==='wind'?'#3498db':e.size_in>=2.0?'#8B0000':e.size_in>=1.5?'#c0392b':e.size_in>=1.0?'#e67e22':e.size_in>=0.75?'#f39c12':'#95a5a6';
+    // Plot each report at its recorded location.
+    const eLat = e.eLat, eLon = e.eLon;
+    if (eLat == null || eLon == null) return;
+    const dp = e.date.split('-');
+    const circle = L.circleMarker([eLat,eLon],{color:'#172235',fillColor:color,fillOpacity:0.85,radius:Math.max(5, Math.min(12, e.size_in*5)),weight:1})
+      .bindPopup(`<b>${dp[1]}/${dp[2]}/${dp[0]}</b><br>Size: <b>${e.size_in}" (${e.size_desc})</b><br>Distance: ${e.distance_miles} mi<br>${e.at_property?'<span style="color:#c0392b;font-weight:bold">⚠️ At Property</span>':e.location}`)
+      .addTo(map);
+    allLayers.push({layer:circle,date:e.date,dist:e.distance_miles||0,size:e.size_in});
+  });
+
+  swathLayer = new L.SwathLayer([], { opacity: swathOpacity }).addTo(map);
+  renderHailLegend(document.getElementById('swathLegend'));
+  setRadius(1);
+}
+
+async function loadSwath(date) {
+  const ctl = document.getElementById('swathControls');
+  if (!swathLayer || !date || date === 'all') { if (swathLayer) swathLayer.setCells([]); ctl.style.display = 'none'; return; }
+  ctl.style.display = 'flex';
+  document.getElementById('swathLabel').textContent = 'Loading ' + fmtDate(date) + '...';
+  const d = 0.5;
+  const q = `date=${date}&w=${currentLon-d}&s=${currentLat-d}&e=${currentLon+d}&n=${currentLat+d}`;
+  document.getElementById('swathFullLink').href = `/hailmap?date=${date}&lat=${currentLat}&lon=${currentLon}`;
+  try {
+    const r = await fetch('/api/mesh/swath?' + q);
+    const j = await r.json();
+    swathLayer.setCells(j.cells || []);
+    const sd = (lastReport && lastReport.stormDates || []).find(s => s.date === date);
+    document.getElementById('swathLabel').textContent = j.cells && j.cells.length
+      ? `${fmtDate(date)}: up to ${j.maxIn.toFixed(2)}" nearby${sd && sd.radar ? `, ${sd.radar.atPropertyIn.toFixed(2)}" at the property` : ''}`
+      : `${fmtDate(date)}: no radar hail swath recorded near the property`;
+  } catch (e) { document.getElementById('swathLabel').textContent = 'Radar swath unavailable'; }
+}
+function setSwathOpacity(v) { swathOpacity = v / 100; if (swathLayer) swathLayer.setOpacity(swathOpacity); }
+window.setSwathOpacity = setSwathOpacity;
+
+function setRadius(miles) {
+  activeRadius = miles;
+  document.querySelectorAll('.radius-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('rbtn'+miles)?.classList.add('active');
+  const zooms = {1:13,3:12,10:11,30:10};
+  map?.setView([currentLat,currentLon],zooms[miles]||10);
+  Object.entries(ringLayers).forEach(([m,layer]) => {
+    layer.setStyle({opacity: miles===30?0.4:parseInt(m)<=miles?0.9:0.15});
+  });
+  applyFilters();
+}
+
+function filterMapToDate(dateVal) {
+  activeDateFilter = dateVal;
+  document.getElementById('dateFilter').value = dateVal;
+  document.querySelectorAll('.event-row').forEach(row => {
+    row.style.outline = (dateVal!=='all'&&row.dataset.date===dateVal)?'2px solid #c0392b':'';
+  });
+  if (dateVal !== 'all') document.getElementById('hailMap').scrollIntoView({behavior:'smooth',block:'center'});
+  loadSwath(dateVal);
+  applyFilters();
+}
+
+function applyFilters() {
+  let count = 0, bounds = [];
+  allLayers.forEach(item => {
+    const inR = activeRadius===30||item.dist<=activeRadius;
+    const inD = activeDateFilter==='all'||item.date===activeDateFilter;
+    if (inR&&inD) {
+      item.layer.setStyle({fillOpacity:activeDateFilter!=='all'?0.75:0.4,opacity:1,weight:activeDateFilter!=='all'?2:1});
+      if(activeDateFilter!=='all')item.layer.bringToFront();
+      bounds.push(item.layer.getLatLng()); count++;
+      item.layer.setRadius && item.layer.setRadius(Math.max(5, Math.min(12, item.size*5)));
+    } else if(!inR) {
+      item.layer.setStyle({fillOpacity:0.03,opacity:0.1});
+    } else {
+      item.layer.setStyle({fillOpacity:0.06,opacity:0.15});
+    }
+  });
+  const rl = activeRadius===30?'30 mi':activeRadius+' mi';
+  const dl = activeDateFilter==='all'?'':(() => {const p=activeDateFilter.split('-');return' on '+p[1]+'/'+p[2]+'/'+p[0];})();
+  document.getElementById('mapStatus').textContent = count+' event(s) within '+rl+dl;
+  if(activeDateFilter!=='all'&&bounds.length>0){
+    const lats=bounds.map(b=>b.lat),lons=bounds.map(b=>b.lng);
+    map?.fitBounds([[Math.min(...lats)-0.1,Math.min(...lons)-0.1],[Math.max(...lats)+0.1,Math.max(...lons)+0.1]]);
+  }
+}
+
+function resetMapFilters() {
+  activeDateFilter='all';
+  loadSwath('all');
+  document.getElementById('dateFilter').value='all';
+  document.querySelectorAll('.event-row').forEach(r=>r.style.outline='');
+  setRadius(1);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmtDate(iso) {
+  if (!iso) return 'N/A';
+  const [y,m,d] = iso.split('-');
+  return `${m}/${d}/${y}`;
+}
+
+function showAlert(msg, type='info') {
+  const el = document.getElementById('alertMsg');
+  el.className = `alert alert-${type}`;
+  el.innerHTML = msg;
+  el.style.display = 'block';
+}
+function hideAlert() { document.getElementById('alertMsg').style.display='none'; }
+
+async function logout() {
+  await fetch('/api/auth/logout',{method:'POST'});
+  window.location='/login';
+}
+
+// Allow Enter key to trigger search
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('addressInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runLookup();
+  });
+});
+
+window.filterMapToDate = filterMapToDate;
+window.setRadius = setRadius;
+window.resetMapFilters = resetMapFilters;
+window.logout = logout;
+// Push notification setup
+async function initPushNotifications() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  const banner = document.getElementById('pushBanner');
+  if (!banner) return;
+  const perm = Notification.permission;
+  if (perm === 'denied') return;
+  if (perm === 'default') {
+    banner.style.display = 'flex';
+  }
+}
+
+async function enablePushNotifications() {
+  try {
+    const btn = document.getElementById('pushEnableBtn');
+    btn.textContent = 'Enabling...'; btn.disabled = true;
+    // Register service worker
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    // Get VAPID key
+    const kr = await fetch('/api/push/vapid-key');
+    const { publicKey } = await kr.json();
+    if (!publicKey) { alert('Push not configured yet.'); return; }
+    // Subscribe
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey)
+    });
+    await fetch('/api/push/subscribe', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sub)
+    });
+    const banner = document.getElementById('pushBanner');
+    if (banner) banner.style.display = 'none';
+    showAlert('Push notifications enabled! Youll get alerts the moment hail is detected.', 'success');
+  } catch (err) {
+    showAlert('Could not enable push notifications: ' + err.message, 'error');
+    const pushBtn = document.getElementById('pushEnableBtn');
+    if (pushBtn) {
+      pushBtn.textContent = 'Enable Alerts';
+      pushBtn.disabled = false;
+    }
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)));
+}
+
+window.enablePushNotifications = enablePushNotifications;
+
+function toggleMobileMenu() { document.getElementById('mobileMenu').classList.toggle('open'); }
+function closeMobileMenu() { document.getElementById('mobileMenu').classList.remove('open'); }
+window.toggleMobileMenu = toggleMobileMenu; window.closeMobileMenu = closeMobileMenu;
+// Home briefing
+async function loadHomeBrief() {
+  try {
+    const res = await fetch('/api/home');
+    if (!res.ok) return;
+    const { recentLookups, recentAlerts, activeAlerts, recentSPCCount, recentStormDates, watchArea } = await res.json();
+
+    // Active alerts banner
+    const alertsEl = document.getElementById('activeAlertsSection');
+    if (activeAlerts && activeAlerts.length > 0) {
+      alertsEl.innerHTML = activeAlerts.map(a => `
+        <div class="alert-banner-live" onclick="window.location=`/storms`" style="cursor:pointer">
+          <div class="alert-icon">&#9888;&#65039;</div>
+          <div><h4>${a.event}</h4><p>${a.headline || a.event} | Severity: ${a.severity}</p></div>
+        </div>`).join('');
+    }
+
+    // Brief stats grid
+    const briefEl = document.getElementById('briefGrid');
+    const sevenDayAlerts = (recentAlerts || []).filter(a => {
+      const d = new Date(a.detectedAt || a.detected_at);
+      return (Date.now() - d.getTime()) < 7 * 24 * 60 * 60 * 1000;
+    }).length;
+    briefEl.innerHTML = `
+      <div class="brief-card accent" style="cursor:pointer" onclick="window.location=`/hailmap`"><div class="bc-val">${Math.max(sevenDayAlerts, recentSPCCount || 0) || 0}</div><div class="bc-lbl">Storm days (1+ hail) last 7 days</div>${Math.max(sevenDayAlerts, recentSPCCount||0) > 0 ? `<div style="margin-top:6px"><a href="/hailmap" style="font-size:0.75em;color:var(--red);font-weight:700">View Hail Map</a></div>` : ""}</div>
+      <div class="brief-card"><div class="bc-val">${(recentLookups||[]).length}</div><div class="bc-lbl">Recent lookups</div></div>
+      <div class="brief-card"><div class="bc-val" style="font-size:1.2em">${watchArea || 'Nationwide'}</div><div class="bc-lbl">Watch area</div></div>
+    `;
+
+    // Recent lookups quick access
+    if (recentLookups && recentLookups.length > 0) {
+      const miniEl = document.getElementById('recentLookupsMini');
+      const listEl = document.getElementById('recentLookupsList');
+      listEl.innerHTML = recentLookups.slice(0, 5).map(l => {
+        const addr = l.address || l.formattedAddress || 'Unknown address';
+        const score = l.impactScore !== undefined ? l.impactScore : (l.impact_score !== undefined ? l.impact_score : '?');
+        return `<div class="rl-item" onclick="reRunLookup('${addr}')">
+          <div class="rl-addr">${addr}</div>
+          <div class="rl-score">${score}/100</div>
+        </div>`;
+      }).join('');
+      miniEl.style.display = 'block';
+    }
+  } catch (e) { /* silent */ }
+}
+
+function reRunLookup(address) {
+  document.getElementById('addressInput').value = address;
+  runLookup();
+  document.getElementById('addressInput').scrollIntoView({ behavior: 'smooth' });
+}
+window.reRunLookup = reRunLookup;
+
+
+// ── Date of loss + storm-date table ────────────────────────
+function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function confBadge(c) { const k = c === 'Ground report' ? 'Ground' : c; return `<span class="conf conf-${k}">${c === 'Verified' ? '✓ Verified' : c}</span>`; }
+
+function renderDateOfLoss(data) {
+  const card = document.getElementById('dolCard');
+  if (!data.dateOfLoss) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  const list = data.dateOfLoss;
+  document.getElementById('dolList').innerHTML = list.length ? list.map((s, i) => {
+    const g = s.groundReports;
+    const bits = [];
+    if (s.radar) bits.push(`Radar ${s.radar.atPropertyIn.toFixed(2)}" at the property, ${s.radar.within1miIn.toFixed(2)}" within 1 mi`);
+    if (g.hailWithin3mi) bits.push(`${g.hailWithin3mi} ground hail report${g.hailWithin3mi > 1 ? 's' : ''} within 3 mi`);
+    if (g.maxWindMph) bits.push(`wind gusts to ${g.maxWindMph} mph`);
+    if (g.nearestTornadoMi != null && g.nearestTornadoMi <= 3) bits.push(`tornado ${g.nearestTornadoMi} mi away`);
+    return `<div class="dol-item" onclick="filterMapToDate('${s.date}')">
+      <div class="dol-rank">${i + 1}</div>
+      <div><strong>${fmtDate(s.date)}</strong>${confBadge(s.confidence)}<div style="font-size:0.82em;color:var(--muted);margin-top:2px">${bits.join(' · ') || 'Nearby activity'}</div></div>
+      <div class="dol-size">${s.bestEstimateIn ? s.bestEstimateIn.toFixed(2) + '"' : '—'}<div style="font-size:0.5em;font-weight:600;color:var(--muted)">${esc(s.sizeName || s.severity)}</div></div>
+    </div>`;
+  }).join('') : '<div style="color:var(--muted);font-size:0.9em">No damaging hail, wind or tornado activity at this property in the selected period.</div>';
+  const c = data.coverage || {};
+  const parts = [];
+  if (c.radar && c.radar.first) parts.push(`radar hail ${fmtDate(c.radar.first)} – ${fmtDate(c.radar.last)}`);
+  if (c.ncei && c.ncei.firstYear) parts.push(`NWS storm events ${c.ncei.firstYear} – ${fmtDate(c.ncei.end)}`);
+  if (c.spc && c.spc.first) parts.push(`spotter reports through ${fmtDate(c.spc.last)}`);
+  document.getElementById('srcNote').innerHTML = `<strong>Verified</strong> = radar shows 0.75"+ hail at the property and at least one ground report within 3 miles the same day. ` +
+    `<strong>Radar</strong> = radar estimate only. Data: NOAA MRMS radar, NCEI Storm Events, SPC storm reports${parts.length ? ` (${parts.join('; ')})` : ''}. Radar estimates can differ from what fell at a specific roof.`;
+}
+
+function buildStormDateTable(stormDates) {
+  const rows = stormDates.filter(s => s.bestEstimateIn >= 0.5 || (s.radar && s.radar.within10miIn >= 0.75) || s.groundReports.hailCount || s.groundReports.maxWindMph || s.groundReports.nearestTornadoMi != null);
+  function cell(sz) {
+    if (!sz) return '<td style="text-align:center;padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#94a3b8">—</td>';
+    const c = hailColor(sz);
+    return `<td style="text-align:center;padding:10px 12px;border-bottom:1px solid #e2e8f0;background:${c.bg};color:${c.text};font-weight:700">${sz.toFixed(2)}"</td>`;
+  }
+  document.getElementById('summaryBody').innerHTML = rows.length === 0
+    ? '<tr><td colspan="7" style="text-align:center;color:#888;padding:20px">No storm activity found</td></tr>'
+    : rows.map(s => {
+        const r = s.radar || {};
+        const g = s.groundReports;
+        const ground = [g.hailCount ? `${g.hailCount} hail (max ${g.largestHailIn.toFixed(2)}")` : '', g.maxWindMph ? `wind ${g.maxWindMph} mph` : '', g.nearestTornadoMi != null ? `tornado ${g.nearestTornadoMi} mi` : ''].filter(Boolean).join('<br>') || '—';
+        return `<tr onclick="filterMapToDate('${s.date}')" style="cursor:pointer" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+          <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#1e293b">${fmtDate(s.date)}</td>
+          ${cell(r.atPropertyIn)}${cell(r.within1miIn)}${cell(r.within3miIn)}${cell(r.within10miIn)}
+          <td style="text-align:center;padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:0.85em">${ground}</td>
+          <td style="text-align:center;padding:10px 12px;border-bottom:1px solid #e2e8f0">${confBadge(s.confidence)}</td>
+        </tr>`;
+      }).join('');
+}
+
+function openPrint(type) {
+  if (!lastReport) return;
+  try { sessionStorage.setItem('lastReport', JSON.stringify(lastReport)); } catch (e) {}
+  window.open('/report/print?type=' + type, '_blank');
+}
+window.openPrint = openPrint;
+
+function openReviewModal() {
+  if (!lastReport) return;
+  const opts = (lastReport.dateOfLoss || []).map(s => `<option value="${s.date}">${fmtDate(s.date)} (${s.bestEstimateIn.toFixed(2)}")</option>`).join('');
+  document.getElementById('reviewDate').innerHTML = opts || '<option value="">No damaging dates found</option>';
+  document.getElementById('reviewMsg').style.display = 'none';
+  document.getElementById('reviewModal').style.display = 'flex';
+}
+function closeReviewModal() { document.getElementById('reviewModal').style.display = 'none'; }
+async function submitReview() {
+  const msg = document.getElementById('reviewMsg');
+  const date = document.getElementById('reviewDate').value;
+  if (!date) return;
+  const btn = document.getElementById('reviewSubmit'); btn.disabled = true;
+  try {
+    const r = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: lastReport.address, lat: lastReport.lat, lon: lastReport.lon, dateOfLoss: date, notes: document.getElementById('reviewNotes').value }) });
+    const j = await r.json();
+    if (j.checkoutUrl) { window.location = j.checkoutUrl; return; }
+    msg.className = 'alert ' + (r.ok ? 'alert-success' : 'alert-error');
+    msg.textContent = r.ok ? 'Request received. We will email you a quote and turnaround time.' : (j.error || 'Request failed.');
+    msg.style.display = 'block';
+  } catch (e) { msg.className = 'alert alert-error'; msg.textContent = 'Connection error.'; msg.style.display = 'block'; }
+  btn.disabled = false;
+}
+window.openReviewModal = openReviewModal; window.closeReviewModal = closeReviewModal; window.submitReview = submitReview;
+
+// ── Print / PDF ─────────────────────────────────────────────
+// Inject print styles and open print dialog
+function printReport() {
+  // Make sure map is showing all events for print
+  resetMapFilters();
+
+  // Add print-specific styles temporarily
+  const style = document.createElement('style');
+  style.id = 'print-styles';
+  style.textContent = `
+    @media print {
+      .nav, .lookup-box, .upgrade-banner, .history-section,
+      .map-controls, .btn, button, select { display: none !important; }
+      body { background: white !important; }
+      .page-wrap { padding: 0 !important; max-width: 100% !important; }
+      .impact-header, .map-section, .events-section {
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+        break-inside: avoid;
+        margin-bottom: 12px !important;
+      }
+      #hailMap { height: 320px !important; }
+      .results-section { display: block !important; }
+      .print-header { display: block !important; }
+    }
+  `;
+  document.head.appendChild(style);
+
+  // Add a print header
+  const header = document.createElement('div');
+  header.className = 'print-header';
+  header.style.cssText = 'display:none;text-align:center;padding:16px 0 24px;border-bottom:2px solid #1a1a2e;margin-bottom:20px';
+  header.innerHTML = `
+    <div style="font-size:1.4em;font-weight:900;color:#1a1a2e">StormCheck Pro</div>
+    <div style="font-size:0.85em;color:#888">Powered by First Call Public Adjusters &nbsp;|&nbsp; (817) 618-9884 &nbsp;|&nbsp; thepublicadjustertx.com</div>
+    <div style="font-size:0.8em;color:#aaa;margin-top:4px">Report generated: ${new Date().toLocaleString()}</div>
+  `;
+  document.querySelector('.page-wrap').prepend(header);
+
+  window.print();
+
+  // Clean up after print
+  setTimeout(() => {
+    document.getElementById('print-styles')?.remove();
+    header.remove();
+  }, 1000);
+}
+
+function copyReportLink() {
+  const addr = document.getElementById('addressInput').value;
+  if (!addr) return;
+  const url = window.location.origin + '/dashboard?address=' + encodeURIComponent((lastReport && lastReport.address) || addr);
+  navigator.clipboard.writeText(url).then(() => {
+    showAlert('Link copied to clipboard!', 'success');
+    setTimeout(hideAlert, 2000);
+  });
+}
+
+// Event type filter
+let activeEventTypes = new Set(['hail','wind','tornado']);
+function toggleEventType(type) {
+  const btn = document.getElementById('ft'+type.charAt(0).toUpperCase()+type.slice(1));
+  if (activeEventTypes.has(type)) {
+    if (activeEventTypes.size === 1) return; // keep at least one
+    activeEventTypes.delete(type);
+    btn.classList.remove('active');
+  } else {
+    activeEventTypes.add(type);
+    btn.classList.add('active');
+  }
+  applyFilters();
+}
+window.toggleEventType = toggleEventType;
+
+window.printReport = printReport;
+window.copyReportLink = copyReportLink;
+
+// Patch: sync event table to radius + date filter
+const _origApplyFilters = applyFilters;
+window.applyFilters = function() {
+  _origApplyFilters();
+  // Also filter table rows by radius and date
+  let tableVisible = 0;
+  document.querySelectorAll('.event-row').forEach(row => {
+    const rowDate = row.dataset.date;
+    const rowDist = parseFloat(row.dataset.dist || '99');
+    const rowType = row.dataset.type || 'hail';
+    const inR = activeRadius === 30 || rowDist <= activeRadius;
+    const inD = activeDateFilter === 'all' || rowDate === activeDateFilter;
+    const inT = activeEventTypes.has(rowType);
+    row.style.display = (inR && inD && inT) ? '' : 'none';
+    if (inR && inD && inT) tableVisible++;
+  });
+  const titleEl = document.getElementById('eventsTitle');
+  if (titleEl) {
+    const rl = activeRadius === 30 ? '30 mi' : activeRadius + ' mi';
+    const dl = activeDateFilter !== 'all' ? (' on ' + fmtDate(activeDateFilter)) : '';
+    titleEl.textContent = 'Hail Event History — ' + tableVisible + ' Events within ' + rl + dl;
+  }
+};
+
+loadHomeBrief();
+initPushNotifications();
+init();
+</script>
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{});}</script>
+</body>
+</html>

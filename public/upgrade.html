@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#172235"><link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upgrade — StormCheck Pro</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .upgrade-page { max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+    .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 32px; }
+    .plan-card { background: white; border-radius: 12px; padding: 28px 20px; border: 2px solid var(--border); position: relative; }
+    .plan-card.highlighted { border-color: var(--red); box-shadow: 0 4px 20px rgba(192,57,43,0.15); }
+    .plan-card .badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--red); color: white; padding: 3px 16px; border-radius: 20px; font-size: 0.75em; font-weight: 700; white-space: nowrap; }
+    .plan-card .plan-name { font-weight: 900; font-size: 1.1em; color: var(--navy); margin-bottom: 6px; }
+    .plan-card .plan-price { font-size: 2.4em; font-weight: 900; color: var(--navy); line-height: 1; }
+    .plan-card .plan-price span { font-size: 0.3em; color: var(--muted); font-weight: 600; }
+    .plan-card .plan-sub { color: var(--muted); font-size: 0.82em; margin: 6px 0 16px; }
+    .plan-feature { display: flex; align-items: flex-start; gap: 8px; padding: 5px 0; font-size: 0.85em; border-bottom: 1px solid #f1f5f9; }
+    .plan-feature:last-child { border-bottom: none; }
+    .plan-feature .check { color: #22c55e; flex-shrink: 0; font-weight: 700; }
+    .plan-feature .x { color: #94a3b8; flex-shrink: 0; }
+    .compare-note { text-align: center; color: var(--muted); font-size: 0.85em; margin-bottom: 24px; }
+    .cancel-note { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; font-size: 0.85em; color: #166534; text-align: center; }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="brand">Storm<span>Check</span> Pro</div>
+  <div class="nav-links">
+    <a href="/dashboard">Dashboard</a>
+    <a href="#" onclick="logout()" class="btn-nav btn">Sign Out</a>
+  </div>
+</nav>
+
+<div class="upgrade-page">
+  <div style="text-align:center;margin-bottom:32px">
+    <h1 style="font-size:1.8em;color:var(--navy);margin-bottom:8px">Choose Your Plan</h1>
+    <p style="color:var(--muted)">Upgrade anytime. Cancel anytime. Access continues through end of billing period.</p>
+  </div>
+
+  <div id="alertMsg" class="alert" style="display:none;margin-bottom:16px"></div>
+
+  <!-- Promo Code -->
+  <div class="card" style="margin-bottom:20px;padding:20px">
+    <div style="font-weight:700;color:var(--navy);margin-bottom:8px">Have a promo code?</div>
+    <div style="display:flex;gap:10px">
+      <input type="text" id="promoCode" placeholder="Enter promo code (e.g. STORM50)" style="flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:7px;font-size:0.95em;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+      <button onclick="applyPromo()" class="btn btn-outline btn-sm">Apply</button>
+    </div>
+    <div id="promoMsg" style="display:none;margin-top:8px;font-size:0.85em"></div>
+  </div>
+
+  <div class="plans-grid">
+
+    <!-- Starter -->
+    <div class="plan-card">
+      <div class="plan-name">Starter</div>
+      <div class="plan-price">$39<span>/mo</span></div>
+      <div class="plan-sub">Solo pros, 1-state focus</div>
+      <div class="plan-feature"><span class="check">✓</span> Unlimited reports in 1 state</div>
+      <div class="plan-feature"><span class="check">✓</span> Radar hail swath maps</div>
+      <div class="plan-feature"><span class="check">✓</span> Storm alerts for that state</div>
+      <div class="plan-feature"><span class="check">✓</span> Lead lists</div>
+      <div class="plan-feature"><span class="check">✓</span> 1 user</div>
+      <div class="plan-feature"><span class="x">—</span> Nationwide coverage &amp; storm playback</div>
+      <div class="plan-feature"><span class="x">—</span> Company branding on reports</div>
+      <div class="plan-feature"><span class="x">—</span> Team members</div>
+      <br>
+      <button class="btn btn-outline btn-block" onclick="checkout('starter')">Select Starter</button>
+    </div>
+
+    <!-- Pro -->
+    <div class="plan-card highlighted">
+      <div class="badge">MOST POPULAR</div>
+      <div class="plan-name">Pro</div>
+      <div class="plan-price">$79<span>/mo</span></div>
+      <div class="plan-sub">Nationwide coverage</div>
+      <div class="plan-feature"><span class="check">✓</span> Unlimited reports in all 50 states</div>
+      <div class="plan-feature"><span class="check">✓</span> Storm playback</div>
+      <div class="plan-feature"><span class="check">✓</span> Territory &amp; portfolio alerts</div>
+      <div class="plan-feature"><span class="check">✓</span> Lead lists &amp; swath exports</div>
+      <div class="plan-feature"><span class="check">✓</span> Company name on reports</div>
+      <div class="plan-feature"><span class="check">✓</span> 1 user</div>
+      <div class="plan-feature"><span class="x">—</span> Company logo on reports</div>
+      <div class="plan-feature"><span class="x">—</span> Team members</div>
+      <br>
+      <button class="btn btn-primary btn-block" onclick="checkout('pro')">Select Pro</button>
+    </div>
+
+    <!-- Team -->
+    <div class="plan-card">
+      <div class="plan-name">Team</div>
+      <div class="plan-price">$149<span>/mo</span></div>
+      <div class="plan-sub">Crews, agencies &amp; brokerages</div>
+      <div class="plan-feature"><span class="check">✓</span> Everything in Pro</div>
+      <div class="plan-feature"><span class="check">✓</span> Hail warning heads-up for your properties</div>
+      <div class="plan-feature"><span class="check">✓</span> Company name + logo on reports</div>
+      <div class="plan-feature"><span class="check">✓</span> Up to 5 team members</div>
+      <div class="plan-feature"><span class="x">—</span> Full white-label</div>
+      <div class="plan-feature"><span class="x">—</span> Unlimited users</div>
+      <br>
+      <button class="btn btn-outline btn-block" onclick="checkout('team')">Select Team</button>
+    </div>
+
+    <!-- Enterprise -->
+    <div class="plan-card" style="border-color:#7c3aed">
+      <div class="plan-name" style="color:#7c3aed">Enterprise</div>
+      <div class="plan-price" style="color:#7c3aed">$199<span>/mo</span></div>
+      <div class="plan-sub">Full white-label for large teams</div>
+      <div class="plan-feature"><span class="check">✓</span> Everything in Team</div>
+      <div class="plan-feature"><span class="check">✓</span> Full white-label — remove StormCheck branding</div>
+      <div class="plan-feature"><span class="check">✓</span> Custom logo + colors on reports</div>
+      <div class="plan-feature"><span class="check">✓</span> <strong>Unlimited</strong> team members</div>
+      <div class="plan-feature"><span class="check">✓</span> Priority support</div>
+      <br>
+      <button class="btn btn-block" style="background:#7c3aed;color:white;border:none;padding:11px;border-radius:7px;font-weight:700;cursor:pointer" onclick="checkout('enterprise')">Select Enterprise</button>
+    </div>
+
+  </div>
+
+  <div class="compare-note">All plans include: radar hail at the property · verified storm dates · date-of-loss finder · hail, wind &amp; tornado history · branded PDF and Storm Disclosure reports</div>
+
+  <div class="cancel-note">
+    🛡️ <strong>Cancel anytime.</strong> Access continues through end of your current billing period. No partial refunds. Questions? Call <a href="tel:8176189884" style="color:#166534">(817) 618-9884</a>
+  </div>
+
+  <div style="text-align:center;margin-top:20px">
+    <a href="/dashboard" style="color:var(--muted);font-size:0.88em;text-decoration:none">← Back to dashboard</a>
+  </div>
+</div>
+
+<script>
+// Map tier names to Stripe price IDs
+// Add these as STRIPE_PRICE_ID_STARTER, STRIPE_PRICE_ID_PRO etc in Railway
+// For now falls back to single STRIPE_PRICE_ID
+
+let appliedPromo = '';
+
+function applyPromo() {
+  const code = document.getElementById('promoCode').value.trim().toUpperCase();
+  const msgEl = document.getElementById('promoMsg');
+  if (!code) { msgEl.textContent = 'Please enter a promo code.'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block'; return; }
+  appliedPromo = code;
+  msgEl.textContent = 'Promo code "' + code + '" applied! Your discount will be reflected at checkout.';
+  msgEl.style.color = '#166534';
+  msgEl.style.display = 'block';
+}
+
+async function checkout(tier) {
+  const alertEl = document.getElementById('alertMsg');
+  alertEl.style.display = 'none';
+  try {
+    const res = await fetch('/api/stripe/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tier, promoCode: appliedPromo || undefined })
+    });
+    const data = await res.json();
+    if (data.url) { window.location = data.url; }
+    else {
+      alertEl.className = 'alert alert-warning';
+      alertEl.innerHTML = 'Online checkout is being configured. <strong>Call or text (817) 618-9884</strong> to subscribe now.';
+      alertEl.style.display = 'block';
+    }
+  } catch(e) {
+    alertEl.className = 'alert alert-error';
+    alertEl.textContent = 'Connection error. Please try again.';
+    alertEl.style.display = 'block';
+  }
+}
+
+async function logout() {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  window.location = '/login';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#172235"><link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alert Settings — StormCheck Pro</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+  <style>
+    .settings-wrap { max-width: 900px; margin: 40px auto; padding: 0 20px; }
+    #regionMap { height: 350px; border-radius: 10px; border: 1px solid var(--border); margin-top: 12px; }
+    .region-card { background: #f8f9fa; border-radius: 8px; padding: 12px 16px; margin-top: 8px; display: flex; align-items: center; justify-content: space-between; }
+    .alert-size-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+    .alert-size-row .form-group { min-width: 180px; flex: 1; }
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .toggle-row:last-child { border-bottom: none; }
+    .toggle-label { font-size: 0.9em; color: var(--navy); font-weight: 600; }
+    .toggle-sub { font-size: 0.78em; color: var(--muted); }
+    input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="brand">Storm<span>Check</span> Pro</div>
+  <div class="nav-links">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/settings">Settings</a>
+    <a href="/alert-settings" style="color:white;font-weight:700">⚡ Alert Settings</a>
+    <a href="#" onclick="logout()" class="btn-nav btn">Sign Out</a>
+  </div>
+</nav>
+
+<div class="settings-wrap">
+  <h1 class="page-title">⚡ Alert Settings</h1>
+  <div id="alertMsg" class="alert" style="display:none;margin-bottom:16px"></div>
+
+  <!-- Alert Regions -->
+  <div class="card" style="margin-bottom:20px">
+    <div style="font-weight:700;color:var(--navy);font-size:1.1em;margin-bottom:4px">Alert Regions</div>
+    <div style="color:var(--muted);font-size:0.88em;margin-bottom:16px">Define geographic areas where you want to receive storm alerts. Storms outside these regions will be filtered out.</div>
+
+    <div id="regionsLoading" style="color:var(--muted);font-size:0.88em">Loading regions...</div>
+    <div id="regionsList"></div>
+
+    <div style="margin-top:14px">
+      <div style="font-weight:600;color:var(--navy);margin-bottom:8px;font-size:0.9em">Add Region</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <input type="text" id="regionSearch" placeholder="City, state, or zip code" style="flex:1;min-width:200px">
+        <input type="number" id="regionRadius" placeholder="Radius (miles)" value="50" style="max-width:150px">
+        <button class="btn btn-primary btn-sm" onclick="addRegion()">+ Add Region</button>
+      </div>
+    </div>
+
+    <div id="regionMap"></div>
+  </div>
+
+  <!-- Alert Type Settings -->
+  <div class="card" style="margin-bottom:20px">
+    <div style="font-weight:700;color:var(--navy);font-size:1.1em;margin-bottom:4px">Hail Alert Sizes</div>
+    <div style="color:var(--muted);font-size:0.88em;margin-bottom:16px">Only receive alerts for storms meeting these minimum sizes.</div>
+    <div class="alert-size-row">
+      <div class="form-group">
+        <label>On-the-Ground Reports (SPC)</label>
+        <select id="hailSizeGround">
+          <option value="0.75">0.75" Penny (any damage)</option>
+          <option value="1.0">1.00" Quarter</option>
+          <option value="1.25" selected>1.25" Half Dollar</option>
+          <option value="1.5">1.50" Golf Ball</option>
+          <option value="1.75">1.75" Golf Ball+</option>
+          <option value="2.0">2.00" Egg</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alert Types -->
+  <div class="card" style="margin-bottom:20px">
+    <div style="font-weight:700;color:var(--navy);font-size:1.1em;margin-bottom:14px">Alert Types</div>
+    <div class="toggle-row">
+      <div><div class="toggle-label">🌨️ Hail Alerts</div><div class="toggle-sub">Receive alerts when hail meets your minimum size threshold</div></div>
+      <input type="checkbox" id="alertHail" checked>
+    </div>
+    <div class="toggle-row">
+      <div><div class="toggle-label">💨 Wind Alerts</div><div class="toggle-sub">Receive alerts for significant wind events (58mph+)</div></div>
+      <input type="checkbox" id="alertWind" checked>
+    </div>
+    <div class="toggle-row">
+      <div><div class="toggle-label">🌪️ Tornado Alerts</div><div class="toggle-sub">Receive alerts for all tornado touchdowns</div></div>
+      <input type="checkbox" id="alertTornado" checked>
+    </div>
+    <div class="toggle-row">
+      <div><div class="toggle-label">🔔 Email Notifications</div><div class="toggle-sub">Send alert emails to your account email address</div></div>
+      <input type="checkbox" id="alertEmail" checked>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" onclick="saveSettings()">Save Alert Settings</button>
+</div>
+
+<script>
+let regionMap, drawnRegions = L.layerGroup(), savedRegions = [];
+
+window.addEventListener('load', () => {
+  regionMap = L.map('regionMap').setView([33.5, -97.5], 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(regionMap);
+  drawnRegions.addTo(regionMap);
+  loadSettings();
+});
+
+async function loadSettings() {
+  try {
+    const res = await fetch('/api/alert-settings');
+    if (!res.ok) return;
+    const { settings } = await res.json();
+    if (settings) {
+      document.getElementById('hailSizeGround').value = settings.minHailSize || '1.25';
+      document.getElementById('alertHail').checked = settings.alertHail !== false;
+      document.getElementById('alertWind').checked = settings.alertWind !== false;
+      document.getElementById('alertTornado').checked = settings.alertTornado !== false;
+      document.getElementById('alertEmail').checked = settings.alertEmail !== false;
+      savedRegions = settings.regions || [];
+      renderRegions();
+    }
+  } catch (e) {}
+  document.getElementById('regionsLoading').style.display = 'none';
+}
+
+function renderRegions() {
+  drawnRegions.clearLayers();
+  const el = document.getElementById('regionsList');
+  if (!savedRegions.length) { el.innerHTML = '<div style="color:var(--muted);font-size:0.85em;padding:8px 0">No regions yet. Add the areas you work to get territory alerts when radar shows hail there.</div>'; return; }
+  el.innerHTML = savedRegions.map((r, i) => `
+    <div class="region-card">
+      <div>
+        <strong>${r.name}</strong>
+        <div style="font-size:0.82em;color:var(--muted)">${r.radius} mile radius · ${r.lat.toFixed(3)}, ${r.lon.toFixed(3)}</div>
+      </div>
+      <button class="btn btn-sm btn-danger" onclick="removeRegion(${i})">Remove</button>
+    </div>`).join('');
+  // Draw on map
+  savedRegions.forEach(r => {
+    L.circle([r.lat, r.lon], { color:'#c0392b', fillColor:'#c0392b', fillOpacity:0.15, radius: r.radius * 1609.34 })
+      .bindTooltip(r.name, { permanent: true, direction: 'center' })
+      .addTo(drawnRegions);
+  });
+  const bounds = savedRegions.map(r => [r.lat, r.lon]);
+  if (bounds.length) regionMap.fitBounds(bounds.map(b => [b[0]-0.5, b[1]-0.5]).concat(bounds.map(b => [b[0]+0.5, b[1]+0.5])));
+}
+
+async function addRegion() {
+  const search = document.getElementById('regionSearch').value.trim();
+  const radius = parseInt(document.getElementById('regionRadius').value) || 50;
+  if (!search) return;
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(search)}`, { headers: { 'Accept-Language': 'en-US' } });
+    const data = await r.json();
+    if (!data.length) { alert('Location not found.'); return; }
+    savedRegions.push({ name: data[0].display_name.split(',').slice(0,2).join(','), lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), radius });
+    document.getElementById('regionSearch').value = '';
+    renderRegions();
+  } catch (e) { alert('Geocoding error.'); }
+}
+
+function removeRegion(i) { savedRegions.splice(i, 1); renderRegions(); }
+
+async function saveSettings() {
+  const btn = event.target;
+  const alertEl = document.getElementById('alertMsg');
+  btn.textContent = 'Saving...'; btn.disabled = true;
+  try {
+    const res = await fetch('/api/alert-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        minHailSize: document.getElementById('hailSizeGround').value,
+        alertHail: document.getElementById('alertHail').checked,
+        alertWind: document.getElementById('alertWind').checked,
+        alertTornado: document.getElementById('alertTornado').checked,
+        alertEmail: document.getElementById('alertEmail').checked,
+        regions: savedRegions
+      })
+    });
+    alertEl.className = 'alert alert-success'; alertEl.textContent = '✅ Alert settings saved!'; alertEl.style.display = 'block';
+    setTimeout(() => alertEl.style.display = 'none', 3000);
+  } catch (e) {
+    alertEl.className = 'alert alert-error'; alertEl.textContent = 'Save failed.'; alertEl.style.display = 'block';
+  } finally { btn.textContent = 'Save Alert Settings'; btn.disabled = false; }
+}
+
+async function logout() { await fetch('/api/auth/logout',{method:'POST'}); window.location='/login'; }
+</script>
+</body>
+</html>

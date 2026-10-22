@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head><title>StormCheck Pro Icons v2</title></head>
+<body style="background:#0f172a;color:white;font-family:sans-serif;padding:20px">
+<h2>StormCheck Pro — Download Icons</h2>
+<canvas id="c192" width="192" height="192"></canvas>
+<canvas id="c512" width="512" height="512" style="width:128px;height:128px;margin-left:10px"></canvas>
+<br><br>
+<a id="dl192" download="icon-192.png" style="color:#3b82f6;margin-right:20px;font-size:16px">⬇ Download 192x192</a>
+<a id="dl512" download="icon-512.png" style="color:#3b82f6;font-size:16px">⬇ Download 512x512</a>
+<p style="color:#94a3b8;margin-top:16px">After downloading, replace the files in public/icons/ and push to GitHub.</p>
+<script>
+function draw(canvas) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, s = w/512;
+
+  // Rounded rect background
+  ctx.beginPath();
+  const r = 90*s;
+  ctx.moveTo(r,0); ctx.lineTo(w-r,0); ctx.arcTo(w,0,w,r,r);
+  ctx.lineTo(w,w-r); ctx.arcTo(w,w,w-r,w,r);
+  ctx.lineTo(r,w); ctx.arcTo(0,w,0,w-r,r);
+  ctx.lineTo(0,r); ctx.arcTo(0,0,r,0,r); ctx.closePath();
+  const bg = ctx.createLinearGradient(0,0,w,w);
+  bg.addColorStop(0,'#1a3a6e'); bg.addColorStop(1,'#0a1628');
+  ctx.fillStyle = bg; ctx.fill();
+
+  // Subtle grid dots
+  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  for(let x=20*s;x<w;x+=30*s) for(let y=20*s;y<w;y+=30*s) { ctx.beginPath(); ctx.arc(x,y,1.5*s,0,Math.PI*2); ctx.fill(); }
+
+  // Cloud — dark blue
+  ctx.fillStyle = '#1e40af';
+  ctx.beginPath(); ctx.ellipse(256*s,268*s,155*s,75*s,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(185*s,240*s,95*s,70*s,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(330*s,230*s,100*s,75*s,0,0,Math.PI*2); ctx.fill();
+
+  // Cloud highlight
+  ctx.fillStyle = '#2563eb';
+  ctx.beginPath(); ctx.ellipse(256*s,258*s,140*s,62*s,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(190*s,232*s,82*s,58*s,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(325*s,222*s,88*s,62*s,0,0,Math.PI*2); ctx.fill();
+
+  // Lightning glow (shadow)
+  ctx.shadowColor='#fcd34d'; ctx.shadowBlur=30*s;
+  ctx.fillStyle='rgba(251,191,36,0.25)';
+  ctx.beginPath();
+  ctx.moveTo(275*s,148*s); ctx.lineTo(218*s,285*s); ctx.lineTo(258*s,285*s);
+  ctx.lineTo(232*s,372*s); ctx.lineTo(298*s,245*s); ctx.lineTo(258*s,245*s);
+  ctx.lineTo(295*s,148*s); ctx.closePath(); ctx.fill();
+
+  // Lightning bolt main
+  ctx.shadowBlur=18*s;
+  ctx.fillStyle='#f59e0b';
+  ctx.beginPath();
+  ctx.moveTo(275*s,148*s); ctx.lineTo(218*s,285*s); ctx.lineTo(258*s,285*s);
+  ctx.lineTo(232*s,372*s); ctx.lineTo(298*s,245*s); ctx.lineTo(258*s,245*s);
+  ctx.lineTo(295*s,148*s); ctx.closePath(); ctx.fill();
+
+  // Lightning highlight
+  ctx.shadowBlur=0; ctx.fillStyle='rgba(253,230,138,0.6)';
+  ctx.beginPath();
+  ctx.moveTo(280*s,155*s); ctx.lineTo(250*s,240*s); ctx.lineTo(268*s,240*s);
+  ctx.lineTo(258*s,175*s); ctx.closePath(); ctx.fill();
+
+  return canvas.toDataURL('image/png');
+}
+
+const d192 = draw(document.getElementById('c192'));
+const d512 = draw(document.getElementById('c512'));
+document.getElementById('dl192').href = d192;
+document.getElementById('dl512').href = d512;
+</script>
+</body>
+</html>

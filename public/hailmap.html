@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#172235">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.json">
+  <title>Hail Swath Map — StormCheck Pro</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/lib/leaflet.min.css"/>
+  <script src="/lib/leaflet.min.js"></script>
+  <script src="/js/swath-layer.js"></script>
+  <style>
+    body { display: flex; flex-direction: column; height: 100vh; }
+    .hm { flex: 1; display: flex; min-height: 0; flex-wrap: wrap; }
+    .panel { width: 340px; max-width: 100%; background: white; border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+    .panel-sec { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+    .panel h2 { font-size: 1em; color: var(--navy); margin-bottom: 8px; }
+    #map { flex: 1 1 400px; min-height: 420px; }
+    .days { overflow-y: auto; flex: 1; min-height: 120px; }
+    .day { display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left; padding: 11px 16px; border: 0; border-bottom: 1px solid #f1f5f9; background: white; cursor: pointer; font-size: 0.92em; min-height: 44px; }
+    .day:hover { background: #f8fafc; }
+    .day.active { background: #172235; color: white; }
+    .day .sz { font-weight: 800; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .row label { font-size: 0.85em; color: #444; }
+    .row input[type=text] { flex: 1; min-width: 0; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 7px; font-size: 0.95em; }
+    .legend { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 0.78em; color: #475569; }
+    .legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .legend i { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+    .play { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .play input[type=range] { flex: 1; min-width: 120px; }
+    .muted { color: var(--muted); font-size: 0.82em; }
+    .stat { font-size: 0.9em; margin-top: 6px; }
+    @media (max-width: 760px) { body { height: auto; } .panel { width: 100%; border-right: 0; } .days { max-height: 260px; } #map { height: 60vh; flex-basis: 100%; } }
+  </style>
+</head>
+<body>
+<nav class="nav">
+  <div class="brand">Storm<span>Check</span> Pro</div>
+  <div class="nav-links">
+    <a href="/dashboard">Lookup</a><a href="/hailmap" style="color:white;font-weight:700">Hail Map</a><a href="/storms">Storms</a><a href="/watchlist">Portfolio</a><a href="/leads">Lead Lists</a>
+    <a href="#" onclick="logout()" class="btn-nav btn">Sign Out</a>
+  </div>
+</nav>
+
+<div class="hm">
+  <aside class="panel">
+    <div class="panel-sec">
+      <h2>Find an area</h2>
+      <form class="row" onsubmit="searchPlace(event)">
+        <label for="placeQ" class="sr" style="position:absolute;left:-9999px">City, ZIP or address</label>
+        <input type="text" id="placeQ" placeholder="City, ZIP or address">
+        <button class="btn btn-secondary btn-sm" type="submit" style="min-height:40px">Go</button>
+      </form>
+    </div>
+    <div class="panel-sec">
+      <div class="row" style="justify-content:space-between">
+        <h2 style="margin:0">Hail days in this view</h2>
+        <select id="minIn" onchange="loadDays()" aria-label="Minimum hail size" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:6px">
+          <option value="0.75">0.75"+</option><option value="1" selected>1"+</option><option value="1.5">1.5"+</option><option value="2">2"+</option>
+        </select>
+      </div>
+      <div class="muted" id="daysStatus">Loading...</div>
+    </div>
+    <div class="days" id="days"></div>
+    <div class="panel-sec" id="dayPanel" style="display:none">
+      <h2 id="dayTitle"></h2>
+      <div class="stat" id="dayStat"></div>
+      <div class="row" style="margin-top:10px">
+        <label for="opacity">Transparency</label>
+        <input type="range" id="opacity" min="0" max="100" value="70" oninput="swath.setOpacity(this.value/100)">
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label><input type="checkbox" id="showReports" checked onchange="toggleReports()"> Ground reports</label>
+      </div>
+      <div class="play" style="margin-top:12px">
+        <button class="btn btn-outline btn-sm" id="playBtn" onclick="togglePlayback()" style="min-height:40px">Play storm</button>
+        <input type="range" id="frameSlider" min="0" max="0" value="0" oninput="showFrame(+this.value)" disabled aria-label="Playback time">
+      </div>
+      <div class="muted" id="frameLabel"></div>
+      <div class="row" style="margin-top:12px">
+        <a class="btn btn-primary btn-sm" id="leadsLink" href="/leads" style="min-height:40px">Lead list for this view</a>
+      </div>
+    </div>
+    <div class="panel-sec">
+      <div class="legend" id="legend"></div>
+      <div class="muted" style="margin-top:6px">Radar-estimated max hail size (NOAA MRMS), 12Z–12Z.</div>
+    </div>
+  </aside>
+  <div id="map" role="application" aria-label="Hail swath map"></div>
+</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+let map, swath, reportsLayer = L.layerGroup(), currentDate = params.get('date'), frames = null, frameIdx = 0, playTimer = null;
+
+function fmtDate(iso) { const [y,m,d] = iso.split('-'); return new Date(Date.UTC(+y, m-1, +d, 12)).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }); }
+function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function viewBox(maxDeg) {
+  const b = map.getBounds(), c = map.getCenter();
+  let w = b.getWest(), e = b.getEast(), s = b.getSouth(), n = b.getNorth();
+  if (e - w > maxDeg) { w = c.lng - maxDeg / 2; e = c.lng + maxDeg / 2; }
+  if (n - s > maxDeg) { s = c.lat - maxDeg / 2; n = c.lat + maxDeg / 2; }
+  const r = v => v.toFixed(3);
+  return { w: r(w), s: r(s), e: r(e), n: r(n), q: `w=${r(w)}&s=${r(s)}&e=${r(e)}&n=${r(n)}` };
+}
+
+async function init() {
+  const me = await fetch('/api/me');
+  if (!me.ok) return location = '/login';
+  map = L.map('map', { zoomControl: true });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 17 }).addTo(map);
+  swath = new L.SwathLayer([], { opacity: 0.7 }).addTo(map);
+  reportsLayer.addTo(map);
+  renderHailLegend(document.getElementById('legend'));
+  const lat = parseFloat(params.get('lat')), lon = parseFloat(params.get('lon'));
+  if (Number.isFinite(lat) && Number.isFinite(lon)) map.setView([lat, lon], 10);
+  else {
+    let center = [37.5, -96], zoom = 5;
+    try {
+      const s = await (await fetch('/api/alert-settings')).json();
+      const r0 = s.settings && s.settings.regions && s.settings.regions[0];
+      if (r0) { center = [r0.lat, r0.lon]; zoom = 8; }
+    } catch (e) {}
+    map.setView(center, zoom);
+  }
+  let t; map.on('moveend', () => { clearTimeout(t); t = setTimeout(() => { loadDays(); if (currentDate && !frames) loadSwath(currentDate); }, 350); });
+  loadDays();
+  if (currentDate) loadSwath(currentDate);
+}
+
+async function loadDays() {
+  const v = viewBox(30);
+  const minIn = document.getElementById('minIn').value;
+  document.getElementById('daysStatus').textContent = 'Loading...';
+  try {
+    const r = await fetch(`/api/mesh/days?${v.q}&minIn=${minIn}&limit=120`);
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error);
+    const cov = j.coverage || {};
+    document.getElementById('daysStatus').textContent = j.days.length
+      ? `${j.days.length} day${j.days.length > 1 ? 's' : ''} · radar history ${cov.first ? fmtDate(cov.first) : ''} to ${cov.last ? fmtDate(cov.last) : ''}`
+      : (cov.count ? 'No hail of that size in this view. Zoom out or lower the size.' : 'Radar history is still loading. Check back shortly.');
+    document.getElementById('days').innerHTML = j.days.map(d => `<button class="day ${d.date === currentDate ? 'active' : ''}" onclick="selectDay('${d.date}')"><span>${fmtDate(d.date)}</span><span class="sz" style="color:${d.date === currentDate ? '#F2A93B' : hailColor(d.maxIn)}">${d.maxIn.toFixed(2)}"</span></button>`).join('');
+  } catch (e) { document.getElementById('daysStatus').textContent = e.message || 'Could not load days.'; }
+}
+
+function selectDay(date) {
+  stopPlayback(); frames = null;
+  currentDate = date;
+  history.replaceState({}, '', `/hailmap?date=${date}`);
+  document.querySelectorAll('.day').forEach(b => b.classList.toggle('active', b.getAttribute('onclick').includes(date)));
+  loadSwath(date, true);
+}
+
+async function loadSwath(date, fit) {
+  const v = viewBox(16);
+  document.getElementById('dayPanel').style.display = 'block';
+  document.getElementById('dayTitle').textContent = fmtDate(date);
+  document.getElementById('dayStat').textContent = 'Loading swath...';
+  document.getElementById('leadsLink').href = `/leads?date=${date}&${v.q}`;
+  const r = await fetch(`/api/mesh/swath?date=${date}&${v.q}`);
+  const j = await r.json();
+  if (!r.ok) { document.getElementById('dayStat').textContent = j.error; return; }
+  swath.setCells(j.cells);
+  const rep = j.reports;
+  document.getElementById('dayStat').innerHTML = `Largest in view: <strong>${j.maxIn.toFixed(2)}"</strong> · ${rep.hail.length} hail, ${rep.wind.length} wind, ${rep.tornado.length} tornado reports`;
+  reportsLayer.clearLayers();
+  rep.hail.forEach(h => L.circleMarker([h.lat, h.lon], { radius: 4, color: '#172235', weight: 1, fillColor: '#ffffff', fillOpacity: 1 }).bindPopup(`<b>${(h.size || 0).toFixed(2)}" hail</b><br>${esc(h.loc)}, ${esc(h.state)}<br><small>${esc(h.n || '')}</small>`).addTo(reportsLayer));
+  rep.wind.forEach(w => L.circleMarker([w.lat, w.lon], { radius: 4, color: '#1d4e89', weight: 1, fillColor: '#93c5fd', fillOpacity: 1 }).bindPopup(`<b>Wind ${w.mph || ''} mph</b><br>${esc(w.loc)}, ${esc(w.state)}`).addTo(reportsLayer));
+  rep.tornado.forEach(t => L.circleMarker([t.lat, t.lon], { radius: 6, color: '#581c87', weight: 2, fillColor: '#c084fc', fillOpacity: 1 }).bindPopup(`<b>Tornado ${esc(t.ef || '')}</b><br>${esc(t.loc)}, ${esc(t.state)}`).addTo(reportsLayer));
+  if (fit && j.cells.length) { const b = cellsBounds(j.cells.filter(c => c[2] >= 1).length ? j.cells.filter(c => c[2] >= 1) : j.cells); if (b) map.fitBounds(b, { maxZoom: 10, padding: [20, 20] }); }
+}
+
+function toggleReports() { if (document.getElementById('showReports').checked) reportsLayer.addTo(map); else map.removeLayer(reportsLayer); }
+
+async function togglePlayback() {
+  const btn = document.getElementById('playBtn');
+  if (playTimer) { stopPlayback(); return; }
+  if (!frames) {
+    btn.textContent = 'Loading frames...'; btn.disabled = true;
+    const v = viewBox(8);
+    const r = await fetch(`/api/mesh/frames?date=${currentDate}&${v.q}`);
+    const j = await r.json();
+    btn.disabled = false;
+    if (!r.ok) { btn.textContent = 'Play storm'; document.getElementById('frameLabel').innerHTML = esc(j.error) + (j.upgrade ? ' <a href="/upgrade">Upgrade</a>' : ''); return; }
+    frames = j.frames;
+    const s = document.getElementById('frameSlider'); s.max = frames.length - 1; s.disabled = false;
+  }
+  btn.textContent = 'Pause';
+  if (frameIdx >= frames.length - 1) frameIdx = 0;
+  playTimer = setInterval(() => { showFrame(frameIdx); frameIdx++; if (frameIdx >= frames.length) stopPlayback(true); }, 700);
+}
+function showFrame(i) {
+  if (!frames) return;
+  frameIdx = i;
+  document.getElementById('frameSlider').value = i;
+  // Cumulative: everything that has fallen up to this hour, so the swath grows.
+  const acc = new Map();
+  for (let k = 0; k <= i; k++) for (const c of frames[k].cells) { const key = c[0] + '_' + c[1]; const p = acc.get(key); if (!p || p[2] < c[2]) acc.set(key, c); }
+  swath.setCells([...acc.values()]);
+  const t = new Date(frames[i].time);
+  document.getElementById('frameLabel').textContent = 'Through ' + t.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) + ` · ${frames[i].cells.length ? 'hail falling' : 'no new hail this hour'}`;
+}
+function stopPlayback(done) {
+  clearInterval(playTimer); playTimer = null;
+  document.getElementById('playBtn').textContent = done ? 'Replay' : 'Play storm';
+}
+
+async function searchPlace(ev) {
+  ev.preventDefault();
+  const q = document.getElementById('placeQ').value.trim();
+  if (!q) return;
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=us&limit=1&q=${encodeURIComponent(q)}`);
+    const d = await r.json();
+    if (d.length) map.setView([+d[0].lat, +d[0].lon], 10);
+    else alert('Place not found.');
+  } catch (e) { alert('Search unavailable.'); }
+}
+async function logout() { await fetch('/api/auth/logout', { method: 'POST' }); location = '/login'; }
+init();
+</script>
+</body>
+</html>
