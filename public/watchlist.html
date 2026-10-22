@@ -35,8 +35,8 @@
   <div class="brand">Storm<span>Check</span> Pro</div>
   <div class="nav-links">
     <a href="/dashboard">Lookup</a>
-    <a href="/storms">⚡ Storms</a>
-    <a href="/watchlist" style="color:white;font-weight:700">👥 Watch List</a>
+    <a href="/hailmap">Hail Map</a>
+    <a href="/watchlist" style="color:white;font-weight:700">Portfolio</a>
     <a href="/leads">Lead Lists</a>
     <a href="/settings">Settings</a>
     <a href="#" onclick="logout()" class="btn-nav btn">Sign Out</a>
@@ -46,22 +46,23 @@
 <div class="page-wrap">
 
   <div class="wl-header">
-    <h1>👥 Contact Watch List</h1>
-    <p>Monitor your clients' properties. Get an email alert the moment they're hit by hail, wind, or a tornado — so you can call them first.</p>
+    <h1>Portfolio monitoring</h1>
+    <p>Add the properties you manage, insure, own or serve. We check every address against NOAA radar every day and against storm reports every 15 minutes, and email you when one is hit. Team and Enterprise plans also get a heads-up when a hail warning covers your properties.</p>
   </div>
 
   <!-- Stats -->
   <div class="stats-row" id="statsRow">
-    <div class="stat-pill"><strong id="statTotal">0</strong> Contacts monitored</div>
-    <div class="stat-pill"><strong id="statHits">0</strong> Hit by storms</div>
-    <div class="stat-pill"><strong style="color:#22c55e">✓</strong> Alerts: every 30 min</div>
+    <div class="stat-pill"><strong id="statTotal">0</strong> Properties monitored</div>
+    <div class="stat-pill"><strong id="statHits">0</strong> Hit by 0.75"+ hail (3 years)</div>
+    <div class="stat-pill"><strong id="statRecent">0</strong> Hit in the last 90 days</div>
+    <div class="stat-pill"><button class="btn btn-sm btn-outline" onclick="exportPortfolio()">Download storm summary (CSV)</button></div>
   </div>
 
   <!-- Upload CSV -->
   <div class="upload-box" id="uploadBox">
     <div class="icon">📋</div>
-    <h3>Import Contacts from CSV</h3>
-    <p>Upload a CSV file with your client list. We'll geocode each address and start monitoring automatically.</p>
+    <h3>Import properties from CSV</h3>
+    <p>Upload a CSV of properties or clients (up to 500 at a time). We geocode each address and start monitoring automatically.</p>
     <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="handleCSV(this)">
     <button class="btn btn-primary" onclick="document.getElementById('csvFile').click()">📤 Upload CSV</button>
     <button class="btn btn-outline" onclick="downloadTemplate()" style="margin-left:8px">⬇️ Download Template</button>
@@ -96,33 +97,43 @@
 </div>
 
 <script>
+function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtD(iso) { const [y,m,d] = iso.split('-'); return `${m}/${d}/${y}`; }
+let lastContacts = [], lastSummary = {};
 async function loadContacts() {
-  const res = await fetch('/api/watchlist');
+  const [res, sres] = await Promise.all([fetch('/api/watchlist'), fetch('/api/watchlist/summary')]);
   const { contacts } = await res.json();
+  const summary = sres.ok ? (await sres.json()).summary : [];
+  const byId = Object.fromEntries(summary.map(s => [s._id, s]));
+  lastContacts = contacts; lastSummary = byId;
   document.getElementById('statTotal').textContent = contacts.length;
-  const hits = contacts.filter(c => c.hitCount > 0).length;
-  document.getElementById('statHits').textContent = hits;
+  document.getElementById('statHits').textContent = summary.filter(s => s.hitDays3yr > 0).length;
+  const d90 = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
+  document.getElementById('statRecent').textContent = summary.filter(s => s.lastHit && s.lastHit.date >= d90).length;
 
   const el = document.getElementById('contactList');
   document.getElementById('emptyState').style.display = contacts.length ? 'none' : 'block';
   if (!contacts.length) { el.innerHTML = ''; return; }
 
-  el.innerHTML = contacts.map(c => `
-    <div class="contact-card ${c.hitCount ? 'hit' : ''}">
-      <h4>${c.name}</h4>
-      <div class="addr">📍 ${c.address}</div>
+  el.innerHTML = contacts.map(c => {
+    const s = byId[c._id] || {};
+    return `
+    <div class="contact-card ${s.hitDays3yr ? 'hit' : ''}">
+      <h4>${esc(c.name)}</h4>
+      <div class="addr">${esc(c.formattedAddress || c.address)}</div>
       <div class="contact-info">
-        ${c.phone ? `📞 ${c.phone}` : ''}
-        ${c.email ? `<br>✉️ ${c.email}` : ''}
+        ${c.phone ? esc(c.phone) : ''}
+        ${c.email ? `<br>${esc(c.email)}` : ''}
       </div>
-      ${c.lastAlertDate ? `<div class="hit-badge">⚠️ Hit ${new Date(c.lastAlertDate).toLocaleDateString()}</div>` : ''}
-      ${c.hitCount > 0 ? `<div style="font-size:0.75em;color:var(--red);margin-top:4px">${c.hitCount} storm event(s)</div>` : ''}
+      ${s.geocoded === false ? '<div style="font-size:0.75em;color:var(--muted);margin-top:6px">Locating address…</div>' : ''}
+      ${s.lastHit ? `<div class="hit-badge">Last hit ${fmtD(s.lastHit.date)}: ${s.lastHit.sizeIn.toFixed(2)}" hail</div>` : (s.geocoded ? '<div style="font-size:0.75em;color:#166534;margin-top:6px">No 0.75"+ hail in 3 years</div>' : '')}
+      ${s.largest3yr && s.hitDays3yr > 1 ? `<div style="font-size:0.75em;color:var(--red);margin-top:4px">${s.hitDays3yr} hail days · largest ${s.largest3yr.sizeIn.toFixed(2)}" on ${fmtD(s.largest3yr.date)}</div>` : ''}
       <div style="margin-top:8px;display:flex;gap:6px">
-        <button class="btn btn-sm btn-outline" onclick="lookupContact('${c.address}')">🔍 Lookup</button>
+        <button class="btn btn-sm btn-outline" onclick="lookupContact(${JSON.stringify(c.formattedAddress || c.address).replace(/"/g, '&quot;')})">Full report</button>
         <button class="btn btn-sm btn-danger" onclick="deleteContact('${c._id}')">Delete</button>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 async function addContact() {
@@ -161,8 +172,7 @@ async function deleteContact(id) {
 }
 
 function lookupContact(address) {
-  sessionStorage.setItem('lookupAddress', address);
-  window.location = '/dashboard';
+  window.location = '/dashboard?address=' + encodeURIComponent(address);
 }
 
 function handleCSV(input) {
@@ -191,6 +201,18 @@ function handleCSV(input) {
     loadContacts();
   };
   reader.readAsText(file);
+}
+
+function exportPortfolio() {
+  const rows = [['name', 'address', 'phone', 'email', 'last_hail_date', 'last_hail_in', 'largest_3yr_in', 'largest_3yr_date', 'hail_days_3yr']];
+  for (const c of lastContacts) {
+    const s = lastSummary[c._id] || {};
+    rows.push([c.name, c.formattedAddress || c.address, c.phone || '', c.email || '', s.lastHit ? s.lastHit.date : '', s.lastHit ? s.lastHit.sizeIn : '', s.largest3yr ? s.largest3yr.sizeIn : '', s.largest3yr ? s.largest3yr.date : '', s.hitDays3yr || 0]);
+  }
+  const csv = rows.map(r => r.map(v => /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : v).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = 'portfolio-storm-summary.csv'; a.click();
 }
 
 function downloadTemplate() {

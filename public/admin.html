@@ -56,6 +56,8 @@
     <div class="tab active" onclick="switchTab('users')">Users</div>
     <div class="tab" onclick="switchTab('lookups')">Recent Lookups</div>
     <div class="tab" onclick="switchTab('alerts')">Storm Alerts</div>
+    <div class="tab" onclick="switchTab('reviews')">Review Orders</div>
+    <div class="tab" onclick="switchTab('data')">Data Pipeline</div>
   </div>
 
   <!-- Users Tab -->
@@ -99,6 +101,31 @@
   </div>
 </div>
 
+  <!-- Reviews Tab -->
+  <div class="tab-panel" id="tab-reviews">
+    <p style="font-size:0.88em;color:var(--muted);margin-bottom:10px">Meteorologist-reviewed report requests. Set the status as you work them; when you mark one Completed with a report link, the customer is emailed the link.</p>
+    <div class="card" style="padding:0;overflow:hidden;margin-top:0"><div style="overflow-x:auto">
+      <table><thead><tr><th>Requested</th><th>Customer</th><th>Property</th><th>Date of loss</th><th>Notes</th><th>Status</th><th>Report link</th><th></th></tr></thead>
+      <tbody id="reviewsBody"><tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted)">Loading…</td></tr></tbody></table>
+    </div></div>
+  </div>
+
+  <!-- Data Tab -->
+  <div class="tab-panel" id="tab-data">
+    <div class="card" style="margin-top:0">
+      <div id="dataStatus" style="font-size:0.9em;line-height:1.7">Loading…</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center">
+        <input type="date" id="ingestDate" style="padding:8px;border:1.5px solid var(--border);border-radius:6px">
+        <label style="font-size:0.85em"><input type="checkbox" id="ingestForce"> re-ingest</label>
+        <button class="btn btn-outline btn-sm" onclick="ingestDay()">Load radar day</button>
+        <button class="btn btn-outline btn-sm" onclick="syncNcei()">Sync NWS storm events</button>
+        <button class="btn btn-outline btn-sm" onclick="rebuildSummaries()">Rebuild storm pages</button>
+      </div>
+      <pre id="dataLog" style="margin-top:14px;max-height:320px;overflow:auto;background:#0f172a;color:#cbd5e1;padding:12px;border-radius:8px;font-size:0.78em;white-space:pre-wrap"></pre>
+    </div>
+  </div>
+</div>
+
 <!-- Add User Modal -->
 <div class="modal-overlay" id="addUserModal">
   <div class="modal">
@@ -111,8 +138,11 @@
     <div class="form-group">
       <label>Account Tier</label>
       <select id="newTier">
-        <option value="trial">Trial (10 free lookups)</option>
-        <option value="pro">Pro (unlimited, $79/mo)</option>
+        <option value="trial">Trial (1 free report)</option>
+        <option value="starter">Starter (1 state, $39/mo)</option>
+        <option value="pro">Pro (nationwide, $79/mo)</option>
+        <option value="team">Team ($149/mo)</option>
+        <option value="enterprise">Enterprise</option>
         <option value="client">Client (First Call client, free)</option>
       </select>
     </div>
@@ -126,6 +156,44 @@
 
 <script>
 let allUsers = [];
+function escA(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+async function loadReviews() {
+  const r = await fetch('/api/admin/reviews'); if (!r.ok) return;
+  const { reviews } = await r.json();
+  const statuses = ['requested', 'awaiting_payment', 'paid', 'in_review', 'completed', 'cancelled'];
+  document.getElementById('reviewsBody').innerHTML = reviews.length ? reviews.map(o => `<tr>
+    <td>${new Date(o.createdAt).toLocaleDateString()}</td>
+    <td>${escA(o.name)}<br><small>${escA(o.email)}</small></td>
+    <td>${escA(o.address)}</td><td>${escA(o.dateOfLoss)}</td>
+    <td style="max-width:220px;font-size:0.85em">${escA(o.notes)}</td>
+    <td><select id="rs-${o._id}">${statuses.map(st => `<option ${st === o.status ? 'selected' : ''}>${st}</option>`).join('')}</select></td>
+    <td><input id="ru-${o._id}" value="${escA(o.reportUrl || '')}" placeholder="https://…" style="min-width:180px;padding:6px;border:1px solid var(--border);border-radius:5px"></td>
+    <td><button class="btn btn-sm btn-primary" onclick="saveReview('${o._id}')">Save</button></td></tr>`).join('')
+    : '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted)">No review requests yet</td></tr>';
+}
+async function saveReview(id) {
+  await fetch('/api/admin/reviews/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: document.getElementById('rs-' + id).value, reportUrl: document.getElementById('ru-' + id).value }) });
+  loadReviews();
+}
+async function loadDataStatus() {
+  const r = await fetch('/api/admin/data/status'); if (!r.ok) return;
+  const d = await r.json();
+  document.getElementById('dataStatus').innerHTML = `
+    <strong>Radar hail (MRMS MESH):</strong> ${d.mesh.count} days loaded${d.mesh.first ? ` (${d.mesh.first} → ${d.mesh.last})` : ''}${d.backfilling ? ' · backfilling now' : ''}<br>
+    <strong>NWS Storm Events (NCEI):</strong> ${d.ncei.firstYear ? `${d.ncei.firstYear}–${d.ncei.lastYear}, covers through ~${d.ncei.end}` : 'not loaded yet'}<br>
+    <strong>SPC reports:</strong> ${d.spc.days} days${d.spc.last ? ` (latest ${d.spc.last})` : ''}`;
+  document.getElementById('dataLog').textContent = (d.log || []).slice().reverse().join('\n');
+}
+async function ingestDay() {
+  const date = document.getElementById('ingestDate').value; if (!date) return;
+  setAdminToolStatus('Loading radar day ' + date + '…');
+  const r = await fetch('/api/admin/data/ingest-mesh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, force: document.getElementById('ingestForce').checked }) });
+  const j = await r.json(); setAdminToolStatus(r.ok ? `Done: ${j.skipped ? 'already loaded' : j.cells + ' hail cells, max ' + j.maxIn + '"'}` : j.error, !r.ok); loadDataStatus();
+}
+async function syncNcei() { await fetch('/api/admin/data/sync-ncei', { method: 'POST' }); setAdminToolStatus('NWS storm events sync started (runs in background).'); }
+async function rebuildSummaries() { const r = await fetch('/api/admin/data/rebuild-summaries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); const j = await r.json(); setAdminToolStatus(`Rebuilding ${j.days} storm pages in background.`); }
+
 
 function setAdminToolStatus(message, isError = false) {
   const el = document.getElementById('adminToolStatus');
@@ -356,9 +424,11 @@ async function addUser() {
 }
 
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['users','lookups','alerts'][i]===name));
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['users','lookups','alerts','reviews','data'][i]===name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
+  if (name === 'reviews') loadReviews();
+  if (name === 'data') loadDataStatus();
 }
 
 async function logout() {

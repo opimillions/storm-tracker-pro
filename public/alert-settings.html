@@ -132,7 +132,7 @@ async function loadSettings() {
 function renderRegions() {
   drawnRegions.clearLayers();
   const el = document.getElementById('regionsList');
-  if (!savedRegions.length) { el.innerHTML = '<div style="color:var(--muted);font-size:0.85em;padding:8px 0">No regions defined — alerts fire for all TX, OK, CO events.</div>'; return; }
+  if (!savedRegions.length) { el.innerHTML = '<div style="color:var(--muted);font-size:0.85em;padding:8px 0">No regions yet. Add the areas you work to get territory alerts when radar shows hail there.</div>'; return; }
   el.innerHTML = savedRegions.map((r, i) => `
     <div class="region-card">
       <div>

@@ -449,6 +449,12 @@ app.post('/api/lookup', requireAuth, requireActiveSubscription, async (req, res)
   const geo = await geocodeAddress(address);
   if (!geo) return res.status(400).json({ error: 'Address not found. Please check and try again.' });
 
+  // Starter covers one state: reports outside the user's chosen state need Pro.
+  if (req.user.tier === 'starter' && Array.isArray(req.user.watchedStates) && req.user.watchedStates.length && geo.state
+      && !req.user.watchedStates.map(x => String(x).toUpperCase()).includes(String(geo.state).toUpperCase())) {
+    return res.status(402).json({ error: `Your Starter plan covers ${req.user.watchedStates.join(', ')}. Upgrade to Pro for nationwide reports.`, upgrade: true });
+  }
+
   // Fast path: local radar + NCEI + SPC stores (milliseconds).
   if (reportEngine.storesReady()) {
     const result = reportEngine.buildReport(geo.lat, geo.lon, { years: Math.min(parseInt(years) || 10, 30) });

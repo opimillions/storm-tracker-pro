@@ -70,7 +70,7 @@
 
       <div class="form-group">
         <label>License Numbers</label>
-        <input type="text" id="licenseNumbers" placeholder="TX #1921679 | OK #3000772279 | CO #906301">
+        <input type="text" id="licenseNumbers" placeholder="License numbers, if you want them on reports">
       </div>
 
       <div class="form-group">
@@ -100,7 +100,7 @@
 
       <div class="form-group">
         <label>Custom Report Footer</label>
-        <textarea id="reportFooter" style="height:70px" placeholder="e.g. Licensed Public Adjuster serving TX, OK, CO | No upfront fees"></textarea>
+        <textarea id="reportFooter" style="height:70px" placeholder="e.g. Serving the DFW area since 2010 | Free inspections"></textarea>
       </div>
 
       <!-- White-label toggle — enterprise only -->
@@ -161,10 +161,10 @@ async function init() {
   document.getElementById('planName').textContent = tierLabels[user.tier] || user.tier;
   const descs = {
     trial: '1 free lookup included. Upgrade to unlock unlimited lookups.',
-    starter: 'Unlimited lookups · Texas only',
-    pro: 'Unlimited lookups · TX, OK, CO · Company name on reports',
-    team: 'Unlimited lookups · All states · Up to 5 users · Logo on reports',
-    enterprise: 'Unlimited lookups · All states · Unlimited users · Full white-label',
+    starter: 'Unlimited reports · 1 state',
+    pro: 'Unlimited reports · Nationwide · Storm playback · Company name on reports',
+    team: 'Unlimited reports · Nationwide · Hail warning alerts · Up to 5 users · Logo on reports',
+    enterprise: 'Unlimited reports · Nationwide · Unlimited users · Full white-label',
     client: 'Complimentary access from First Call Public Adjusters',
     admin: 'Administrator access'
   };

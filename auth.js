@@ -74,7 +74,7 @@ function requireActiveSubscription(req, res, next) {
   const user = req.user;
   if (!userOps.canLookup(user)) {
     const msg = user.tier === 'trial'
-      ? 'Your 1 free report has been used. Upgrade to Pro for unlimited lookups ($79/mo).'
+      ? 'Your 1 free report has been used. Upgrade for unlimited reports (from $39/mo).'
       : 'Subscription required.';
     if (req.path.startsWith('/api/')) return res.status(402).json({ error: msg, upgrade: true });
     return res.redirect('/upgrade');

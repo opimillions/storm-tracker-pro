@@ -1,295 +1,227 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#172235"><link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hail Map — StormCheck Pro</title>
+  <meta name="theme-color" content="#172235">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.json">
+  <title>Hail Swath Map — StormCheck Pro</title>
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/lib/leaflet.min.css"/>
   <script src="/lib/leaflet.min.js"></script>
+  <script src="/js/swath-layer.js"></script>
   <style>
-    html, body { margin:0; padding:0; height:100%; overflow:hidden; font-family:Arial,sans-serif; }
-    .hailmap-app { display:grid; grid-template-rows:52px 1fr; grid-template-columns:320px 1fr; height:100vh; }
-
-    /* Nav */
-    .hm-nav { grid-column:1/-1; background:#1a1a2e; color:white; display:flex; align-items:center; gap:16px; padding:0 16px; border-bottom:2px solid #c0392b; }
-    .hm-brand { font-weight:900; font-size:1.05em; }
-    .hm-brand span { color:#f39c12; }
-    .hm-nav-links { display:flex; gap:14px; margin-left:auto; }
-    .hm-nav-links a { color:rgba(255,255,255,0.8); text-decoration:none; font-size:0.82em; }
-    .hm-nav-links a.active { color:white; font-weight:700; }
-    .hm-nav-links a.btn-nav { background:#c0392b; color:white; padding:5px 12px; border-radius:5px; }
-
-    /* Sidebar */
-    .hm-sidebar { background:#172235; color:white; overflow-y:auto; display:flex; flex-direction:column; border-right:1px solid #334155; }
-    .hm-sidebar-header { padding:14px 16px; border-bottom:1px solid #334155; }
-    .hm-sidebar-header h2 { font-size:1em; margin:0 0 2px; }
-    .hm-sidebar-header p { font-size:0.75em; color:#94a3b8; margin:0; }
-
-    /* Date tabs */
-    .date-tabs { display:flex; border-bottom:1px solid #334155; }
-    .date-tab { flex:1; padding:8px 4px; text-align:center; cursor:pointer; font-size:0.78em; font-weight:600; color:#64748b; border-bottom:2px solid transparent; margin-bottom:-1px; }
-    .date-tab.active { color:white; border-bottom-color:#c0392b; }
-
-    /* Event list */
-    .event-list { flex:1; overflow-y:auto; }
-    .event-item { padding:12px 16px; border-bottom:1px solid #1e293b; cursor:pointer; transition:background 0.15s; }
-    .event-item:hover { background:rgba(255,255,255,0.05); }
-    .event-item.active { background:rgba(192,57,43,0.15); border-left:3px solid #c0392b; }
-    .event-date { font-weight:700; font-size:0.88em; color:white; margin-bottom:4px; }
-    .event-impact { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-    .impact-badge { padding:2px 8px; border-radius:10px; font-size:0.72em; font-weight:700; }
-    .impact-1 { background:#fef3c7; color:#92400e; }
-    .impact-2 { background:#fee2e2; color:#991b1b; }
-    .impact-3 { background:#7f1d1d; color:white; }
-    .event-units { font-size:0.78em; color:#94a3b8; margin-top:3px; }
-    .event-states { font-size:0.75em; color:#64748b; margin-top:2px; }
-
-    /* Map controls */
-    .hm-map-controls { position:absolute; top:60px; left:330px; z-index:500; display:flex; gap:6px; background:rgba(26,26,46,0.9); padding:8px 12px; border-radius:8px; }
-    .map-ctrl-btn { padding:6px 12px; border-radius:5px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.1); color:white; cursor:pointer; font-size:0.8em; font-weight:600; }
-    .map-ctrl-btn.active { background:#c0392b; border-color:#c0392b; }
-
-    /* Map */
-    #hailMap { width:100%; height:100%; } #hailMap .leaflet-overlay-pane { mix-blend-mode: multiply; }
-
-    /* Popup */
-    .hm-popup h4 { margin:0 0 4px; color:#1a1a2e; font-size:0.95em; }
-    .hm-popup p { margin:2px 0; font-size:0.82em; color:#555; }
-    .hm-popup a { color:#c0392b; font-size:0.82em; font-weight:600; }
-
-    /* Legend */
-    .hm-legend { position:absolute; bottom:20px; right:10px; z-index:500; background:rgba(26,26,46,0.9); color:white; padding:10px 14px; border-radius:8px; font-size:0.78em; }
-    .hm-legend .leg-row { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
-    .hm-legend .leg-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
-
-    /* Loading */
-    .hm-loading { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:600; background:rgba(26,26,46,0.95); color:white; padding:20px 28px; border-radius:10px; text-align:center; }
-    .hm-loading .spinner { width:32px; height:32px; border:3px solid rgba(255,255,255,0.2); border-top-color:#c0392b; border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 10px; }
-    @keyframes spin { to { transform:rotate(360deg); } }
-
-    @media (max-width:640px) {
-      .hailmap-app { grid-template-columns: 1fr; grid-template-rows: 52px auto 1fr; }
-      .hm-sidebar { max-height: 200px; }
-    }
+    body { display: flex; flex-direction: column; height: 100vh; }
+    .hm { flex: 1; display: flex; min-height: 0; flex-wrap: wrap; }
+    .panel { width: 340px; max-width: 100%; background: white; border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+    .panel-sec { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+    .panel h2 { font-size: 1em; color: var(--navy); margin-bottom: 8px; }
+    #map { flex: 1 1 400px; min-height: 420px; }
+    .days { overflow-y: auto; flex: 1; min-height: 120px; }
+    .day { display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left; padding: 11px 16px; border: 0; border-bottom: 1px solid #f1f5f9; background: white; cursor: pointer; font-size: 0.92em; min-height: 44px; }
+    .day:hover { background: #f8fafc; }
+    .day.active { background: #172235; color: white; }
+    .day .sz { font-weight: 800; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .row label { font-size: 0.85em; color: #444; }
+    .row input[type=text] { flex: 1; min-width: 0; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 7px; font-size: 0.95em; }
+    .legend { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 0.78em; color: #475569; }
+    .legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .legend i { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+    .play { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .play input[type=range] { flex: 1; min-width: 120px; }
+    .muted { color: var(--muted); font-size: 0.82em; }
+    .stat { font-size: 0.9em; margin-top: 6px; }
+    @media (max-width: 760px) { body { height: auto; } .panel { width: 100%; border-right: 0; } .days { max-height: 260px; } #map { height: 60vh; flex-basis: 100%; } }
   </style>
 </head>
 <body>
-<div class="hailmap-app">
+<nav class="nav">
+  <div class="brand">Storm<span>Check</span> Pro</div>
+  <div class="nav-links">
+    <a href="/dashboard">Lookup</a><a href="/hailmap" style="color:white;font-weight:700">Hail Map</a><a href="/storms">Storms</a><a href="/watchlist">Portfolio</a><a href="/leads">Lead Lists</a>
+    <a href="#" onclick="logout()" class="btn-nav btn">Sign Out</a>
+  </div>
+</nav>
 
-  <!-- Nav -->
-  <nav class="hm-nav">
-    <div class="hm-brand">Storm<span>Check</span> Pro</div>
-    <div class="hm-nav-links">
-      <a href="/dashboard">Lookup</a>
-      <a href="/storms">⚡ Storms</a>
-      <a href="/hailmap" class="active">🗺️ Hail Map</a>
-      <a href="/watchlist">👥 Watch</a>
-      <a href="/leads">Leads</a>
-      <a href="#" onclick="logout()" class="btn-nav">Sign Out</a>
+<div class="hm">
+  <aside class="panel">
+    <div class="panel-sec">
+      <h2>Find an area</h2>
+      <form class="row" onsubmit="searchPlace(event)">
+        <label for="placeQ" class="sr" style="position:absolute;left:-9999px">City, ZIP or address</label>
+        <input type="text" id="placeQ" placeholder="City, ZIP or address">
+        <button class="btn btn-secondary btn-sm" type="submit" style="min-height:40px">Go</button>
+      </form>
     </div>
-  </nav>
-
-  <!-- Sidebar -->
-  <aside class="hm-sidebar">
-    <div class="hm-sidebar-header">
-      <h2>Recent Hail Events</h2>
-      <p id="sidebarSub">Loading storm data...</p>
+    <div class="panel-sec">
+      <div class="row" style="justify-content:space-between">
+        <h2 style="margin:0">Hail days in this view</h2>
+        <select id="minIn" onchange="loadDays()" aria-label="Minimum hail size" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:6px">
+          <option value="0.75">0.75"+</option><option value="1" selected>1"+</option><option value="1.5">1.5"+</option><option value="2">2"+</option>
+        </select>
+      </div>
+      <div class="muted" id="daysStatus">Loading...</div>
     </div>
-    <div class="date-tabs">
-      <div class="date-tab active" onclick="setDays(7)" id="tab7">7 Days</div>
-      <div class="date-tab" onclick="setDays(14)" id="tab14">14 Days</div>
-      <div class="date-tab" onclick="setDays(30)" id="tab30">30 Days</div>
+    <div class="days" id="days"></div>
+    <div class="panel-sec" id="dayPanel" style="display:none">
+      <h2 id="dayTitle"></h2>
+      <div class="stat" id="dayStat"></div>
+      <div class="row" style="margin-top:10px">
+        <label for="opacity">Transparency</label>
+        <input type="range" id="opacity" min="0" max="100" value="70" oninput="swath.setOpacity(this.value/100)">
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label><input type="checkbox" id="showReports" checked onchange="toggleReports()"> Ground reports</label>
+      </div>
+      <div class="play" style="margin-top:12px">
+        <button class="btn btn-outline btn-sm" id="playBtn" onclick="togglePlayback()" style="min-height:40px">Play storm</button>
+        <input type="range" id="frameSlider" min="0" max="0" value="0" oninput="showFrame(+this.value)" disabled aria-label="Playback time">
+      </div>
+      <div class="muted" id="frameLabel"></div>
+      <div class="row" style="margin-top:12px">
+        <a class="btn btn-primary btn-sm" id="leadsLink" href="/leads" style="min-height:40px">Lead list for this view</a>
+      </div>
     </div>
-    <div class="event-list" id="eventList">
-      <div style="padding:20px;color:#64748b;font-size:0.85em;text-align:center">Loading...</div>
+    <div class="panel-sec">
+      <div class="legend" id="legend"></div>
+      <div class="muted" style="margin-top:6px">Radar-estimated max hail size (NOAA MRMS), 12Z–12Z.</div>
     </div>
   </aside>
-
-  <!-- Map -->
-  <div style="position:relative">
-    <div class="hm-map-controls">
-      <button class="map-ctrl-btn active" onclick="setLayer('hail')" id="layerHail">🌨️ Hail</button>
-      <button class="map-ctrl-btn" onclick="setLayer('wind')" id="layerWind">💨 Wind</button>
-      <button class="map-ctrl-btn" onclick="setLayer('tornado')" id="layerTornado">🌪️ Tornado</button>
-      <button class="map-ctrl-btn" onclick="setLayer('all')" id="layerAll">All</button>
-    </div>
-    <div id="hailMap"></div>
-    <div class="hm-legend">
-      <div style="font-weight:700;margin-bottom:6px;font-size:0.82em">HAIL SIZE</div>
-      <div class="leg-row"><div class="leg-dot" style="background:#7c3aed"></div> Tornado</div>
-      <div class="leg-row"><div class="leg-dot" style="background:#8B0000"></div> 2"+ Baseball</div>
-      <div class="leg-row"><div class="leg-dot" style="background:#c0392b"></div> 1.5" Golf Ball</div>
-      <div class="leg-row"><div class="leg-dot" style="background:#e67e22"></div> 1" Quarter</div>
-      <div class="leg-row"><div class="leg-dot" style="background:#f39c12"></div> 0.75" Penny</div>
-      <div class="leg-row"><div class="leg-dot" style="background:#3498db"></div> Wind</div>
-    </div>
-    <div class="hm-loading" id="loadingOverlay" style="display:none">
-      <div class="spinner"></div>
-      <div>Loading storm data...</div>
-    </div>
-  </div>
-
+  <div id="map" role="application" aria-label="Hail swath map"></div>
 </div>
 
 <script>
-const map = L.map('hailMap', { zoomControl: true }).setView([33.5, -97.5], 6);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap', maxZoom: 18
-}).addTo(map);
+const params = new URLSearchParams(location.search);
+let map, swath, reportsLayer = L.layerGroup(), currentDate = params.get('date'), frames = null, frameIdx = 0, playTimer = null;
 
-let allEvents = [], activeDays = 7, activeLayer = 'all';
-let markerGroup = L.layerGroup().addTo(map);
-let selectedDate = null;
-
-const TX_COUNTIES_POP = { 'Tarrant': 2100000, 'Dallas': 2600000, 'Collin': 1100000, 'Denton': 1000000, 'Parker': 150000, 'Wise': 85000, 'Clay': 11000, 'Archer': 9000, 'Wichita': 130000, 'Jack': 9000 };
-
-function estimateHousingUnits(event) {
-  // Rough estimate: 1 housing unit per 2.5 people, county pop / radius
-  const countyPop = TX_COUNTIES_POP[event.county] || 50000;
-  return Math.round(countyPop / 2.5 / 10); // very rough
+function fmtDate(iso) { const [y,m,d] = iso.split('-'); return new Date(Date.UTC(+y, m-1, +d, 12)).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }); }
+function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function viewBox(maxDeg) {
+  const b = map.getBounds(), c = map.getCenter();
+  let w = b.getWest(), e = b.getEast(), s = b.getSouth(), n = b.getNorth();
+  if (e - w > maxDeg) { w = c.lng - maxDeg / 2; e = c.lng + maxDeg / 2; }
+  if (n - s > maxDeg) { s = c.lat - maxDeg / 2; n = c.lat + maxDeg / 2; }
+  const r = v => v.toFixed(3);
+  return { w: r(w), s: r(s), e: r(e), n: r(n), q: `w=${r(w)}&s=${r(s)}&e=${r(e)}&n=${r(n)}` };
 }
 
-function getEventColor(e) {
-  if (e.type === 'tornado') return '#7c3aed';
-  if (e.type === 'wind') return '#3498db';
-  const s = e.size_in || 0;
-  if (s >= 2.0) return '#8B0000';
-  if (s >= 1.5) return '#c0392b';
-  if (s >= 1.0) return '#e67e22';
-  return '#f39c12';
+async function init() {
+  const me = await fetch('/api/me');
+  if (!me.ok) return location = '/login';
+  map = L.map('map', { zoomControl: true });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 17 }).addTo(map);
+  swath = new L.SwathLayer([], { opacity: 0.7 }).addTo(map);
+  reportsLayer.addTo(map);
+  renderHailLegend(document.getElementById('legend'));
+  const lat = parseFloat(params.get('lat')), lon = parseFloat(params.get('lon'));
+  if (Number.isFinite(lat) && Number.isFinite(lon)) map.setView([lat, lon], 10);
+  else {
+    let center = [37.5, -96], zoom = 5;
+    try {
+      const s = await (await fetch('/api/alert-settings')).json();
+      const r0 = s.settings && s.settings.regions && s.settings.regions[0];
+      if (r0) { center = [r0.lat, r0.lon]; zoom = 8; }
+    } catch (e) {}
+    map.setView(center, zoom);
+  }
+  let t; map.on('moveend', () => { clearTimeout(t); t = setTimeout(() => { loadDays(); if (currentDate && !frames) loadSwath(currentDate); }, 350); });
+  loadDays();
+  if (currentDate) loadSwath(currentDate);
 }
 
-function getImpactLevel(events) {
-  const maxHail = Math.max(...events.map(e => e.size_in || 0));
-  const hasTornado = events.some(e => e.type === 'tornado');
-  if (hasTornado || maxHail >= 2.0) return 3;
-  if (maxHail >= 1.5) return 2;
-  return 1;
-}
-
-async function loadEvents(days) {
-  document.getElementById('loadingOverlay').style.display = 'block';
+async function loadDays() {
+  const v = viewBox(30);
+  const minIn = document.getElementById('minIn').value;
+  document.getElementById('daysStatus').textContent = 'Loading...';
   try {
-    const res = await fetch(`/api/storms?days=${days}`);
-    const data = await res.json();
-    allEvents = data.events || [];
-    renderSidebar();
-    renderMap();
-    document.getElementById('sidebarSub').textContent = `${allEvents.length} events in last ${days} days`;
-  } catch (e) {
-    document.getElementById('sidebarSub').textContent = 'Error loading data';
-  } finally {
-    document.getElementById('loadingOverlay').style.display = 'none';
+    const r = await fetch(`/api/mesh/days?${v.q}&minIn=${minIn}&limit=120`);
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error);
+    const cov = j.coverage || {};
+    document.getElementById('daysStatus').textContent = j.days.length
+      ? `${j.days.length} day${j.days.length > 1 ? 's' : ''} · radar history ${cov.first ? fmtDate(cov.first) : ''} to ${cov.last ? fmtDate(cov.last) : ''}`
+      : (cov.count ? 'No hail of that size in this view. Zoom out or lower the size.' : 'Radar history is still loading. Check back shortly.');
+    document.getElementById('days').innerHTML = j.days.map(d => `<button class="day ${d.date === currentDate ? 'active' : ''}" onclick="selectDay('${d.date}')"><span>${fmtDate(d.date)}</span><span class="sz" style="color:${d.date === currentDate ? '#F2A93B' : hailColor(d.maxIn)}">${d.maxIn.toFixed(2)}"</span></button>`).join('');
+  } catch (e) { document.getElementById('daysStatus').textContent = e.message || 'Could not load days.'; }
+}
+
+function selectDay(date) {
+  stopPlayback(); frames = null;
+  currentDate = date;
+  history.replaceState({}, '', `/hailmap?date=${date}`);
+  document.querySelectorAll('.day').forEach(b => b.classList.toggle('active', b.getAttribute('onclick').includes(date)));
+  loadSwath(date, true);
+}
+
+async function loadSwath(date, fit) {
+  const v = viewBox(16);
+  document.getElementById('dayPanel').style.display = 'block';
+  document.getElementById('dayTitle').textContent = fmtDate(date);
+  document.getElementById('dayStat').textContent = 'Loading swath...';
+  document.getElementById('leadsLink').href = `/leads?date=${date}&${v.q}`;
+  const r = await fetch(`/api/mesh/swath?date=${date}&${v.q}`);
+  const j = await r.json();
+  if (!r.ok) { document.getElementById('dayStat').textContent = j.error; return; }
+  swath.setCells(j.cells);
+  const rep = j.reports;
+  document.getElementById('dayStat').innerHTML = `Largest in view: <strong>${j.maxIn.toFixed(2)}"</strong> · ${rep.hail.length} hail, ${rep.wind.length} wind, ${rep.tornado.length} tornado reports`;
+  reportsLayer.clearLayers();
+  rep.hail.forEach(h => L.circleMarker([h.lat, h.lon], { radius: 4, color: '#172235', weight: 1, fillColor: '#ffffff', fillOpacity: 1 }).bindPopup(`<b>${(h.size || 0).toFixed(2)}" hail</b><br>${esc(h.loc)}, ${esc(h.state)}<br><small>${esc(h.n || '')}</small>`).addTo(reportsLayer));
+  rep.wind.forEach(w => L.circleMarker([w.lat, w.lon], { radius: 4, color: '#1d4e89', weight: 1, fillColor: '#93c5fd', fillOpacity: 1 }).bindPopup(`<b>Wind ${w.mph || ''} mph</b><br>${esc(w.loc)}, ${esc(w.state)}`).addTo(reportsLayer));
+  rep.tornado.forEach(t => L.circleMarker([t.lat, t.lon], { radius: 6, color: '#581c87', weight: 2, fillColor: '#c084fc', fillOpacity: 1 }).bindPopup(`<b>Tornado ${esc(t.ef || '')}</b><br>${esc(t.loc)}, ${esc(t.state)}`).addTo(reportsLayer));
+  if (fit && j.cells.length) { const b = cellsBounds(j.cells.filter(c => c[2] >= 1).length ? j.cells.filter(c => c[2] >= 1) : j.cells); if (b) map.fitBounds(b, { maxZoom: 10, padding: [20, 20] }); }
+}
+
+function toggleReports() { if (document.getElementById('showReports').checked) reportsLayer.addTo(map); else map.removeLayer(reportsLayer); }
+
+async function togglePlayback() {
+  const btn = document.getElementById('playBtn');
+  if (playTimer) { stopPlayback(); return; }
+  if (!frames) {
+    btn.textContent = 'Loading frames...'; btn.disabled = true;
+    const v = viewBox(8);
+    const r = await fetch(`/api/mesh/frames?date=${currentDate}&${v.q}`);
+    const j = await r.json();
+    btn.disabled = false;
+    if (!r.ok) { btn.textContent = 'Play storm'; document.getElementById('frameLabel').innerHTML = esc(j.error) + (j.upgrade ? ' <a href="/upgrade">Upgrade</a>' : ''); return; }
+    frames = j.frames;
+    const s = document.getElementById('frameSlider'); s.max = frames.length - 1; s.disabled = false;
   }
+  btn.textContent = 'Pause';
+  if (frameIdx >= frames.length - 1) frameIdx = 0;
+  playTimer = setInterval(() => { showFrame(frameIdx); frameIdx++; if (frameIdx >= frames.length) stopPlayback(true); }, 700);
+}
+function showFrame(i) {
+  if (!frames) return;
+  frameIdx = i;
+  document.getElementById('frameSlider').value = i;
+  // Cumulative: everything that has fallen up to this hour, so the swath grows.
+  const acc = new Map();
+  for (let k = 0; k <= i; k++) for (const c of frames[k].cells) { const key = c[0] + '_' + c[1]; const p = acc.get(key); if (!p || p[2] < c[2]) acc.set(key, c); }
+  swath.setCells([...acc.values()]);
+  const t = new Date(frames[i].time);
+  document.getElementById('frameLabel').textContent = 'Through ' + t.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) + ` · ${frames[i].cells.length ? 'hail falling' : 'no new hail this hour'}`;
+}
+function stopPlayback(done) {
+  clearInterval(playTimer); playTimer = null;
+  document.getElementById('playBtn').textContent = done ? 'Replay' : 'Play storm';
 }
 
-function renderSidebar() {
-  // Group by date
-  const byDate = {};
-  allEvents.forEach(e => {
-    if (!byDate[e.date]) byDate[e.date] = [];
-    byDate[e.date].push(e);
-  });
-
-  const el = document.getElementById('eventList');
-  const dates = Object.keys(byDate).sort((a,b) => new Date(b)-new Date(a));
-
-  if (!dates.length) {
-    el.innerHTML = '<div style="padding:20px;color:#64748b;font-size:0.85em;text-align:center">No significant events in this period.</div>';
-    return;
-  }
-
-  el.innerHTML = dates.map(date => {
-    const events = byDate[date];
-    const level = getImpactLevel(events);
-    const dp = date.split('-');
-    const dateLabel = new Date(date).toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric', year:'numeric' });
-    const maxHail = Math.max(...events.filter(e=>e.size_in).map(e=>e.size_in), 0);
-    const hasTornado = events.some(e=>e.type==='tornado');
-    const states = [...new Set(events.map(e=>e.state))].join(', ');
-    const housingEst = events.reduce((s,e) => s + estimateHousingUnits(e), 0);
-
-    return `<div class="event-item ${selectedDate===date?'active':''}" onclick="selectDate('${date}')">
-      <div class="event-date">${dateLabel}</div>
-      <div class="event-impact">
-        <span class="impact-badge impact-${level}">Impact ${level}</span>
-        ${hasTornado?'<span class="impact-badge impact-3">🌪️ Tornado</span>':''}
-        ${maxHail>=1.5?`<span class="impact-badge impact-2">🌨️ ${maxHail}"</span>`:''}
-      </div>
-      <div class="event-units">~${housingEst.toLocaleString()} housing units</div>
-      <div class="event-states">${events.length} events · ${states}</div>
-    </div>`;
-  }).join('');
+async function searchPlace(ev) {
+  ev.preventDefault();
+  const q = document.getElementById('placeQ').value.trim();
+  if (!q) return;
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=us&limit=1&q=${encodeURIComponent(q)}`);
+    const d = await r.json();
+    if (d.length) map.setView([+d[0].lat, +d[0].lon], 10);
+    else alert('Place not found.');
+  } catch (e) { alert('Search unavailable.'); }
 }
-
-function renderMap() {
-  markerGroup.clearLayers();
-  const filtered = allEvents.filter(e => {
-    if (!e.lat || !e.lon) return false;
-    if (activeLayer === 'hail' && e.type !== 'hail') return false;
-    if (activeLayer === 'wind' && e.type !== 'wind') return false;
-    if (activeLayer === 'tornado' && e.type !== 'tornado') return false;
-    if (selectedDate && e.date !== selectedDate) return false;
-    return true;
-  });
-
-  filtered.forEach(e => {
-    const color = getEventColor(e);
-    const radius = e.type === 'tornado' ? 15000 : Math.max(5000, (e.size_in||0.5) * 10000);
-    const dp = e.date.split('-');
-    const dateLabel = `${dp[1]}/${dp[2]}/${dp[0]}`;
-
-    L.circle([e.lat, e.lon], {
-      color, fillColor: color, fillOpacity: 0.12, opacity: 0.35, radius, weight: 0.8
-    }).bindPopup(`
-      <div class="hm-popup">
-        <h4>${dateLabel} — ${e.type === 'tornado' ? `EF${e.ef||'?'} Tornado` : e.type === 'wind' ? `${e.mph||'?'} mph Wind` : `${e.size_in}" Hail (${e.size_desc||''})`}</h4>
-        <p>📍 ${e.location}</p>
-        <p>~${estimateHousingUnits(e).toLocaleString()} housing units in area</p>
-        <a href="/leads">Generate Lead List →</a>
-      </div>
-    `).addTo(markerGroup);
-  });
-
-  // Fit map if date selected
-  if (selectedDate && filtered.length > 0) {
-    const lats = filtered.map(e=>e.lat), lons = filtered.map(e=>e.lon);
-    map.fitBounds([[Math.min(...lats)-0.5,Math.min(...lons)-0.5],[Math.max(...lats)+0.5,Math.max(...lons)+0.5]]);
-  }
-}
-
-function selectDate(date) {
-  selectedDate = selectedDate === date ? null : date;
-  renderSidebar();
-  renderMap();
-}
-
-function setDays(d) {
-  activeDays = d;
-  selectedDate = null;
-  ['7','14','30'].forEach(n => {
-    document.getElementById('tab'+n).classList.toggle('active', parseInt(n)===d);
-  });
-  loadEvents(d);
-}
-
-function setLayer(layer) {
-  activeLayer = layer;
-  ['Hail','Wind','Tornado','All'].forEach(l => {
-    document.getElementById('layer'+l).classList.toggle('active', l.toLowerCase()===layer);
-  });
-  renderMap();
-}
-
-async function logout() { await fetch('/api/auth/logout',{method:'POST'}); window.location='/login'; }
-
-// Init
-(async () => {
-  const res = await fetch('/api/me');
-  if (!res.ok) return window.location='/login';
-  await loadEvents(7);
-})();
+async function logout() { await fetch('/api/auth/logout', { method: 'POST' }); location = '/login'; }
+init();
 </script>
 </body>
 </html>
