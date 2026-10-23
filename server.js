@@ -7,6 +7,10 @@ require('dotenv').config();
 // Log instead of crashing: one failed background task must not take the site down.
 process.on('unhandledRejection', err => console.error('Unhandled rejection:', err && err.stack || err));
 process.on('uncaughtException', err => console.error('Uncaught exception:', err && err.stack || err));
+
+// Trim storm data to the retention window before the databases load, so a
+// full volume gets space back before anything else needs to write.
+try { require('./lib/retention').prune(); } catch (e) { console.error('Retention prune failed:', e.message); }
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const path = require('path');
@@ -122,7 +126,8 @@ app.post('/api/auth/login', async (req, res) => {
     if (user.tier === 'suspended') {
       return res.status(403).json({ error: 'Your account has been suspended. Contact (817) 618-9884.' });
     }
-    await userOps.updateLastLogin(user._id);
+    // A failed bookkeeping write (e.g. a full disk) must not block sign-in.
+    try { await userOps.updateLastLogin(user._id); } catch (e) { console.error('updateLastLogin failed:', e.message); }
     // Track affiliate referral if ref cookie set
     const refCode = (req.cookies && req.cookies.ref) ? req.cookies.ref : null;
     if (refCode && user) {
@@ -133,6 +138,7 @@ app.post('/api/auth/login', async (req, res) => {
     res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 7 * 24 * 60 * 60 * 1000 });
     res.json({ success: true, redirect: user.role === 'admin' ? '/admin' : '/dashboard' });
   } catch (err) {
+    console.error('Login error:', err && err.stack || err);
     res.status(500).json({ error: 'Login failed. Please try again.' });
   }
 });
