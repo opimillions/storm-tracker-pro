@@ -438,6 +438,54 @@ app.post('/api/profile', requireAuth, async (req, res) => {
   res.json({ success: true });
 });
 
+// Logo upload: the browser sends the image file as the raw request body.
+// Stored on the data volume and served from /logos/. SVG is not accepted
+// (it can carry script); the file type is checked from its first bytes.
+const LOGO_DIR = () => require('./lib/paths').ensureDir(require('./lib/paths').dataPath('logos'));
+const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+function imageExt(buf) {
+  if (buf.length < 12) return null;
+  if (buf[0] === 0x89 && buf.toString('ascii', 1, 4) === 'PNG') return 'png';
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'jpg';
+  if (buf.toString('ascii', 0, 3) === 'GIF') return 'gif';
+  if (buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') return 'webp';
+  return null;
+}
+app.post('/api/profile/logo', requireAuth,
+  express.raw({ type: () => true, limit: LOGO_MAX_BYTES }),
+  async (req, res) => {
+    const features = tierFeatures(req.user.tier);
+    if (!features.logo) return res.status(403).json({ error: 'Logo upload requires Team plan or higher.' });
+    const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    const ext = imageExt(buf);
+    if (!ext) return res.status(400).json({ error: 'Please upload a PNG, JPG, GIF or WebP image.' });
+    try {
+      const fs = require('fs');
+      const id = String(req.user._id).replace(/[^a-zA-Z0-9]/g, '');
+      const dir = LOGO_DIR();
+      // Remove this user's previous logo files, then save the new one.
+      for (const f of fs.readdirSync(dir)) if (f.startsWith(id + '-')) { try { fs.unlinkSync(path.join(dir, f)); } catch {} }
+      const name = `${id}-${Date.now()}.${ext}`;
+      fs.writeFileSync(path.join(dir, name), buf);
+      const logoUrl = '/logos/' + name;
+      await profileOps.save(req.user._id, { logoUrl });
+      res.json({ success: true, logoUrl });
+    } catch (e) {
+      console.error('Logo upload failed:', e.message);
+      res.status(500).json({ error: 'Upload failed. Please try again.' });
+    }
+  });
+app.use('/api/profile/logo', (err, req, res, next) => {
+  if (err && err.type === 'entity.too.large') return res.status(413).json({ error: 'Logo must be 2 MB or smaller.' });
+  next(err);
+});
+app.get('/logos/:file', (req, res) => {
+  const file = path.basename(req.params.file);
+  if (!/^[a-zA-Z0-9]+-\d+\.(png|jpg|gif|webp)$/.test(file)) return res.status(404).end();
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.sendFile(path.join(LOGO_DIR(), file), { maxAge: '30d' }, err => { if (err && !res.headersSent) res.status(404).end(); });
+});
+
 // ── Hail Lookup API ───────────────────────────────────────────────────────────
 
 // POST /api/lookup — starts async job, returns jobId immediately
