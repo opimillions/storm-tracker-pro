@@ -13,6 +13,10 @@
     .tier-team     { background:#fef3c7;color:#92400e; }
     .tier-enterprise { background:#f3e8ff;color:#6b21a8; }
     .logo-preview { max-height: 80px; border-radius: 8px; border: 1px solid var(--border); margin-top: 8px; display:none; }
+    .logo-upload-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+    .logo-upload-btn { margin: 0; padding: 9px 18px; font-size: 0.9em; }
+    .logo-upload-msg { color: var(--muted); font-size: 0.85em; }
+    .logo-upload-msg.error { color: #c0392b; }
     .locked-msg { background:#f9fafb;border:1px solid var(--border);border-radius:8px;padding:20px;text-align:center;color:var(--muted);font-size:0.9em; }
     .color-row { display:flex;gap:10px;align-items:center; }
     .color-swatch { width:40px;height:40px;border-radius:8px;border:1px solid var(--border);cursor:pointer; }
@@ -68,12 +72,17 @@
       </div>
 
       <div class="form-group">
-        <label>Company Logo URL <span style="color:var(--muted);font-weight:400;font-size:0.85em">(Pro+ feature — paste a direct image URL)</span></label>
+        <label>Company Logo <span style="color:var(--muted);font-weight:400;font-size:0.85em">(Team+ feature — upload an image or paste a link)</span></label>
         <div id="logoLocked" class="locked-msg" style="display:none;padding:10px">
           🔒 Logo upload requires <strong>Team</strong> or higher plan.
         </div>
         <div id="logoInput">
-          <input type="url" id="logoUrl" placeholder="https://yoursite.com/logo.png" oninput="previewLogo()">
+          <div class="logo-upload-row">
+            <label class="btn btn-outline logo-upload-btn" for="logoFile">📁 Upload Logo</label>
+            <input type="file" id="logoFile" accept="image/png,image/jpeg,image/gif,image/webp" onchange="uploadLogo(this)" hidden>
+            <span id="logoUploadMsg" class="logo-upload-msg">PNG, JPG, GIF or WebP, up to 2 MB</span>
+          </div>
+          <input type="text" id="logoUrl" placeholder="or paste a link: https://yoursite.com/logo.png" oninput="previewLogo()">
           <img id="logoPreview" class="logo-preview" alt="Logo preview">
         </div>
       </div>
@@ -201,6 +210,34 @@ async function saveProfile() {
     alertEl.style.display = 'block';
   } finally {
     btn.textContent = 'Save Branding Settings'; btn.disabled = false;
+  }
+}
+
+async function uploadLogo(input) {
+  const file = input.files && input.files[0];
+  const msg = document.getElementById('logoUploadMsg');
+  input.value = '';
+  if (!file) return;
+  msg.className = 'logo-upload-msg';
+  if (file.size > 2 * 1024 * 1024) {
+    msg.textContent = 'That file is over 2 MB. Please use a smaller image.';
+    msg.classList.add('error'); return;
+  }
+  msg.textContent = 'Uploading…';
+  try {
+    const res = await fetch('/api/profile/logo', {
+      method: 'POST',
+      headers: { 'Content-Type': file.type || 'application/octet-stream' },
+      body: file,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) throw new Error(data.error || 'Upload failed.');
+    document.getElementById('logoUrl').value = data.logoUrl;
+    previewLogo();
+    msg.textContent = '✅ Logo uploaded and saved';
+  } catch (e) {
+    msg.textContent = e.message || 'Upload failed.';
+    msg.classList.add('error');
   }
 }
 
