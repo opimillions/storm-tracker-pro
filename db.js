@@ -506,6 +506,7 @@ const freeAlertOps = {
   async getActive() { return freeAlerts.find({ active: true }); },
   async count() { return freeAlerts.count({ active: true }); },
   async recent(limit = 50) { return freeAlerts.find({}).sort({ createdAt: -1 }).limit(limit); },
+  async all() { return freeAlerts.find({}).sort({ createdAt: -1 }); },
 };
 
 // ── Meteorologist Review Orders ────────────────────────────────────────────────
