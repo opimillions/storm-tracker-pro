@@ -589,6 +589,42 @@ app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
   res.json(await userOps.getAll());
 });
 
+// ── CSV exports (admin) ─────────────────────────────────────────────────────
+// Cells starting with = + - @ are prefixed so Excel can't run them as formulas.
+const csvSafe = v => { const s = v == null ? '' : String(v); return /^[=+\-@\t\r]/.test(s) ? "'" + s : s; };
+const csvDate = v => (v ? String(v).slice(0, 10) : '');
+function sendCsv(res, name, rows) {
+  const { toCsv } = require('./lib/csv');
+  const stamp = new Date().toISOString().slice(0, 10);
+  res.set('Content-Type', 'text/csv; charset=utf-8');
+  res.set('Content-Disposition', `attachment; filename="${name}-${stamp}.csv"`);
+  res.send('\ufeff' + toCsv(rows.map(r => r.map(csvSafe))));
+}
+
+app.get('/api/admin/export/users.csv', requireAuth, requireAdmin, async (req, res) => {
+  const users = (await userOps.getAll()).filter(u => u.role !== 'admin');
+  const rows = [['Name', 'Email', 'Company', 'Phone', 'Plan', 'Subscription Status', 'Lookups This Month', 'Joined', 'Last Login', 'Referred By', 'Notes']];
+  for (const u of users) {
+    let p = null;
+    try { p = await profileOps.get(u._id); } catch { /* no profile */ }
+    rows.push([
+      u.name, u.email, (p && p.companyName) || u.company || '', (p && p.companyPhone) || '',
+      (TIERS[u.tier] && TIERS[u.tier].label) || u.tier, u.subscriptionStatus || '',
+      u.lookupsThisMonth || 0, csvDate(u.createdAt), csvDate(u.lastLogin), u.referredBy || '', u.notes || '',
+    ]);
+  }
+  sendCsv(res, 'stormcheck-users', rows);
+});
+
+app.get('/api/admin/export/alert-signups.csv', requireAuth, requireAdmin, async (req, res) => {
+  const subs = await freeAlertOps.all();
+  const rows = [['Email', 'Area', 'ZIP', 'Radius (mi)', 'Min Hail (in)', 'Status', 'Signed Up', 'Unsubscribed']];
+  for (const s of subs) {
+    rows.push([s.email, s.label || '', s.zip || '', s.radiusMi || '', s.minIn || '', s.active ? 'Subscribed' : 'Unsubscribed', csvDate(s.createdAt), csvDate(s.unsubscribedAt)]);
+  }
+  sendCsv(res, 'stormcheck-alert-signups', rows);
+});
+
 // Create user
 app.post('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
   const { email, password, name, company, tier, notes } = req.body;
