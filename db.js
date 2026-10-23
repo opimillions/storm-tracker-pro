@@ -427,6 +427,12 @@ const watchlistOps = {
     return watchlist.find({ userId }).sort({ name: 1 });
   },
 
+  // Users that have contacts still waiting to be located on the map.
+  async userIdsNeedingGeocode() {
+    const docs = await watchlist.find({ $or: [{ lat: null }, { lat: { $exists: false } }] }, { userId: 1 });
+    return [...new Set(docs.map(d => d.userId))];
+  },
+
   async deleteContact(id, userId) {
     return watchlist.remove({ _id: id, userId });
   },

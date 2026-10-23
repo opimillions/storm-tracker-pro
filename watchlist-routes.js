@@ -5,6 +5,7 @@ const path = require('path');
 const axios = require('axios');
 
 const { geocodeAddress: geocodeAddr } = require('./hail-engine');
+const { geocodeBatch } = require('./lib/batch-geocode');
 
 // The old CSV importer split "Street, City ST 12345" on the comma, so the city,
 // state and ZIP landed in the phone (or email) field and the street alone could
@@ -20,22 +21,61 @@ function repairFields(c) {
 const geocodingUsers = new Set();
 // Retry failed addresses once a day in case the geocoder was briefly down.
 const needsGeocode = c => c.lat == null && (!c.geocodeFailed || Date.now() - (c.geocodeFailedAt || 0) > 86400000);
-async function geocodeMissing(watchlistOps, userId) {
+
+/**
+ * Locate every contact that has no coordinates yet.
+ * 1. Census batch geocoder: up to 1,000 addresses per request, so a large
+ *    import is located in minutes rather than one-by-one over hours.
+ * 2. Anything the batch did not match goes through the single-address
+ *    lookup (Census, then OpenStreetMap), throttled for the free limits.
+ * A failure on one contact is logged and skipped; it never stops the run.
+ */
+async function geocodeMissing(watchlistOps, userId, { batch = geocodeBatch, single = geocodeAddr, pauseMs = 1100 } = {}) {
   if (geocodingUsers.has(userId)) return;
   geocodingUsers.add(userId);
+  const save = async (id, fields) => {
+    try { await watchlistOps.updateContact(id, fields); return true; }
+    catch (e) { console.error('watchlist save failed:', e.message); return false; }
+  };
   try {
     const all = await watchlistOps.getForUser(userId);
     for (const c of all) {
       const fix = repairFields(c);
-      if (fix) { await watchlistOps.updateContact(c._id, { ...fix, lat: null, lon: null, geocodeFailed: false }); Object.assign(c, fix, { lat: null, geocodeFailed: false }); }
+      if (fix && await save(c._id, { ...fix, lat: null, lon: null, geocodeFailed: false })) Object.assign(c, fix, { lat: null, geocodeFailed: false });
     }
-    for (const c of all.filter(needsGeocode)) {
-      const geo = await geocodeAddr(c.address);
-      if (geo) await watchlistOps.updateContact(c._id, { lat: geo.lat, lon: geo.lon, formattedAddress: geo.formattedAddress, state: geo.state || null });
-      else await watchlistOps.updateContact(c._id, { geocodeFailed: true, geocodeFailedAt: Date.now() });
-      await new Promise(r => setTimeout(r, 1100)); // stay within free geocoder limits
+    // Every unlocated contact goes in the batch (cheap, even ones that failed
+    // before); the slow single lookup is limited to those due for a retry.
+    const todo = all.filter(c => c.lat == null && String(c.address || '').trim());
+    if (!todo.some(needsGeocode)) return; // only old failures left: wait for their daily retry
+
+    let found = new Map();
+    if (todo.length > 3) {
+      found = await batch(todo.map(c => ({ id: String(c._id), address: c.address })), { log: m => console.log('[watchlist]', m) });
     }
+    let located = 0;
+    for (const c of todo) {
+      const geo = found.get(String(c._id));
+      if (geo && await save(c._id, { lat: geo.lat, lon: geo.lon, formattedAddress: geo.formattedAddress, state: geo.state || null, geocodeFailed: false })) located++;
+    }
+    for (const c of todo.filter(c => !found.has(String(c._id)) && needsGeocode(c))) {
+      let geo = null;
+      try { geo = await single(c.address); } catch (e) { geo = null; }
+      if (geo) { if (await save(c._id, { lat: geo.lat, lon: geo.lon, formattedAddress: geo.formattedAddress, state: geo.state || null, geocodeFailed: false })) located++; }
+      else await save(c._id, { geocodeFailed: true, geocodeFailedAt: Date.now() });
+      if (pauseMs) await new Promise(r => setTimeout(r, pauseMs));
+    }
+    console.log(`[watchlist] located ${located}/${todo.length} addresses for user ${userId}`);
   } finally { geocodingUsers.delete(userId); }
+}
+
+/** Background pass over every user with unlocated contacts (no page visit needed). */
+async function geocodeAllPending(watchlistOps) {
+  if (!watchlistOps.userIdsNeedingGeocode) return;
+  let ids = [];
+  try { ids = await watchlistOps.userIdsNeedingGeocode(); } catch (e) { console.error('geocode sweep:', e.message); return; }
+  for (const id of ids) {
+    try { await geocodeMissing(watchlistOps, id); } catch (e) { console.error('geocode sweep:', e.message); }
+  }
 }
 
 // Check if a lat/lon was hit by a storm event on a given date
@@ -48,6 +88,13 @@ function getDistanceMiles(lat1, lon1, lat2, lon2) {
 }
 
 module.exports = function(app, { requireAuth, watchlistOps }) {
+
+  // Locate pending imports in the background: shortly after startup (picks
+  // up anything a restart interrupted), then every 30 minutes.
+  if (process.env.DATA_JOBS !== 'off') {
+    setTimeout(() => geocodeAllPending(watchlistOps), 20000);
+    setInterval(() => geocodeAllPending(watchlistOps), 30 * 60 * 1000);
+  }
 
   app.get('/watchlist', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'watchlist.html'));
@@ -203,3 +250,5 @@ module.exports.checkWatchlistForStorm = async function(spcEvents, watchlistOps, 
     }
   }
 };
+
+module.exports._geocodeMissing = geocodeMissing;
