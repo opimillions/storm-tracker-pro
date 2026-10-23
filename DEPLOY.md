@@ -27,6 +27,7 @@ See `.env.example`. New or changed:
 | `SMTP_*` | Needed for portfolio, territory, free and warning alerts. |
 | `MESH_BACKFILL_FROM` | Oldest radar day to load. Default `2020-10-15`. |
 | `NCEI_FROM_YEAR` | Oldest NWS Storm Events year. Default `1996`. |
+| `RETENTION_YEARS` | Years of storm data to keep. Default `5`. Older radar days, NWS events, SPC reports, storm pages and playback frames are deleted at startup and daily, and never backfilled. Overrides the two settings above. `off` keeps everything. |
 
 ## 3. First start: data loads itself
 
