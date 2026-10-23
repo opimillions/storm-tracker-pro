@@ -14,11 +14,16 @@
   <style>
     body { display: flex; flex-direction: column; height: 100vh; }
     .hm { flex: 1; display: flex; min-height: 0; flex-wrap: wrap; }
-    .panel { width: 340px; max-width: 100%; background: white; border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+    .panel { width: 340px; max-width: 100%; background: white; border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; height: 100%; overflow: hidden; }
+    .panel > .panel-sec { flex-shrink: 0; }
+    /* Day controls and the hail size key stay pinned to the bottom of the
+       sidebar; only the hail-days list above them scrolls. */
+    .panel-foot { flex-shrink: 0; margin-top: auto; background: white; border-top: 1px solid var(--border); box-shadow: 0 -4px 10px rgba(15, 23, 42, 0.05); }
+    .panel-foot .panel-sec:last-child { border-bottom: 0; }
     .panel-sec { padding: 14px 16px; border-bottom: 1px solid var(--border); }
     .panel h2 { font-size: 1em; color: var(--navy); margin-bottom: 8px; }
     #map { flex: 1 1 400px; min-height: 420px; }
-    .days { overflow-y: auto; flex: 1; min-height: 120px; }
+    .days { overflow-y: auto; flex: 1 1 auto; min-height: 60px; }
     .day { display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left; padding: 11px 16px; border: 0; border-bottom: 1px solid #f1f5f9; background: white; cursor: pointer; font-size: 0.92em; min-height: 44px; }
     .day:hover { background: #f8fafc; }
     .day.active { background: #172235; color: white; }
@@ -33,7 +38,7 @@
     .play input[type=range] { flex: 1; min-width: 120px; }
     .muted { color: var(--muted); font-size: 0.82em; }
     .stat { font-size: 0.9em; margin-top: 6px; }
-    @media (max-width: 760px) { body { height: auto; } .panel { width: 100%; border-right: 0; } .days { max-height: 260px; } #map { height: 60vh; flex-basis: 100%; } }
+    @media (max-width: 760px) { body { height: auto; } .panel { width: 100%; border-right: 0; height: auto; overflow: visible; } .days { max-height: 260px; } #map { height: 60vh; flex-basis: 100%; } }
   </style>
 </head>
 <body>
@@ -60,6 +65,7 @@
       <div class="muted" id="daysStatus">Loading...</div>
     </div>
     <div class="days" id="days"></div>
+    <div class="panel-foot">
     <div class="panel-sec" id="dayPanel" style="display:none">
       <h2 id="dayTitle"></h2>
       <div class="stat" id="dayStat"></div>
@@ -82,6 +88,7 @@
     <div class="panel-sec">
       <div class="legend" id="legend"></div>
       <div class="muted" style="margin-top:6px">Radar-estimated max hail size (NOAA MRMS), 12Z–12Z.</div>
+    </div>
     </div>
   </aside>
   <div id="map" role="application" aria-label="Hail swath map"></div>
