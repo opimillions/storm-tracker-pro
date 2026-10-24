@@ -9,6 +9,7 @@
     ['/watchlist', 'Portfolio'],
     ['/leads', 'Lead Lists'],
     ['/alert-settings', 'Alerts'],
+    ['/integrations', 'Integrations'],
     ['/settings', 'Settings'],
     ['/affiliate', 'Affiliate'],
   ];

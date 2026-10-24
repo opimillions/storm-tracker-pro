@@ -25,6 +25,8 @@ resultsCache.ensureIndex({ fieldName: 'cacheKey', unique: true });
 const freeAlerts = Datastore.create({ filename: path.join(DATA_DIR, 'free-alerts.db'), autoload: true });
 freeAlerts.ensureIndex({ fieldName: 'token', unique: true });
 const reviews = Datastore.create({ filename: path.join(DATA_DIR, 'reviews.db'), autoload: true });
+const integrations = Datastore.create({ filename: path.join(DATA_DIR, 'integrations.db'), autoload: true });
+integrations.ensureIndex({ fieldName: 'userId' });
 
 // Indexes
 users.ensureIndex({ fieldName: 'email', unique: true });
@@ -520,4 +522,33 @@ const reviewOps = {
   async update(id, data) { return reviews.update({ _id: id }, { $set: { ...data, updatedAt: new Date().toISOString() } }); },
 };
 
-module.exports = { freeAlertOps, reviewOps, userOps, lookupOps, alertOps, profileOps, resultsCacheOps, affiliateOps, watchlistOps, alertSettingsOps, AFFILIATE_COMMISSION, TIERS, tierFeatures, tierLookupLimit };
+// ── CRM Integrations (one doc per user per type: jobnimbus, acculynx, webhook) ──
+const integrationOps = {
+  async getForUser(userId) { return integrations.find({ userId }); },
+  async get(userId, type) { return integrations.findOne({ userId, type }); },
+  async upsert(userId, type, data) {
+    const existing = await integrations.findOne({ userId, type });
+    const now = new Date().toISOString();
+    if (existing) return integrations.update({ _id: existing._id }, { $set: { ...data, updatedAt: now } });
+    return integrations.insert({ userId, type, ...data, createdAt: now, updatedAt: now });
+  },
+  async remove(userId, type) { return integrations.remove({ userId, type }, { multi: true }); },
+  async allActive() { return integrations.find({ type: { $in: ['jobnimbus', 'acculynx'] } }); },
+  // Inbound webhook token lives on a per-user 'inbound' doc.
+  async inboundToken(userId, makeToken) {
+    const doc = await integrations.findOne({ userId, type: 'inbound' });
+    if (doc) return doc.token;
+    const token = makeToken();
+    await integrations.insert({ userId, type: 'inbound', token, createdAt: new Date().toISOString() });
+    return token;
+  },
+  async rotateInboundToken(userId, makeToken) {
+    const token = makeToken();
+    await integrations.remove({ userId, type: 'inbound' }, { multi: true });
+    await integrations.insert({ userId, type: 'inbound', token, createdAt: new Date().toISOString() });
+    return token;
+  },
+  async findByInboundToken(token) { return token ? integrations.findOne({ type: 'inbound', token }) : null; },
+};
+
+module.exports = { integrationOps, freeAlertOps, reviewOps, userOps, lookupOps, alertOps, profileOps, resultsCacheOps, affiliateOps, watchlistOps, alertSettingsOps, AFFILIATE_COMMISSION, TIERS, tierFeatures, tierLookupLimit };
