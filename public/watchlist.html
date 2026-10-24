@@ -39,6 +39,7 @@
   <div class="wl-header">
     <h1>Portfolio monitoring</h1>
     <p>Add the properties you manage, insure, own or serve. We check every address against NOAA radar every day and against storm reports every 15 minutes, and email you when one is hit. Team and Enterprise plans also get a heads-up when a hail warning covers your properties.</p>
+    <p style="margin-top:10px"><a href="/integrations" style="color:#F2C77A;font-weight:700">Using JobNimbus, AccuLynx or ClaimWizard? Connect your CRM to load your customers automatically →</a></p>
   </div>
 
   <!-- Stats -->
@@ -118,7 +119,7 @@ async function loadContacts() {
     const s = byId[c._id] || {};
     return `
     <div class="contact-card ${s.hitDays3yr ? 'hit' : ''}">
-      <h4>${esc(c.name)}</h4>
+      <h4>${esc(c.name)}${c.source && c.source !== 'stormcheck' ? ` <span style="font-size:0.7em;font-weight:700;background:#e6eef8;color:#1d4e89;padding:2px 8px;border-radius:10px;vertical-align:middle">${({ jobnimbus: 'JobNimbus', acculynx: 'AccuLynx', webhook: 'CRM' })[c.source] || esc(c.source)}${c.crmStatus ? ' · ' + esc(c.crmStatus) : ''}</span>` : ''}</h4>
       <div class="addr">${esc(c.formattedAddress || c.address)}</div>
       <div class="contact-info">
         ${c.phone ? esc(c.phone) : ''}

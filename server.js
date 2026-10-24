@@ -716,6 +716,7 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
 
 // ── Radar platform + public pages ────────────────────────────────────────────
 require('./platform-routes')(app, { requireAuth, requireAdmin, requireActiveSubscription, tierFeatures, db });
+require('./integration-routes')(app, { requireAuth, tierFeatures, db });
 require('./public-pages')(app, { db });
 
 // ── Root redirect ─────────────────────────────────────────────────────────────
@@ -753,4 +754,8 @@ app.listen(PORT, () => {
 
 startStormMonitor(alertOps, pushSubscriptionStore);
 dataJobs.start({ db, tierFeatures, freeAlertOps });
+require('./lib/integrations').start({
+  ...db,
+  locateMissing: userId => watchlistRoutes._geocodeMissing(watchlistOps, userId).catch(e => console.error('[integrations] locate:', e.message)),
+});
 module.exports = app;
