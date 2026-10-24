@@ -12,6 +12,7 @@
     ['/integrations', 'Integrations'],
     ['/settings', 'Settings'],
     ['/affiliate', 'Affiliate'],
+    ['/help', 'Help'],
   ];
 
   var css = document.createElement('style');
@@ -57,4 +58,8 @@
     }).catch(function () {});
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+
+  // Help assistant + "What's new" popup on every logged-in page.
+  var sc = document.createElement('script'); sc.src = '/js/assistant.js'; sc.defer = true;
+  document.head.appendChild(sc);
 })();
