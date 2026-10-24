@@ -34,6 +34,8 @@ const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours (reduced from 24h so recent 
 const jobs = new Map(); // jobId -> { status, result, error, startedAt }
 
 const app = express();
+// Railway sits one proxy hop in front of the app; use the real visitor IP for rate limits.
+app.set('trust proxy', 1);
 const { startStormMonitor } = require('./storm-alerts');
 
 const PORT = process.env.PORT || 3000;

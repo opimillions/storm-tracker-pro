@@ -3,6 +3,11 @@
 (function () {
   if (window.__scpAssistant) return;
   window.__scpAssistant = true;
+  // Public website (no login) vs. the logged-in app.
+  var me = document.currentScript;
+  var PUBLIC = !!(me && me.getAttribute('data-mode') === 'public');
+  var ENDPOINT = PUBLIC ? '/api/public/assistant/chat' : '/api/assistant/chat';
+  var STORE = PUBLIC ? 'scpChatPublic' : 'scpChat';
 
   var css = document.createElement('style');
   css.textContent =
@@ -47,13 +52,13 @@
   function linkify(t) {
     return esc(t)
       .replace(/(https:\/\/[^\s<)]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
-      .replace(/(^|[\s(])(\/(?:dashboard|hailmap|storms|watchlist|leads|alert-settings|integrations|settings|affiliate|upgrade|help)(?:#[a-z-]+)?)(?=[\s).,]|$)/g, '$1<a href="$2">$2</a>');
+      .replace(/(^|[\s(])(\/(?:dashboard|hailmap|storms|watchlist|leads|alert-settings|integrations|settings|affiliate|upgrade|help|register|sample-report|hail-maps|alerts|login)?(?:#[a-z-]+)?)(?=[\s).,]|$)/g, function (m, pre, p) { return p === '/' ? m : pre + '<a href="' + p + '">' + p + '</a>'; });
   }
 
   // ── Chat ───────────────────────────────────────────────────────────────────
   var history = [];
-  try { history = JSON.parse(sessionStorage.getItem('scpChat') || '[]'); } catch (e) { history = []; }
-  function save() { try { sessionStorage.setItem('scpChat', JSON.stringify(history.slice(-20))); } catch (e) {} }
+  try { history = JSON.parse(sessionStorage.getItem(STORE) || '[]'); } catch (e) { history = []; }
+  function save() { try { sessionStorage.setItem(STORE, JSON.stringify(history.slice(-20))); } catch (e) {} }
 
   var fab = document.createElement('button');
   fab.className = 'scp-fab'; fab.setAttribute('aria-label', 'Ask the StormCheck Pro assistant');
@@ -61,15 +66,20 @@
   var panel = document.createElement('div');
   panel.className = 'scp-chat'; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', 'Help assistant');
   panel.innerHTML =
-    '<header><div><b>StormCheck Pro assistant</b><small>Ask how to use any feature</small></div><button type="button" aria-label="Close" data-close>&times;</button></header>' +
+    '<header><div><b>StormCheck Pro assistant</b><small>' + (PUBLIC ? 'Questions about StormCheck Pro? Ask away' : 'Ask how to use any feature') + '</small></div><button type="button" aria-label="Close" data-close>&times;</button></header>' +
     '<div class="scp-log" data-log aria-live="polite"></div>' +
     '<form class="scp-form" data-form><label for="scpInput" style="position:absolute;left:-9999px">Your question</label><textarea id="scpInput" placeholder="Ask a question…" rows="1"></textarea><button type="submit">Send</button></form>';
 
   function render() {
     var log = panel.querySelector('[data-log]');
-    var html = '<div class="scp-msg bot">Hi! I can help with lookups, reports, the hail map, lead lists, Portfolio, alerts and CRM integrations. What do you need?</div>';
+    var html = '<div class="scp-msg bot">' + (PUBLIC
+      ? "Hi! I can answer questions about StormCheck Pro: what's in a report, pricing, where the data comes from, and how it works with your CRM."
+      : 'Hi! I can help with lookups, reports, the hail map, lead lists, Portfolio, alerts and CRM integrations. What do you need?') + '</div>';
+    var SUGG = PUBLIC
+      ? ['How much does it cost?', 'Does it work with JobNimbus or AccuLynx?', 'Where does the data come from?', 'How can I get leads after a storm?']
+      : ['How do I find the date of loss?', 'How do I make a lead list after a storm?', 'What does Verified mean?', 'How do I connect JobNimbus?'];
     if (!history.length) {
-      html += '<div class="scp-sugg">' + ['How do I find the date of loss?', 'How do I make a lead list after a storm?', 'What does Verified mean?', 'How do I connect JobNimbus?'].map(function (q) { return '<button type="button" data-q="' + esc(q) + '">' + esc(q) + '</button>'; }).join('') + '</div>';
+      html += '<div class="scp-sugg">' + SUGG.map(function (q) { return '<button type="button" data-q="' + esc(q) + '">' + esc(q) + '</button>'; }).join('') + '</div>';
     }
     html += history.map(function (m) { return '<div class="scp-msg ' + (m.role === 'user' ? 'user' : 'bot') + '">' + (m.role === 'user' ? esc(m.content) : linkify(m.content)) + '</div>'; }).join('');
     log.innerHTML = html;
@@ -86,7 +96,7 @@
     var log = panel.querySelector('[data-log]');
     var typing = document.createElement('div'); typing.className = 'scp-typing'; typing.textContent = 'Thinking…'; log.appendChild(typing); log.scrollTop = log.scrollHeight;
     var btn = panel.querySelector('[data-form] button'); btn.disabled = true;
-    fetch('/api/assistant/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: history.slice(-12) }) })
+    fetch(ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: history.slice(-12) }) })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (x) { history.push({ role: 'assistant', content: x.ok ? x.j.reply : (x.j.error || 'Sorry, something went wrong. Try again.') }); })
       .catch(function () { history.push({ role: 'assistant', content: 'Connection problem. Please try again.' }); })
@@ -139,7 +149,7 @@
   function start() {
     document.body.appendChild(panel);
     document.body.appendChild(fab);
-    whatsNew();
+    if (!PUBLIC) whatsNew();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();
