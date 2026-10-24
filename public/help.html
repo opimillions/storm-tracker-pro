@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#172235">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.json">
+  <title>Help & Training — StormCheck Pro</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .hero { background: linear-gradient(135deg, #172235, #1e3a5f); color: #fff; border-radius: 12px; padding: 24px 28px; margin-bottom: 20px; }
+    .hero h1 { font-size: 1.6em; margin-bottom: 6px; }
+    .hero p { opacity: .85; }
+    .search { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .search input { flex: 1 1 260px; min-width: 0; padding: 12px 14px; border-radius: 10px; border: 0; font-size: 1em; }
+    .layout { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+    .toc { flex: 0 1 230px; background: #fff; border-radius: 12px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+    .toc a { display: block; padding: 8px 10px; border-radius: 8px; color: var(--navy); text-decoration: none; font-weight: 600; font-size: .92em; }
+    .toc a:hover { background: #f1f5f9; }
+    .content { flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+    .guide, .faqbox, .newbox { background: #fff; border-radius: 12px; padding: 22px 24px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+    .guide h2, .faqbox h2, .newbox h2 { font-size: 1.2em; color: var(--navy); margin-bottom: 4px; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+    .guide h2 a { font-size: .7em; font-weight: 700; }
+    .guide .sum { color: var(--muted); margin-bottom: 12px; }
+    .guide ol { padding-left: 22px; display: flex; flex-direction: column; gap: 8px; color: #334155; line-height: 1.55; }
+    .tips { margin-top: 12px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 10px 14px; color: #075985; font-size: .9em; }
+    details { border-bottom: 1px solid #e2e8f0; padding: 14px 0; }
+    details summary { cursor: pointer; font-weight: 700; color: var(--navy); list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+    details summary::after { content: '+'; color: #1d4e89; font-size: 1.3em; line-height: 1; }
+    details[open] summary::after { content: '–'; }
+    details p { margin-top: 8px; color: #475569; line-height: 1.55; }
+    .newitem { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+    .newitem:last-child { border-bottom: 0; }
+    .newitem .dot { flex: 0 0 10px; height: 10px; border-radius: 50%; background: #F2A93B; margin-top: 7px; }
+    .newitem p { color: #475569; font-size: .92em; margin-top: 2px; }
+    .empty { display: none; color: var(--muted); padding: 20px; text-align: center; background: #fff; border-radius: 12px; }
+    @media (max-width: 760px) { .toc { flex-basis: 100%; display: flex; flex-wrap: wrap; } .toc a { flex: 0 0 auto; } }
+  </style>
+</head>
+<body>
+<nav id="appNav" class="app-nav"></nav>
+<script src="/js/app-nav.js"></script>
+
+<div class="page-wrap">
+  <div class="hero">
+    <h1>Help &amp; training</h1>
+    <p>How to use every feature, plus answers to common questions. Can't find it? Ask the assistant (bottom right).</p>
+    <div class="search">
+      <label for="q" style="position:absolute;left:-9999px">Search help</label>
+      <input id="q" type="search" placeholder="Search: lead list, playback, JobNimbus, verified…" oninput="filter(this.value)">
+    </div>
+  </div>
+
+  <div class="layout">
+    <nav class="toc" id="toc" aria-label="Help topics"></nav>
+    <div class="content" id="content"></div>
+  </div>
+  <div class="empty" id="empty">No matches. Try different words, or ask the assistant.</div>
+</div>
+
+<script>
+function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+let data = null;
+async function init() {
+  const r = await fetch('/api/help');
+  if (r.status === 401) return location = '/login';
+  data = await r.json();
+  document.getElementById('toc').innerHTML =
+    `<a href="#whats-new">What's new</a>` + data.guides.map(g => `<a href="#${g.id}">${esc(g.title)}</a>`).join('') + `<a href="#faq">FAQ</a>`;
+  document.getElementById('content').innerHTML =
+    `<section class="newbox" id="whats-new" data-text="${esc((data.release.items.map(i => i.title + ' ' + i.text).join(' ')).toLowerCase())}">
+       <h2>${esc(data.release.title)}</h2>
+       ${data.release.items.map(i => `<div class="newitem"><span class="dot"></span><div><strong>${esc(i.title)}</strong> <a href="${esc(i.link)}" style="font-size:.85em">Open</a><p>${esc(i.text)}</p></div></div>`).join('')}
+     </section>` +
+    data.guides.map(g => `<section class="guide" id="${g.id}" data-text="${esc((g.title + ' ' + g.summary + ' ' + g.steps.join(' ') + ' ' + (g.tips || []).join(' ')).toLowerCase())}">
+       <h2>${esc(g.title)} <a href="${esc(g.link)}">Open ${esc(g.title.split(' ')[0])} →</a></h2>
+       <p class="sum">${esc(g.summary)}</p>
+       <ol>${g.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
+       ${g.tips ? `<div class="tips">${g.tips.map(esc).join('<br>')}</div>` : ''}
+     </section>`).join('') +
+    `<section class="faqbox" id="faq"><h2>Frequently asked questions</h2>
+       ${data.faq.map(f => `<details data-text="${esc((f.q + ' ' + f.a).toLowerCase())}"><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join('')}
+       <p style="margin-top:14px;color:var(--muted)">Still stuck? ${esc(data.support)}</p>
+     </section>`;
+  if (location.hash) { const el = document.querySelector(location.hash); if (el) el.scrollIntoView(); }
+}
+function filter(q) {
+  const t = q.trim().toLowerCase();
+  let shown = 0;
+  document.querySelectorAll('[data-text]').forEach(el => {
+    const hit = !t || t.split(/\s+/).every(w => el.dataset.text.includes(w));
+    el.style.display = hit ? '' : 'none';
+    if (hit) shown++;
+    if (el.tagName === 'DETAILS') el.open = !!t && hit;
+  });
+  const faq = document.getElementById('faq');
+  if (faq) faq.style.display = !t || faq.querySelector('details:not([style*="none"])') ? '' : 'none';
+  document.getElementById('empty').style.display = shown ? 'none' : 'block';
+}
+init();
+</script>
+</body>
+</html>

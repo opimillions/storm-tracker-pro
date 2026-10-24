@@ -717,6 +717,7 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
 // ── Radar platform + public pages ────────────────────────────────────────────
 require('./platform-routes')(app, { requireAuth, requireAdmin, requireActiveSubscription, tierFeatures, db });
 require('./integration-routes')(app, { requireAuth, tierFeatures, db });
+require('./help-routes')(app, { requireAuth, requireAdmin, tierFeatures, db });
 require('./public-pages')(app, { db });
 
 // ── Root redirect ─────────────────────────────────────────────────────────────
