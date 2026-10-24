@@ -51,7 +51,28 @@ About this user: name ${user.name || 'unknown'}, plan ${features.label || user.t
 ${help.asText()}`;
 }
 
-function fallbackReply(question) {
+function publicPrompt() {
+  return `You are the assistant on the public website of StormCheck Pro, answering questions from people deciding whether to sign up: roofers, public adjusters, insurance agents, realtors, property managers and real estate investors.
+
+Answer using ONLY the information below. Be friendly, brief and concrete: 1–3 short sentences, or a short dash list. When it fits, end with one next step: run a free report (/register), see a sample report (/sample-report), see pricing (/#pricing), or get free hail alerts (/alerts). Include paths exactly like that so they become links.
+
+Rules:
+- Only discuss StormCheck Pro, hail and storm data, and how it helps their business. For anything unrelated, say you can only help with StormCheck Pro questions.
+- Never invent features, prices, discounts, integrations or data. If it isn't below, say you're not sure and suggest contacting ${help.SUPPORT}
+- Do not give legal advice, insurance coverage opinions or claim outcome predictions, and don't say whether a specific roof is damaged.
+- You cannot look up an address here; tell them to run a free report at /register.
+- Do not disparage competitors; describe StormCheck Pro's strengths factually.
+- Plain text only, no markdown headers or tables.
+
+${help.publicText()}`;
+}
+
+function fallbackReply(question, { publicOnly = false } = {}) {
+  if (publicOnly) {
+    const hits = help.search(question, 2, { publicOnly: true });
+    if (!hits.length) return `I can help with questions about StormCheck Pro. See the sample report (/sample-report) or pricing (/#pricing), or ${help.SUPPORT}`;
+    return hits.map(h => `${h.title}\n${h.text}`).join('\n\n') + '\n\nTry it free: /register';
+  }
   const hits = help.search(question, 2);
   if (!hits.length) return `I couldn't find that in the guide. Try the Help tab (/help), or ${help.SUPPORT}`;
   return hits.map(h => `${h.title}\n${h.text.length > 600 ? h.text.slice(0, 600) + '…' : h.text}\n(${h.link})`).join('\n\n') + `\n\nMore in the Help tab (/help).`;
@@ -109,6 +130,55 @@ module.exports = function helpRoutes(app, { requireAuth, requireAdmin, tierFeatu
       console.error('Assistant error:', e.response ? JSON.stringify(e.response.data) : e.message);
       logQuestion(req.user, last.content, 'fallback');
       res.json({ reply: fallbackReply(last.content), mode: 'search' });
+    }
+  });
+
+  // ── Public website assistant (no login) ───────────────────────────────────
+  const ipUse = new Map();
+  let dayKey = '', dayCount = 0;
+  const DAILY_CAP = parseInt(process.env.PUBLIC_ASSISTANT_DAILY_CAP || '1500', 10);
+  function publicLimited(ip) {
+    const now = Date.now();
+    const arr = (ipUse.get(ip) || []).filter(t => now - t < 86400000);
+    arr.push(now); ipUse.set(ip, arr);
+    if (ipUse.size > 50000) ipUse.clear();
+    return arr.filter(t => now - t < 600000).length > 12 || arr.length > 50;
+  }
+  app.post('/api/public/assistant/chat', async (req, res) => {
+    const msgs = Array.isArray(req.body && req.body.messages) ? req.body.messages : [];
+    const clean = msgs
+      .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+      .slice(-8)
+      .map(m => ({ role: m.role, content: m.content.slice(0, 800) }));
+    while (clean.length && clean[0].role !== 'user') clean.shift();
+    const last = clean[clean.length - 1];
+    if (!last || last.role !== 'user') return res.status(400).json({ error: 'Ask a question.' });
+    if (publicLimited(req.ip)) return res.status(429).json({ error: `You've asked a lot of questions. Please wait a few minutes, or ${help.SUPPORT}` });
+
+    const today = new Date().toISOString().slice(0, 10);
+    if (today !== dayKey) { dayKey = today; dayCount = 0; }
+    const visitor = { _id: null, email: '', tier: 'visitor' };
+    if (!process.env.ANTHROPIC_API_KEY || ++dayCount > DAILY_CAP) {
+      logQuestion(visitor, last.content, 'public-search');
+      return res.json({ reply: fallbackReply(last.content, { publicOnly: true }), mode: 'search' });
+    }
+    try {
+      const r = await axios.post('https://api.anthropic.com/v1/messages', {
+        model: process.env.ASSISTANT_MODEL || 'claude-haiku-5-5',
+        max_tokens: 400,
+        system: publicPrompt(),
+        messages: clean,
+      }, {
+        headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        timeout: 30000,
+      });
+      const reply = (r.data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+      logQuestion(visitor, last.content, 'public-ai');
+      res.json({ reply: reply || fallbackReply(last.content, { publicOnly: true }), mode: 'ai' });
+    } catch (e) {
+      console.error('Public assistant error:', e.response ? JSON.stringify(e.response.data) : e.message);
+      logQuestion(visitor, last.content, 'public-fallback');
+      res.json({ reply: fallbackReply(last.content, { publicOnly: true }), mode: 'search' });
     }
   });
 

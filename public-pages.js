@@ -60,7 +60,7 @@ ${noindex ? '<meta name="robots" content="noindex,follow">' : ''}
 <link rel="stylesheet" href="/site.css">
 ${jsonld ? `<script type="application/ld+json">${JSON.stringify(jsonld).replace(/</g, '\\u003c')}</script>` : ''}
 ${head}
-</head><body>${header()}<main>${body}</main>${footer()}</body></html>`;
+</head><body>${header()}<main>${body}</main>${footer()}<script src="/js/assistant.js" data-mode="public" defer></script></body></html>`;
 }
 
 const LEAFLET = '<link rel="stylesheet" href="/lib/leaflet.min.css"><script src="/lib/leaflet.min.js"></script><script src="/js/swath-layer.js"></script>';

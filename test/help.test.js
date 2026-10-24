@@ -53,3 +53,34 @@ test('chat endpoint: search fallback without a key, Claude with a key', async ()
     assert.strictEqual(r.mode, 'search');
   } finally { srv.close(); delete process.env.ANTHROPIC_API_KEY; }
 });
+
+test('public assistant: answers prospects, rate limited, no login', async () => {
+  const express = require('express');
+  const axios = require('axios');
+  const app = express(); app.use(express.json());
+  const db = { userOps: { update: async () => {} }, watchlistOps: { count: async () => 0 }, integrationOps: { getForUser: async () => [] } };
+  require('../help-routes')(app, { requireAuth: (q, r) => r.status(401).end(), requireAdmin: (q, r, n) => n(), tierFeatures: () => ({}), db });
+  const srv = app.listen(0); const base = `http://127.0.0.1:${srv.address().port}`;
+  const post = body => fetch(base + '/api/public/assistant/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  try {
+    delete process.env.ANTHROPIC_API_KEY;
+    let r = await (await post({ messages: [{ role: 'user', content: 'how much does it cost' }] })).json();
+    assert.strictEqual(r.mode, 'search');
+    assert.match(r.reply, /\$39/);
+    assert.match(r.reply, /\/register/);
+
+    process.env.ANTHROPIC_API_KEY = 'sk-test';
+    let sent = null; const orig = axios.post;
+    axios.post = async (url, body) => { sent = body; return { data: { content: [{ type: 'text', text: 'Yes, JobNimbus connects directly. Try it free: /register' }] } }; };
+    r = await (await post({ messages: [{ role: 'user', content: 'jobnimbus?' }] })).json();
+    axios.post = orig;
+    assert.strictEqual(r.mode, 'ai');
+    assert.match(sent.system, /public website/);
+    assert.match(sent.system, /JobNimbus and AccuLynx connect directly/);
+    assert.ok(sent.max_tokens <= 400);
+
+    let limited = false;
+    for (let i = 0; i < 15; i++) { const x = await post({ messages: [{ role: 'user', content: 'q' + i }] }); if (x.status === 429) { limited = true; break; } }
+    assert.ok(limited, 'per-visitor limit kicks in');
+  } finally { srv.close(); delete process.env.ANTHROPIC_API_KEY; }
+});
