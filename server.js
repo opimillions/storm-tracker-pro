@@ -161,6 +161,9 @@ app.post('/api/auth/register', async (req, res) => {
     const existing = await userOps.findByEmail(email);
     if (existing) return res.status(409).json({ error: 'An account with this email already exists' });
     await userOps.create({ email, password, name, company, role: 'subscriber', tier: 'trial', lookupLimit: 1 });
+    // Record where the sign-up came from (UTM tags kept by /js/tracking.js).
+    const utm = require('./tracking-routes').readUtm(req);
+    if (utm) { const nu = await userOps.findByEmail(email); if (nu) await userOps.update(nu._id, { signupSource: utm }); }
     const user = await userOps.findByEmail(email);
     // Track affiliate referral if ref cookie set
     const refCode = (req.cookies && req.cookies.ref) ? req.cookies.ref : null;
@@ -605,14 +608,17 @@ function sendCsv(res, name, rows) {
 
 app.get('/api/admin/export/users.csv', requireAuth, requireAdmin, async (req, res) => {
   const users = (await userOps.getAll()).filter(u => u.role !== 'admin');
-  const rows = [['Name', 'Email', 'Company', 'Phone', 'Plan', 'Subscription Status', 'Lookups This Month', 'Joined', 'Last Login', 'Referred By', 'Notes']];
+  const rows = [['Name', 'Email', 'Company', 'Phone', 'Plan', 'Subscription Status', 'Lookups This Month', 'Joined', 'Last Login', 'Referred By', 'Source', 'Campaign', 'Ad / Content', 'Landing Page', 'Notes']];
   for (const u of users) {
     let p = null;
     try { p = await profileOps.get(u._id); } catch { /* no profile */ }
     rows.push([
       u.name, u.email, (p && p.companyName) || u.company || '', (p && p.companyPhone) || '',
       (TIERS[u.tier] && TIERS[u.tier].label) || u.tier, u.subscriptionStatus || '',
-      u.lookupsThisMonth || 0, csvDate(u.createdAt), csvDate(u.lastLogin), u.referredBy || '', u.notes || '',
+      u.lookupsThisMonth || 0, csvDate(u.createdAt), csvDate(u.lastLogin), u.referredBy || '',
+      [u.signupSource && u.signupSource.utm_source, u.signupSource && u.signupSource.utm_medium].filter(Boolean).join(' / '),
+      (u.signupSource && u.signupSource.utm_campaign) || '', (u.signupSource && u.signupSource.utm_content) || '',
+      (u.signupSource && u.signupSource.landing) || '', u.notes || '',
     ]);
   }
   sendCsv(res, 'stormcheck-users', rows);
@@ -705,7 +711,7 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
       payment_method_types: ['card'],
       customer_email: req.user.email,
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${process.env.BASE_URL}/dashboard?subscribed=1`,
+      success_url: `${process.env.BASE_URL}/dashboard?subscribed=1&plan=${encodeURIComponent(tier || 'pro')}`,
       cancel_url: `${process.env.BASE_URL}/upgrade`,
       metadata: { userId: req.user._id, tier: tier || 'pro' },
       ...(promoCode ? { discounts: [{ coupon: promoCode }] } : { allow_promotion_codes: true }),
@@ -720,6 +726,7 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
 require('./platform-routes')(app, { requireAuth, requireAdmin, requireActiveSubscription, tierFeatures, db });
 require('./integration-routes')(app, { requireAuth, tierFeatures, db });
 require('./help-routes')(app, { requireAuth, requireAdmin, tierFeatures, db });
+require('./tracking-routes')(app);
 require('./public-pages')(app, { db });
 
 // ── Root redirect ─────────────────────────────────────────────────────────────

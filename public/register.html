@@ -19,6 +19,7 @@
     .login-footer a { color: var(--gold); text-decoration: none; }
     .trial-info { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 7px; padding: 12px 14px; margin-bottom: 20px; font-size: 0.85em; color: #166534; }
   </style>
+  <script src="/js/tracking.js" async></script>
 </head>
 <body>
 <div class="register-wrap">
@@ -87,7 +88,9 @@
       });
       const data = await res.json();
       if (data.success) {
-        window.location = data.redirect;
+        if (window.scpTrack) window.scpTrack('signup');
+        setTimeout(function () { window.location = data.redirect; }, window.scpTrack ? 400 : 0);
+        return;
       } else {
         errEl.textContent = data.error;
         errEl.style.display = 'block';

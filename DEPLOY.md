@@ -28,6 +28,8 @@ See `.env.example`. New or changed:
 | `MESH_BACKFILL_FROM` | Oldest radar day to load. Default `2020-10-15`. |
 | `NCEI_FROM_YEAR` | Oldest NWS Storm Events year. Default `1996`. |
 | `RETENTION_YEARS` | Years of storm data to keep. Default `5`. Older radar days, NWS events, SPC reports, storm pages and playback frames are deleted at startup and daily, and never backfilled. Overrides the two settings above. `off` keeps everything. |
+| `META_PIXEL_ID`, `GA4_MEASUREMENT_ID` | Optional ad tracking (Facebook/Instagram pixel, Google Analytics). Off until set. Sign-ups and paid upgrades are reported as conversions. |
+| `GOOGLE_ADS_ID` + `_SIGNUP_LABEL`/`_PURCHASE_LABEL`, `LINKEDIN_PARTNER_ID` + conversion IDs | Optional Google Ads and LinkedIn conversion tracking. |
 
 ## 3. First start: data loads itself
 
