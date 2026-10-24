@@ -62,4 +62,5 @@
   // Help assistant + "What's new" popup on every logged-in page.
   var sc = document.createElement('script'); sc.src = '/js/assistant.js'; sc.defer = true;
   document.head.appendChild(sc);
+  ['/js/tracking.js', '/js/install.js'].forEach(function (src) { var t = document.createElement('script'); t.src = src; t.async = true; document.head.appendChild(t); });
 })();

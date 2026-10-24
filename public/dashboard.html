@@ -374,6 +374,7 @@ async function init() {
   if (pending) { document.getElementById('addressInput').value = pending; setTimeout(runLookup, 200); }
   if (params.get('review') === 'paid') showAlert('Payment received. Your reviewed report is in the queue; we will email you when it is ready.', 'success');
   if (params.get('subscribed')) {
+    (function fire(n) { if (window.scpTrack) window.scpTrack('subscribe', { plan: params.get('plan') || user.tier }); else if (n < 20) setTimeout(function () { fire(n + 1); }, 250); })(0);
     showAlert('🎉 Subscription activated! You now have unlimited lookups.', 'success');
     history.replaceState({}, '', '/dashboard');
   }

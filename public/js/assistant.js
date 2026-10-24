@@ -52,7 +52,7 @@
   function linkify(t) {
     return esc(t)
       .replace(/(https:\/\/[^\s<)]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
-      .replace(/(^|[\s(])(\/(?:dashboard|hailmap|storms|watchlist|leads|alert-settings|integrations|settings|affiliate|upgrade|help|register|sample-report|hail-maps|alerts|login)?(?:#[a-z-]+)?)(?=[\s).,]|$)/g, function (m, pre, p) { return p === '/' ? m : pre + '<a href="' + p + '">' + p + '</a>'; });
+      .replace(/(^|[\s(])(\/(?:dashboard|hailmap|storms|watchlist|leads|alert-settings|integrations|settings|affiliate|upgrade|help|register|sample-report|hail-maps|alerts|login|install)?(?:#[a-z-]+)?)(?=[\s).,]|$)/g, function (m, pre, p) { return p === '/' ? m : pre + '<a href="' + p + '">' + p + '</a>'; });
   }
 
   // ── Chat ───────────────────────────────────────────────────────────────────
