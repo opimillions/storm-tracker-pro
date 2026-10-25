@@ -27,6 +27,8 @@ freeAlerts.ensureIndex({ fieldName: 'token', unique: true });
 const reviews = Datastore.create({ filename: path.join(DATA_DIR, 'reviews.db'), autoload: true });
 const integrations = Datastore.create({ filename: path.join(DATA_DIR, 'integrations.db'), autoload: true });
 integrations.ensureIndex({ fieldName: 'userId' });
+const pros = Datastore.create({ filename: path.join(DATA_DIR, 'pros.db'), autoload: true });
+pros.ensureIndex({ fieldName: 'category' });
 const prospects = Datastore.create({ filename: path.join(DATA_DIR, 'prospects.db'), autoload: true });
 prospects.ensureIndex({ fieldName: 'email', unique: true });
 prospects.ensureIndex({ fieldName: 'token', unique: true });
@@ -587,4 +589,20 @@ const prospectOps = {
   async removeAllActive() { return prospects.remove({ active: true }, { multi: true }); },
 };
 
-module.exports = { prospectOps, integrationOps, freeAlertOps, reviewOps, userOps, lookupOps, alertOps, profileOps, resultsCacheOps, affiliateOps, watchlistOps, alertSettingsOps, AFFILIATE_COMMISSION, TIERS, tierFeatures, tierLookupLimit };
+// ── Find a Pro directory listings ──────────────────────────────────────────────
+// status: active | pending (applied, awaiting review) | hidden
+const proOps = {
+  async create(data) { return pros.insert({ status: 'pending', views: 0, clicks: 0, ...data, createdAt: new Date().toISOString() }); },
+  async get(id) { return pros.findOne({ _id: id }); },
+  async update(id, data) { return pros.update({ _id: id }, { $set: { ...data, updatedAt: new Date().toISOString() } }); },
+  async remove(id) { return pros.remove({ _id: id }); },
+  async all() { return pros.find({}).sort({ createdAt: -1 }); },
+  async active(category) { return pros.find({ status: 'active', ...(category ? { category } : {}) }); },
+  async count() { return pros.count({}); },
+  async bump(ids, field) {
+    if (!ids.length) return;
+    await pros.update({ _id: { $in: ids } }, { $inc: { [field]: 1 } }, { multi: true });
+  },
+};
+
+module.exports = { proOps, prospectOps, integrationOps, freeAlertOps, reviewOps, userOps, lookupOps, alertOps, profileOps, resultsCacheOps, affiliateOps, watchlistOps, alertSettingsOps, AFFILIATE_COMMISSION, TIERS, tierFeatures, tierLookupLimit };

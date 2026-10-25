@@ -326,6 +326,12 @@ app.post('/api/me/states', requireAuth, async (req, res) => {
   res.json({ success: true });
 });
 
+// Browser-side Google Maps Embed key (restrict it to this domain in Google Cloud).
+app.get('/api/config/maps', (req, res) => {
+  const k = String(process.env.GOOGLE_MAPS_EMBED_KEY || '').trim();
+  res.set('Cache-Control', 'public, max-age=300');
+  res.json({ embedKey: /^[A-Za-z0-9_-]{20,60}$/.test(k) ? k : null });
+});
 app.get('/alert-settings', requireAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'alert-settings.html')));
 app.get('/api/alert-settings', requireAuth, async (req, res) => { const settings = await alertSettingsOps.get(req.user._id); res.json({ settings }); });
 app.post('/api/alert-settings', requireAuth, async (req, res) => {
@@ -743,6 +749,7 @@ require('./help-routes')(app, { requireAuth, requireAdmin, tierFeatures, db });
 require('./tracking-routes')(app);
 require('./recap-routes')(app, { db, requireAuth, requireAdmin });
 require('./public-pages')(app, { db });
+require('./pro-routes')(app, { db, requireAuth, requireAdmin });
 
 // ── Root redirect ─────────────────────────────────────────────────────────────
 

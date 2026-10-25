@@ -57,6 +57,7 @@
     <div class="tab" onclick="switchTab('reviews')">Review Orders</div>
     <div class="tab" onclick="switchTab('data')">Data Pipeline</div>
     <div class="tab" onclick="switchTab('recaps')">Storm Recaps</div>
+    <div class="tab" onclick="switchTab('pros')">Find a Pro</div>
   </div>
 
   <!-- Users Tab -->
@@ -121,6 +122,11 @@
       </div>
       <pre id="dataLog" style="margin-top:14px;max-height:320px;overflow:auto;background:#0f172a;color:#cbd5e1;padding:12px;border-radius:8px;font-size:0.78em;white-space:pre-wrap"></pre>
     </div>
+  </div>
+
+  <!-- Find a Pro Tab -->
+  <div class="tab-panel" id="tab-pros">
+    <div id="prosRoot" style="display:grid;gap:16px">Loading…</div>
   </div>
 
   <!-- Storm Recaps Tab -->
@@ -429,12 +435,13 @@ async function addUser() {
 }
 
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['users','lookups','alerts','reviews','data','recaps'][i]===name));
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['users','lookups','alerts','reviews','data','recaps','pros'][i]===name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   if (name === 'reviews') loadReviews();
   if (name === 'data') loadDataStatus();
   if (name === 'recaps') loadRecaps();
+  if (name === 'pros') loadPros();
 }
 
 async function logout() {
@@ -447,5 +454,6 @@ window.switchTab = switchTab;
 init();
 </script>
 <script src="/js/admin-recaps.js"></script>
+<script src="/js/admin-pros.js"></script>
 </body>
 </html>

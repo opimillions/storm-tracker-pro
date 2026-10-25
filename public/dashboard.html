@@ -197,6 +197,9 @@
     <!-- Impact Header -->
     <div class="impact-header card" id="impactHeader"></div>
 
+    <!-- Street View: confirm it's the right house -->
+    <div class="card" id="streetCard" style="display:none;margin-bottom:16px;padding:14px"></div>
+
     <!-- Report actions -->
     <div style="display:flex;justify-content:flex-end;gap:10px;margin-bottom:16px;flex-wrap:wrap">
       <button class="btn btn-secondary btn-sm" onclick="openPrint('standard')">Print / Save as PDF</button>
@@ -210,6 +213,7 @@
       <h3>Most likely dates of loss</h3>
       <div style="font-size:0.85em;color:var(--muted)">Ranked by estimated hail size at this property, with radar and ground reports combined. Click a date to see its hail swath.</div>
       <div class="dol-list" id="dolList"></div>
+      <div id="proLink" style="display:none;margin-top:10px;font-size:0.88em"></div>
       <div class="src-note" id="srcNote"></div>
     </div>
 
@@ -497,6 +501,7 @@ function renderResults(data) {
     </div>
   `;
 
+  renderStreetView(lat, lon, address);
   renderDateOfLoss(data);
 
   // Populate date filter (storm dates include radar-only days)
@@ -860,6 +865,40 @@ window.reRunLookup = reRunLookup;
 function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function confBadge(c) { const k = c === 'Ground report' ? 'Ground' : c; return `<span class="conf conf-${k}">${c === 'Verified' ? '✓ Verified' : c}</span>`; }
 
+// Street View of the property so the user can confirm it's the right house.
+// Embedded when GOOGLE_MAPS_EMBED_KEY is set; otherwise a link to Google Street View.
+let mapsConfig = null;
+async function renderStreetView(lat, lon, address) {
+  const card = document.getElementById('streetCard');
+  if (lat == null || lon == null) { card.style.display = 'none'; return; }
+  if (!mapsConfig) { try { mapsConfig = await (await fetch('/api/config/maps')).json(); } catch (e) { mapsConfig = {}; } }
+  const ll = `${(+lat).toFixed(6)},${(+lon).toFixed(6)}`;
+  const pano = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${ll}`;
+  const sat = `https://www.google.com/maps/@?api=1&map_action=map&center=${ll}&zoom=20&basemap=satellite`;
+  const links = `<a href="${pano}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">Open Street View ↗</a>
+    <a href="${sat}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">Satellite view ↗</a>
+    <button type="button" class="btn btn-outline btn-sm" onclick="wrongHouse()">Wrong house?</button>`;
+  card.style.display = 'block';
+  if (mapsConfig.embedKey) {
+    card.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div><strong style="color:var(--navy)">Is this the right property?</strong><div style="font-size:0.82em;color:var(--muted)">Street View near ${esc(address || '')}. Drag to look around.</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${links}</div></div>
+      <iframe title="Street View of ${esc(address || 'the property')}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen
+        style="width:100%;height:320px;border:0;border-radius:8px;background:#e2e8f0"
+        src="https://www.google.com/maps/embed/v1/streetview?key=${encodeURIComponent(mapsConfig.embedKey)}&location=${ll}&fov=80"></iframe>`;
+  } else {
+    card.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <div><strong style="color:var(--navy)">Is this the right property?</strong><div style="font-size:0.82em;color:var(--muted)">Check the house in Street View before relying on the report.</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${links}</div></div>`;
+  }
+}
+function wrongHouse() {
+  const input = document.getElementById('addressInput') || document.querySelector('input[type="text"]');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (input) { input.focus(); input.select(); }
+  alert('Enter the full address with house number, street, city, state and ZIP, then run the report again. If the pin is still off, try the nearest known address.');
+}
+
 function renderDateOfLoss(data) {
   const card = document.getElementById('dolCard');
   if (!data.dateOfLoss) { card.style.display = 'none'; return; }
@@ -879,6 +918,12 @@ function renderDateOfLoss(data) {
       <div class="dol-size">${s.bestEstimateIn ? s.bestEstimateIn.toFixed(2) + '"' : '—'}<div style="font-size:0.5em;font-weight:600;color:var(--muted)">${esc(s.sizeName || s.severity)}</div></div>
     </div>`;
   }).join('') : '<div style="color:var(--muted);font-size:0.9em">No damaging hail, wind or tornado activity at this property in the selected period.</div>';
+  const pl = document.getElementById('proLink');
+  if (list.length && data.lat != null) {
+    const q = `lat=${(+data.lat).toFixed(4)}&lon=${(+data.lon).toFixed(4)}`;
+    pl.innerHTML = `Need help with a claim on this property? Find a <a href="/find-a-pro?${q}&cat=public-adjusters" target="_blank" rel="noopener">public adjuster</a>, <a href="/find-a-pro?${q}&cat=appraisers" target="_blank" rel="noopener">appraiser</a> or <a href="/find-a-pro?${q}&cat=attorneys" target="_blank" rel="noopener">attorney</a> in this state.`;
+    pl.style.display = 'block';
+  } else pl.style.display = 'none';
   const c = data.coverage || {};
   const parts = [];
   if (c.radar && c.radar.first) parts.push(`radar hail ${fmtDate(c.radar.first)} – ${fmtDate(c.radar.last)}`);

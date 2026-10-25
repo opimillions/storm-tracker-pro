@@ -26,7 +26,7 @@ function header() {
   return `<header class="site-head"><div class="wrap">
   <a href="/" class="logo">${LOGO}<span>StormCheck Pro</span></a>
   <nav class="site-nav" aria-label="Main">
-    <a href="/hail-maps">Hail maps</a><a href="/#features">Features</a><a href="/#pricing">Pricing</a><a href="/alerts">Free alerts</a>
+    <a href="/hail-maps">Hail maps</a><a href="/#features">Features</a><a href="/#pricing">Pricing</a><a href="/alerts">Free alerts</a><a href="/find-a-pro">Find a pro</a>
     <a href="/login" style="color:#fff">Sign in</a>
     <a href="/register" class="btn btn-accent">Run a free report</a>
   </nav></div></header>`;
@@ -39,7 +39,7 @@ function footer() {
   <nav class="states" aria-label="Hail history by state">${states}</nav>
   <div class="row">
     <p style="margin:0">StormCheck Pro is built by <a href="https://thepublicadjustertx.com">First Call Public Adjusters</a> · Southlake, TX · <a href="tel:+18176189884">(817) 618-9884</a></p>
-    <p style="margin:0">Storm data: NOAA National Weather Service · <a href="/sample-report">Sample report</a> · <a href="/hail-maps">Hail maps</a></p>
+    <p style="margin:0">Storm data: NOAA National Weather Service · <a href="/sample-report">Sample report</a> · <a href="/hail-maps">Hail maps</a> · <a href="/find-a-pro">Find a public adjuster, appraiser or attorney</a></p>
   </div></div></footer>`;
 }
 
@@ -502,8 +502,16 @@ module.exports = function publicPages(app, { db }) {
     res.type('text/plain').send(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /dashboard\nDisallow: /admin\nSitemap: ${baseUrl()}/sitemap.xml\n`);
   });
 
-  app.get('/sitemap.xml', (req, res) => {
-    const urls = ['/', '/hail-maps', '/alerts', '/sample-report'];
+  app.get('/sitemap.xml', async (req, res) => {
+    const urls = ['/', '/hail-maps', '/alerts', '/sample-report', '/find-a-pro', '/find-a-pro/get-listed',
+      '/find-a-pro/public-adjusters', '/find-a-pro/appraisers', '/find-a-pro/attorneys'];
+    // Directory state pages that have listings.
+    try {
+      const slugs = { 'public-adjuster': 'public-adjusters', appraiser: 'appraisers', attorney: 'attorneys' };
+      const seen = new Set();
+      for (const p of await db.proOps.active()) for (const st of p.states || []) seen.add(`/find-a-pro/${slugs[p.category]}/${st.toLowerCase()}`);
+      urls.push(...seen);
+    } catch { /* directory unavailable */ }
     for (const st of Object.keys(places.STATE_NAMES)) urls.push(`/hail/${st.toLowerCase()}`);
     const cutoff = new Date(Date.now() - 730 * 86400000).toISOString().slice(0, 10);
     for (const s of stormDays.recent({ limit: 2000, minIn: 1 })) {
@@ -525,3 +533,8 @@ module.exports = function publicPages(app, { db }) {
       body: '<section><div class="wrap narrow"><h1>No hail map for that date.</h1><p class="lede">We only publish maps for days when radar showed hail. <a href="/hail-maps">See recent storms</a>.</p></div></section>' });
   }
 };
+
+// Shared with other server-rendered public pages (Find a Pro).
+module.exports.page = page;
+module.exports.rateLimited = rateLimited;
+module.exports.esc = esc;

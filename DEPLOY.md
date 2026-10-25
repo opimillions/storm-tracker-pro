@@ -31,6 +31,7 @@ See `.env.example`. New or changed:
 | `META_PIXEL_ID`, `GA4_MEASUREMENT_ID` | Optional ad tracking (Facebook/Instagram pixel, Google Analytics). Off until set. Sign-ups and paid upgrades are reported as conversions. |
 | `GOOGLE_ADS_ID` + `_SIGNUP_LABEL`/`_PURCHASE_LABEL`, `LINKEDIN_PARTNER_ID` + conversion IDs | Optional Google Ads and LinkedIn conversion tracking. |
 | `BUSINESS_ADDRESS` | Postal address printed in storm recap emails (required by CAN-SPAM before recaps can send). Can also be set on Admin → Storm Recaps. |
+| `GOOGLE_MAPS_EMBED_KEY` | Optional. Shows Street View of the property on each report. In Google Cloud, enable the **Maps Embed API**, create an API key and restrict it to HTTP referrers `stormcheckpro.thepublicadjustertx.com/*`. Embed API use is free. Without a key, reports show an "Open Street View" button. |
 | `MAP_TILE_URL` | Optional base map tiles for recap map images. Defaults to OpenStreetMap. |
 
 ## 3. First start: data loads itself
