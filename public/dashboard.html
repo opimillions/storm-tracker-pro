@@ -295,6 +295,7 @@
               <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #e2e8f0">1 mi</th>
               <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #e2e8f0">3 mi</th>
               <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #e2e8f0">10 mi</th>
+              <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #e2e8f0" title="NWS radar hail algorithm: highest probability of 1-inch or larger hail for storm cells within 3 miles">Severe hail chance</th>
               <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #e2e8f0">Ground reports</th>
               <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #e2e8f0">Confidence</th>
             </tr>
@@ -868,6 +869,7 @@ function renderDateOfLoss(data) {
     const g = s.groundReports;
     const bits = [];
     if (s.radar) bits.push(`Radar ${s.radar.atPropertyIn.toFixed(2)}" at the property, ${s.radar.within1miIn.toFixed(2)}" within 1 mi`);
+    if (s.hailAlgorithm && s.hailAlgorithm.severeProbWithin3mi) bits.push(`${s.hailAlgorithm.severeProbWithin3mi}% severe hail probability within 3 mi`);
     if (g.hailWithin3mi) bits.push(`${g.hailWithin3mi} ground hail report${g.hailWithin3mi > 1 ? 's' : ''} within 3 mi`);
     if (g.maxWindMph) bits.push(`wind gusts to ${g.maxWindMph} mph`);
     if (g.nearestTornadoMi != null && g.nearestTornadoMi <= 3) bits.push(`tornado ${g.nearestTornadoMi} mi away`);
@@ -883,7 +885,18 @@ function renderDateOfLoss(data) {
   if (c.ncei && c.ncei.firstYear) parts.push(`NWS storm events ${c.ncei.firstYear} – ${fmtDate(c.ncei.end)}`);
   if (c.spc && c.spc.first) parts.push(`spotter reports through ${fmtDate(c.spc.last)}`);
   document.getElementById('srcNote').innerHTML = `<strong>Verified</strong> = radar shows 0.75"+ hail at the property and at least one ground report within 3 miles the same day. ` +
-    `<strong>Radar</strong> = radar estimate only. Data: NOAA MRMS radar, NCEI Storm Events, SPC storm reports${parts.length ? ` (${parts.join('; ')})` : ''}. Radar estimates can differ from what fell at a specific roof.`;
+    `<strong>Radar</strong> = radar estimate only. <strong>Severe hail chance</strong> = the National Weather Service radar hail algorithm's highest probability of 1"+ hail for storm cells within 3 miles. Data: NOAA MRMS radar, NWS radar hail algorithm, NCEI Storm Events, SPC storm reports${parts.length ? ` (${parts.join('; ')})` : ''}. Radar estimates can differ from what fell at a specific roof.`;
+}
+
+// NWS radar hail algorithm probability of 1"+ hail within 3 miles.
+function probCell(h) {
+  const td = 'text-align:center;padding:10px 12px;border-bottom:1px solid #e2e8f0;';
+  if (!h) return `<td style="${td}color:#94a3b8" title="Not loaded yet for this date">…</td>`;
+  const p = h.severeProbWithin3mi;
+  if (!p) return `<td style="${td}color:#94a3b8">—</td>`;
+  const bg = p >= 70 ? '#fee2e2' : p >= 50 ? '#ffedd5' : p >= 30 ? '#fef9c3' : '#f1f5f9';
+  const fg = p >= 70 ? '#991b1b' : p >= 50 ? '#9a3412' : p >= 30 ? '#854d0e' : '#475569';
+  return `<td style="${td}background:${bg};color:${fg};font-weight:700">${p}%</td>`;
 }
 
 function buildStormDateTable(stormDates) {
@@ -894,7 +907,7 @@ function buildStormDateTable(stormDates) {
     return `<td style="text-align:center;padding:10px 12px;border-bottom:1px solid #e2e8f0;background:${c.bg};color:${c.text};font-weight:700">${sz.toFixed(2)}"</td>`;
   }
   document.getElementById('summaryBody').innerHTML = rows.length === 0
-    ? '<tr><td colspan="7" style="text-align:center;color:#888;padding:20px">No storm activity found</td></tr>'
+    ? '<tr><td colspan="8" style="text-align:center;color:#888;padding:20px">No storm activity found</td></tr>'
     : rows.map(s => {
         const r = s.radar || {};
         const g = s.groundReports;
@@ -902,6 +915,7 @@ function buildStormDateTable(stormDates) {
         return `<tr onclick="filterMapToDate('${s.date}')" style="cursor:pointer" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
           <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#1e293b">${fmtDate(s.date)}</td>
           ${cell(r.atPropertyIn)}${cell(r.within1miIn)}${cell(r.within3miIn)}${cell(r.within10miIn)}
+          ${probCell(s.hailAlgorithm)}
           <td style="text-align:center;padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:0.85em">${ground}</td>
           <td style="text-align:center;padding:10px 12px;border-bottom:1px solid #e2e8f0">${confBadge(s.confidence)}</td>
         </tr>`;

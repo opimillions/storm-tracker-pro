@@ -27,6 +27,9 @@ freeAlerts.ensureIndex({ fieldName: 'token', unique: true });
 const reviews = Datastore.create({ filename: path.join(DATA_DIR, 'reviews.db'), autoload: true });
 const integrations = Datastore.create({ filename: path.join(DATA_DIR, 'integrations.db'), autoload: true });
 integrations.ensureIndex({ fieldName: 'userId' });
+const prospects = Datastore.create({ filename: path.join(DATA_DIR, 'prospects.db'), autoload: true });
+prospects.ensureIndex({ fieldName: 'email', unique: true });
+prospects.ensureIndex({ fieldName: 'token', unique: true });
 
 // Indexes
 users.ensureIndex({ fieldName: 'email', unique: true });
@@ -551,4 +554,37 @@ const integrationOps = {
   async findByInboundToken(token) { return token ? integrations.findOne({ type: 'inbound', token }) : null; },
 };
 
-module.exports = { integrationOps, freeAlertOps, reviewOps, userOps, lookupOps, alertOps, profileOps, resultsCacheOps, affiliateOps, watchlistOps, alertSettingsOps, AFFILIATE_COMMISSION, TIERS, tierFeatures, tierLookupLimit };
+// ── Storm recap prospects (imported email list) ───────────────────────────────
+// Unsubscribed prospects are kept (active: false) so a re-import can't add them back.
+const prospectOps = {
+  async upsertMany(list) {
+    const crypto = require('crypto');
+    let added = 0, updated = 0, skipped = 0;
+    for (const p of list) {
+      const existing = await prospects.findOne({ email: p.email });
+      if (existing) {
+        if (!existing.active) { skipped++; continue; }
+        await prospects.update({ _id: existing._id }, { $set: { ...p, updatedAt: new Date().toISOString() } });
+        updated++;
+      } else {
+        await prospects.insert({ ...p, token: crypto.randomBytes(20).toString('hex'), active: true, recaps: 0, createdAt: new Date().toISOString() });
+        added++;
+      }
+    }
+    return { added, updated, skipped };
+  },
+  async getActive() { return prospects.find({ active: true }); },
+  async list({ limit = 200, skip = 0 } = {}) { return prospects.find({}).sort({ createdAt: -1 }).skip(skip).limit(limit); },
+  async all() { return prospects.find({}).sort({ createdAt: -1 }); },
+  async counts() {
+    const [active, unsubscribed] = await Promise.all([prospects.count({ active: true }), prospects.count({ active: false })]);
+    return { active, unsubscribed };
+  },
+  async byToken(token) { return token ? prospects.findOne({ token }) : null; },
+  async unsubscribe(token) { return prospects.update({ token }, { $set: { active: false, unsubscribedAt: new Date().toISOString() } }); },
+  async markSent(id, date) { return prospects.update({ _id: id }, { $set: { lastRecapAt: new Date().toISOString(), lastRecapDate: date }, $inc: { recaps: 1 } }); },
+  async remove(id) { return prospects.remove({ _id: id }); },
+  async removeAllActive() { return prospects.remove({ active: true }, { multi: true }); },
+};
+
+module.exports = { prospectOps, integrationOps, freeAlertOps, reviewOps, userOps, lookupOps, alertOps, profileOps, resultsCacheOps, affiliateOps, watchlistOps, alertSettingsOps, AFFILIATE_COMMISSION, TIERS, tierFeatures, tierLookupLimit };

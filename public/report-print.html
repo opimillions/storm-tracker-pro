@@ -108,12 +108,12 @@ async function init() {
       : 'No significant storm activity was recorded at this property in the period covered. This does not guarantee the absence of damage.'}</p>`;
   } else {
     body += `<h2>Most likely dates of loss</h2>
-    ${(r.dateOfLoss || []).length ? `<table><thead><tr><th>#</th><th>Date</th><th>Hail at property</th><th>Radar within 1 mi</th><th>Ground reports (3 mi)</th><th>Wind / tornado</th><th>Confidence</th></tr></thead><tbody>
-    ${r.dateOfLoss.map((s, i) => `<tr><td>${i + 1}</td><td>${fmtDate(s.date)}</td><td><strong>${inch(s.bestEstimateIn)}</strong> ${esc(s.sizeName || '')}</td><td>${s.radar ? inch(s.radar.within1miIn) : '—'}</td><td>${s.groundReports.hailWithin3mi}</td><td>${[s.groundReports.maxWindMph ? s.groundReports.maxWindMph + ' mph' : '', s.groundReports.nearestTornadoMi != null ? 'Tornado ' + s.groundReports.nearestTornadoMi + ' mi' : ''].filter(Boolean).join(', ') || '—'}</td><td><span class="${confCls(s.confidence)}">${esc(s.confidence)}</span></td></tr>`).join('')}
+    ${(r.dateOfLoss || []).length ? `<table><thead><tr><th>#</th><th>Date</th><th>Hail at property</th><th>Radar within 1 mi</th><th>Severe hail chance (3 mi)</th><th>Ground reports (3 mi)</th><th>Wind / tornado</th><th>Confidence</th></tr></thead><tbody>
+    ${r.dateOfLoss.map((s, i) => `<tr><td>${i + 1}</td><td>${fmtDate(s.date)}</td><td><strong>${inch(s.bestEstimateIn)}</strong> ${esc(s.sizeName || '')}</td><td>${s.radar ? inch(s.radar.within1miIn) : '—'}</td><td>${s.hailAlgorithm && s.hailAlgorithm.severeProbWithin3mi ? s.hailAlgorithm.severeProbWithin3mi + '%' : '—'}</td><td>${s.groundReports.hailWithin3mi}</td><td>${[s.groundReports.maxWindMph ? s.groundReports.maxWindMph + ' mph' : '', s.groundReports.nearestTornadoMi != null ? 'Tornado ' + s.groundReports.nearestTornadoMi + ' mi' : ''].filter(Boolean).join(', ') || '—'}</td><td><span class="${confCls(s.confidence)}">${esc(s.confidence)}</span></td></tr>`).join('')}
     </tbody></table>` : '<p class="empty">No damaging storm dates found.</p>'}
     <h2>All storm dates (radar estimates)</h2>
-    <table><thead><tr><th>Date</th><th>At property</th><th>1 mi</th><th>3 mi</th><th>10 mi</th><th>Ground hail reports</th><th>Confidence</th></tr></thead><tbody>
-    ${sd.filter(s => s.radar || s.groundReports.hailCount).slice(0, 60).map(s => `<tr><td>${fmtDate(s.date)}</td><td>${s.radar ? inch(s.radar.atPropertyIn) : '—'}</td><td>${s.radar ? inch(s.radar.within1miIn) : '—'}</td><td>${s.radar ? inch(s.radar.within3miIn) : '—'}</td><td>${s.radar ? inch(s.radar.within10miIn) : '—'}</td><td>${s.groundReports.hailCount ? s.groundReports.hailCount + ' (max ' + inch(s.groundReports.largestHailIn) + ')' : '—'}</td><td><span class="${confCls(s.confidence)}">${esc(s.confidence)}</span></td></tr>`).join('') || '<tr><td colspan="7" class="empty">None</td></tr>'}
+    <table><thead><tr><th>Date</th><th>At property</th><th>1 mi</th><th>3 mi</th><th>10 mi</th><th>Severe hail chance</th><th>Ground hail reports</th><th>Confidence</th></tr></thead><tbody>
+    ${sd.filter(s => s.radar || s.groundReports.hailCount).slice(0, 60).map(s => `<tr><td>${fmtDate(s.date)}</td><td>${s.radar ? inch(s.radar.atPropertyIn) : '—'}</td><td>${s.radar ? inch(s.radar.within1miIn) : '—'}</td><td>${s.radar ? inch(s.radar.within3miIn) : '—'}</td><td>${s.radar ? inch(s.radar.within10miIn) : '—'}</td><td>${s.hailAlgorithm && s.hailAlgorithm.severeProbWithin3mi ? s.hailAlgorithm.severeProbWithin3mi + '%' : '—'}</td><td>${s.groundReports.hailCount ? s.groundReports.hailCount + ' (max ' + inch(s.groundReports.largestHailIn) + ')' : '—'}</td><td><span class="${confCls(s.confidence)}">${esc(s.confidence)}</span></td></tr>`).join('') || '<tr><td colspan="8" class="empty">None</td></tr>'}
     </tbody></table>
     <h2>Storm reports within 10 miles</h2>
     <table><thead><tr><th>Date</th><th>Type</th><th>Size / speed</th><th>Distance</th><th>Location and details</th><th>Source</th></tr></thead><tbody>
@@ -122,7 +122,7 @@ async function init() {
   }
 
   body += `<div class="disclaimer">
-    <strong>Sources:</strong> NOAA MRMS radar Maximum Estimated Size of Hail (1 km grid); NOAA NCEI Storm Events Database; NOAA Storm Prediction Center storm reports.
+    <strong>Sources:</strong> NOAA MRMS radar Maximum Estimated Size of Hail (1 km grid); National Weather Service NEXRAD hail detection algorithm (probability of 1"+ hail per storm cell, via NOAA NCEI); NOAA NCEI Storm Events Database; NOAA Storm Prediction Center storm reports.
     <strong>Verified</strong> means radar estimated 0.75" or larger hail at the property and at least one ground report within 3 miles on the same day.
     Radar estimates and storm reports indicate likely conditions and can differ from what occurred at a specific structure. This report is not an inspection, engineering assessment or determination of coverage. ${esc(poweredBy)}
   </div>`;

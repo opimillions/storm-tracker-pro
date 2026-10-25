@@ -5,10 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Alert Settings — StormCheck Pro</title>
   <link rel="stylesheet" href="/style.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+  <link rel="stylesheet" href="/lib/leaflet.min.css"/>
+  <script src="/lib/leaflet.min.js"></script>
   <style>
     .settings-wrap { max-width: 900px; margin: 40px auto; padding: 0 20px; }
     #regionMap { height: 350px; border-radius: 10px; border: 1px solid var(--border); margin-top: 12px; }
@@ -43,7 +41,10 @@
       <div style="font-weight:600;color:var(--navy);margin-bottom:8px;font-size:0.9em">Add Region</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <input type="text" id="regionSearch" placeholder="City, state, or zip code" style="flex:1;min-width:200px">
-        <input type="number" id="regionRadius" placeholder="Radius (miles)" value="50" style="max-width:150px">
+        <select id="regionRadius" aria-label="Radius" style="max-width:150px">
+          <option value="10">10 miles</option><option value="25">25 miles</option><option value="35">35 miles</option>
+          <option value="50" selected>50 miles</option><option value="75">75 miles</option><option value="100">100 miles</option><option value="150">150 miles</option>
+        </select>
         <button class="btn btn-primary btn-sm" onclick="addRegion()">+ Add Region</button>
       </div>
     </div>
@@ -53,11 +54,11 @@
 
   <!-- Alert Type Settings -->
   <div class="card" style="margin-bottom:20px">
-    <div style="font-weight:700;color:var(--navy);font-size:1.1em;margin-bottom:4px">Hail Alert Sizes</div>
-    <div style="color:var(--muted);font-size:0.88em;margin-bottom:16px">Only receive alerts for storms meeting these minimum sizes.</div>
-    <div class="alert-size-row">
+    <div style="font-weight:700;color:var(--navy);font-size:1.1em;margin-bottom:4px">When to Alert Me</div>
+    <div style="color:var(--muted);font-size:0.88em;margin-bottom:16px">Only receive alerts for storms that meet both of these. They apply to your territory and portfolio alerts.</div>
+    <div class="alert-size-row" style="display:flex;gap:16px;flex-wrap:wrap">
       <div class="form-group">
-        <label>On-the-Ground Reports (SPC)</label>
+        <label for="hailSizeGround">Minimum hail size</label>
         <select id="hailSizeGround">
           <option value="0.75">0.75" Penny (any damage)</option>
           <option value="1.0">1.00" Quarter</option>
@@ -66,6 +67,17 @@
           <option value="1.75">1.75" Golf Ball+</option>
           <option value="2.0">2.00" Egg</option>
         </select>
+      </div>
+      <div class="form-group">
+        <label for="minSevProb">Minimum severe hail probability</label>
+        <select id="minSevProb">
+          <option value="0" selected>Any probability</option>
+          <option value="30">30% or higher</option>
+          <option value="50">50% or higher</option>
+          <option value="70">70% or higher</option>
+          <option value="90">90% or higher</option>
+        </select>
+        <div style="font-size:0.78em;color:var(--muted);margin-top:4px;max-width:320px">From the National Weather Service radar hail algorithm: the chance a storm produced 1"+ hail. Applies to territory alerts.</div>
       </div>
     </div>
   </div>
@@ -110,7 +122,9 @@ async function loadSettings() {
     if (!res.ok) return;
     const { settings } = await res.json();
     if (settings) {
-      document.getElementById('hailSizeGround').value = settings.minHailSize || '1.25';
+      document.getElementById('hailSizeGround').value = String(settings.minHailSize || '1.25');
+      if (document.getElementById('hailSizeGround').selectedIndex < 0) document.getElementById('hailSizeGround').value = '1.0';
+      document.getElementById('minSevProb').value = String(settings.minSevProb || 0);
       document.getElementById('alertHail').checked = settings.alertHail !== false;
       document.getElementById('alertWind').checked = settings.alertWind !== false;
       document.getElementById('alertTornado').checked = settings.alertTornado !== false;
@@ -146,7 +160,7 @@ function renderRegions() {
 
 async function addRegion() {
   const search = document.getElementById('regionSearch').value.trim();
-  const radius = parseInt(document.getElementById('regionRadius').value) || 50;
+  const radius = parseInt(document.getElementById('regionRadius').value, 10) || 50;
   if (!search) return;
   try {
     const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(search)}`, { headers: { 'Accept-Language': 'en-US' } });
@@ -170,6 +184,7 @@ async function saveSettings() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         minHailSize: document.getElementById('hailSizeGround').value,
+        minSevProb: document.getElementById('minSevProb').value,
         alertHail: document.getElementById('alertHail').checked,
         alertWind: document.getElementById('alertWind').checked,
         alertTornado: document.getElementById('alertTornado').checked,
@@ -177,6 +192,7 @@ async function saveSettings() {
         regions: savedRegions
       })
     });
+    if (!res.ok) throw new Error('save failed');
     alertEl.className = 'alert alert-success'; alertEl.textContent = '✅ Alert settings saved!'; alertEl.style.display = 'block';
     setTimeout(() => alertEl.style.display = 'none', 3000);
   } catch (e) {

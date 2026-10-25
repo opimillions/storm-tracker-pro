@@ -30,6 +30,8 @@ See `.env.example`. New or changed:
 | `RETENTION_YEARS` | Years of storm data to keep. Default `5`. Older radar days, NWS events, SPC reports, storm pages and playback frames are deleted at startup and daily, and never backfilled. Overrides the two settings above. `off` keeps everything. |
 | `META_PIXEL_ID`, `GA4_MEASUREMENT_ID` | Optional ad tracking (Facebook/Instagram pixel, Google Analytics). Off until set. Sign-ups and paid upgrades are reported as conversions. |
 | `GOOGLE_ADS_ID` + `_SIGNUP_LABEL`/`_PURCHASE_LABEL`, `LINKEDIN_PARTNER_ID` + conversion IDs | Optional Google Ads and LinkedIn conversion tracking. |
+| `BUSINESS_ADDRESS` | Postal address printed in storm recap emails (required by CAN-SPAM before recaps can send). Can also be set on Admin → Storm Recaps. |
+| `MAP_TILE_URL` | Optional base map tiles for recap map images. Defaults to OpenStreetMap. |
 
 ## 3. First start: data loads itself
 

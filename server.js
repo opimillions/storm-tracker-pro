@@ -328,7 +328,21 @@ app.post('/api/me/states', requireAuth, async (req, res) => {
 
 app.get('/alert-settings', requireAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'alert-settings.html')));
 app.get('/api/alert-settings', requireAuth, async (req, res) => { const settings = await alertSettingsOps.get(req.user._id); res.json({ settings }); });
-app.post('/api/alert-settings', requireAuth, async (req, res) => { await alertSettingsOps.save(req.user._id, req.body); res.json({ success: true }); });
+app.post('/api/alert-settings', requireAuth, async (req, res) => {
+  const b = req.body || {};
+  const num = (v, lo, hi, d) => { const n = parseFloat(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
+  const regions = (Array.isArray(b.regions) ? b.regions : []).slice(0, 25)
+    .map(r => ({ name: String(r.name || 'Region').slice(0, 80), lat: num(r.lat, -90, 90, NaN), lon: num(r.lon, -180, 180, NaN), radius: Math.round(num(r.radius, 1, 250, 50)) }))
+    .filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lon));
+  await alertSettingsOps.save(req.user._id, {
+    minHailSize: num(b.minHailSize, 0.5, 4, 1),
+    minSevProb: Math.round(num(b.minSevProb, 0, 100, 0)),
+    alertHail: b.alertHail !== false, alertWind: b.alertWind !== false,
+    alertTornado: b.alertTornado !== false, alertEmail: b.alertEmail !== false,
+    regions,
+  });
+  res.json({ success: true });
+});
 
 app.get('/hailmap', requireAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'hailmap.html')));
 app.get('/storms', requireAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'storms.html')));
@@ -727,6 +741,7 @@ require('./platform-routes')(app, { requireAuth, requireAdmin, requireActiveSubs
 require('./integration-routes')(app, { requireAuth, tierFeatures, db });
 require('./help-routes')(app, { requireAuth, requireAdmin, tierFeatures, db });
 require('./tracking-routes')(app);
+require('./recap-routes')(app, { db, requireAuth, requireAdmin });
 require('./public-pages')(app, { db });
 
 // ── Root redirect ─────────────────────────────────────────────────────────────
