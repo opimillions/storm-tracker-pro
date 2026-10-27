@@ -22,7 +22,8 @@ const compression = require('compression');
 const reportEngine = require('./lib/report-engine');
 const spcStore = require('./lib/spc-store');
 const dataJobs = require('./lib/data-jobs');
-const { generateToken, requireAuth, requireAdmin, requireActiveSubscription } = require('./auth');
+const { generateToken, generateMfaTicket, requireAuth, requireAdmin, requireActiveSubscription } = require('./auth');
+const security = require('./lib/security');
 const { geocodeAddress, fetchHailHistory, getImpactScore, getImpactRating } = require('./hail-engine');
 const axios = require('axios');
 
@@ -36,6 +37,8 @@ const jobs = new Map(); // jobId -> { status, result, error, startedAt }
 const app = express();
 // Railway sits one proxy hop in front of the app; use the real visitor IP for rate limits.
 app.set('trust proxy', 1);
+app.disable('x-powered-by');
+app.use(security.headers());
 const { startStormMonitor } = require('./storm-alerts');
 
 const PORT = process.env.PORT || 3000;
@@ -120,11 +123,15 @@ app.get('/register', (req, res) => res.sendFile(path.join(__dirname, 'public', '
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+  const wait = security.lockedFor(email, req.ip);
+  if (wait) return res.status(429).json({ error: `Too many wrong passwords. Try again in ${wait} minute${wait === 1 ? '' : 's'}, or reset your password.` });
   try {
     const user = await userOps.findByEmail(email);
     if (!user || !userOps.verifyPassword(user, password)) {
+      security.recordFailure(email, req.ip);
       return res.status(401).json({ error: 'Invalid email or password' });
     }
+    security.clearFailures(email);
     if (user.tier === 'suspended') {
       return res.status(403).json({ error: 'Your account has been suspended. Contact (817) 618-9884.' });
     }
@@ -136,8 +143,9 @@ app.post('/api/auth/login', async (req, res) => {
       try { const aff = await affiliateOps.findByCode(refCode); if (aff) { await userOps.update(user._id, { referredBy: refCode.toUpperCase() }); console.log('Referral tracked: ' + email + ' by ' + refCode); } } catch(re) {}
       res.clearCookie('ref');
     }
-    const token = generateToken(user);
-    res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 7 * 24 * 60 * 60 * 1000 });
+    // Two-step sign-in: password was right; now ask for the authenticator code.
+    if (user.totpEnabled) return res.json({ twoFactor: true, ticket: generateMfaTicket(user) });
+    security.setSessionCookie(req, res, generateToken(user));
     res.json({ success: true, redirect: user.role === 'admin' ? '/admin' : '/dashboard' });
   } catch (err) {
     console.error('Login error:', err && err.stack || err);
@@ -171,8 +179,7 @@ app.post('/api/auth/register', async (req, res) => {
       try { const aff = await affiliateOps.findByCode(refCode); if (aff) { await userOps.update(user._id, { referredBy: refCode.toUpperCase() }); console.log('Referral: '+email+' by '+refCode); } } catch(re) {}
       res.clearCookie('ref');
     }
-    const token = generateToken(user);
-    res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 7 * 24 * 60 * 60 * 1000 });
+    security.setSessionCookie(req, res, generateToken(user));
     res.json({ success: true, redirect: '/dashboard' });
   } catch (err) {
     res.status(500).json({ error: 'Registration failed. Please try again.' });
@@ -186,6 +193,9 @@ app.get('/reset-password', (req, res) => res.sendFile(path.join(__dirname, 'publ
 app.post('/api/auth/forgot-password', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email required' });
+  // Limit reset emails per address and per IP (shares the sign-in limiter).
+  if (security.lockedFor('reset:' + email, req.ip)) return res.json({ success: true });
+  security.recordFailure('reset:' + email, req.ip);
   try {
     const user = await userOps.findByEmail(email);
     if (user) {
@@ -195,7 +205,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       await userOps.setResetToken(email, token, expires);
       const baseUrl = process.env.BASE_URL || 'https://stormcheckpro.thepublicadjustertx.com';
       const resetUrl = `${baseUrl}/reset-password?token=${token}`;
-      // Send the reset email (Resend or SMTP); if email isn't configured, log the link.
+      // Send the reset email (Resend or SMTP).
       const mailer = require('./lib/mailer');
       if (mailer.isConfigured()) {
         const sent = await mailer.sendMail({
@@ -203,10 +213,10 @@ app.post('/api/auth/forgot-password', async (req, res) => {
           subject: 'Reset your StormCheck Pro password',
           html: mailer.layout('Password reset', `<p>Click the button below to reset your password. This link expires in 1 hour.</p><p><a href="${resetUrl}" style="background:#172235;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold">Reset password</a></p><p style="color:#5b6a80;font-size:13px">Or paste this link: ${resetUrl}</p><p style="color:#5b6a80;font-size:13px">If you didn't request this, ignore this email.</p>`),
         });
-        if (!sent) console.log(`\nPASSWORD RESET LINK for ${email} (email failed):\n${resetUrl}\n`);
+        // Never write the link itself to the logs: anyone who can read logs could use it.
+        if (!sent) console.error(`Password reset email to ${email} failed. Check email settings (Admin → Test Email).`);
       } else {
-        // No email configured — log the reset URL so admin can share manually
-        console.log(`\nPASSWORD RESET LINK for ${email}:\n${resetUrl}\n`);
+        console.error(`Password reset requested for ${email}, but email is not configured (set RESEND_API_KEY).`);
       }
     }
     // Always return success to prevent email enumeration
@@ -227,6 +237,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
     const bcrypt = require('bcryptjs');
     const hash = bcrypt.hashSync(password, 12);
     await userOps.clearResetToken(user._id, hash);
+    security.clearFailures(user.email);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Reset failed. Please try again.' });
@@ -235,7 +246,14 @@ app.post('/api/auth/reset-password', async (req, res) => {
 
 // Logout
 app.post('/api/auth/logout', (req, res) => {
-  res.clearCookie('token');
+  security.clearSessionCookie(req, res);
+  res.json({ success: true });
+});
+
+// Sign out of every device (ends all sessions, including this one).
+app.post('/api/auth/logout-all', requireAuth, async (req, res) => {
+  await userOps.bumpTokenVersion(req.user._id);
+  security.clearSessionCookie(req, res);
   res.json({ success: true });
 });
 
@@ -748,6 +766,21 @@ require('./integration-routes')(app, { requireAuth, tierFeatures, db });
 require('./help-routes')(app, { requireAuth, requireAdmin, tierFeatures, db });
 require('./tracking-routes')(app);
 require('./recap-routes')(app, { db, requireAuth, requireAdmin });
+require('./security-routes')(app, { db, requireAuth, requireAdmin });
+
+// ── Backups (admin) ───────────────────────────────────────────────────────────
+const backups = require('./lib/backups');
+app.post('/api/admin/backups/run', requireAuth, requireAdmin, async (req, res) => {
+  try { res.json(await backups.run()); } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.get('/api/admin/backups/:name', requireAuth, requireAdmin, (req, res) => {
+  const p = backups.filePath(req.params.name);
+  if (!p) return res.status(404).json({ error: 'Not found' });
+  res.download(p);
+});
+// Nightly at 08:30 UTC (about 3:30 AM Central), plus one at startup if the last is old.
+cron.schedule('30 8 * * *', () => backups.run().then(r => console.log('[backup]', r.name, r.offsite)).catch(e => console.error('[backup]', e.message)));
+setTimeout(() => { if (!backups.latest() && process.env.DATA_JOBS !== 'off') backups.run().catch(e => console.error('[backup]', e.message)); }, 90000);
 require('./public-pages')(app, { db });
 require('./pro-routes')(app, { db, requireAuth, requireAdmin });
 

@@ -4,15 +4,29 @@
 const jwt = require('jsonwebtoken');
 const { userOps } = require('./db');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
+const { jwtSecret } = require('./lib/app-secret');
+const { clearSessionCookie } = require('./lib/security');
 const JWT_EXPIRES = '7d';
 
+// `tv` (token version) lets us end every session for a user at once:
+// bump user.tokenVersion and older tokens stop working.
 function generateToken(user) {
   return jwt.sign(
-    { id: user._id, email: user.email, role: user.role, tier: user.tier },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRES }
+    { id: user._id, email: user.email, role: user.role, tier: user.tier, tv: user.tokenVersion || 0 },
+    jwtSecret(),
+    { expiresIn: JWT_EXPIRES, algorithm: 'HS256' }
   );
+}
+
+/** Short-lived ticket between a correct password and the two-step code. */
+function generateMfaTicket(user) {
+  return jwt.sign({ id: user._id, purpose: 'mfa', tv: user.tokenVersion || 0 }, jwtSecret(), { expiresIn: '5m', algorithm: 'HS256' });
+}
+function readMfaTicket(ticket) {
+  try {
+    const d = jwt.verify(String(ticket || ''), jwtSecret(), { algorithms: ['HS256'] });
+    return d.purpose === 'mfa' ? d : null;
+  } catch { return null; }
 }
 
 function requireAuth(req, res, next) {
@@ -24,21 +38,22 @@ function requireAuth(req, res, next) {
 
   let decoded;
   try {
-    decoded = jwt.verify(token, JWT_SECRET);
+    decoded = jwt.verify(token, jwtSecret(), { algorithms: ['HS256'] });
+    if (decoded.purpose) throw new Error('not a session token');
   } catch (err) {
-    res.clearCookie('token');
+    clearSessionCookie(req, res);
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Session expired' });
     return res.redirect('/login');
   }
 
   userOps.findById(decoded.id).then(user => {
-    if (!user) {
-      res.clearCookie('token');
+    if (!user || (decoded.tv || 0) !== (user.tokenVersion || 0)) {
+      clearSessionCookie(req, res);
       if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'User not found' });
       return res.redirect('/login');
     }
     if (user.tier === 'suspended') {
-      res.clearCookie('token');
+      clearSessionCookie(req, res);
       if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Account suspended. Contact support.' });
       return res.redirect('/login?error=suspended');
     }
@@ -82,4 +97,4 @@ function requireActiveSubscription(req, res, next) {
   next();
 }
 
-module.exports = { generateToken, requireAuth, requireAdmin, requireActiveSubscription };
+module.exports = { generateMfaTicket, readMfaTicket, generateToken, requireAuth, requireAdmin, requireActiveSubscription };

@@ -6,8 +6,8 @@
   <title>Admin — StormCheck Pro</title>
   <link rel="stylesheet" href="/style.css">
   <style>
-    .tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 2px solid var(--border); }
-    .tab { padding: 10px 20px; cursor: pointer; font-weight: 600; font-size: 0.92em; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 2px solid var(--border); overflow-x: auto; }
+    .tab { white-space: nowrap; padding: 10px 16px; cursor: pointer; font-weight: 600; font-size: 0.92em; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
     .tab.active { color: var(--navy); border-bottom-color: var(--red); }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
@@ -58,6 +58,7 @@
     <div class="tab" onclick="switchTab('data')">Data Pipeline</div>
     <div class="tab" onclick="switchTab('recaps')">Storm Recaps</div>
     <div class="tab" onclick="switchTab('pros')">Find a Pro</div>
+    <div class="tab" onclick="switchTab('security')">Security &amp; Backups</div>
   </div>
 
   <!-- Users Tab -->
@@ -122,6 +123,11 @@
       </div>
       <pre id="dataLog" style="margin-top:14px;max-height:320px;overflow:auto;background:#0f172a;color:#cbd5e1;padding:12px;border-radius:8px;font-size:0.78em;white-space:pre-wrap"></pre>
     </div>
+  </div>
+
+  <!-- Security Tab -->
+  <div class="tab-panel" id="tab-security">
+    <div id="securityRoot" style="display:grid;gap:16px">Loading…</div>
   </div>
 
   <!-- Find a Pro Tab -->
@@ -435,13 +441,14 @@ async function addUser() {
 }
 
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['users','lookups','alerts','reviews','data','recaps','pros'][i]===name));
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['users','lookups','alerts','reviews','data','recaps','pros','security'][i]===name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   if (name === 'reviews') loadReviews();
   if (name === 'data') loadDataStatus();
   if (name === 'recaps') loadRecaps();
   if (name === 'pros') loadPros();
+  if (name === 'security') loadSecurity();
 }
 
 async function logout() {
@@ -455,5 +462,6 @@ init();
 </script>
 <script src="/js/admin-recaps.js"></script>
 <script src="/js/admin-pros.js"></script>
+<script src="/js/admin-security.js"></script>
 </body>
 </html>

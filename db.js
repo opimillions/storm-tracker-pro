@@ -136,16 +136,26 @@ const userOps = {
     return users.update({ _id: id }, { $set: data });
   },
 
+  // Reset links are stored hashed, so a copy of the database can't be used to reset passwords.
   async setResetToken(email, token, expiresAt) {
-    return users.update({ email: email.toLowerCase() }, { $set: { resetToken: token, resetTokenExpires: expiresAt } });
+    const h = require('crypto').createHash('sha256').update(String(token)).digest('hex');
+    return users.update({ email: email.toLowerCase() }, { $set: { resetToken: h, resetTokenExpires: expiresAt } });
   },
 
   async findByResetToken(token) {
-    return users.findOne({ resetToken: token, resetTokenExpires: { $gt: new Date().toISOString() } });
+    if (!token) return null;
+    const h = require('crypto').createHash('sha256').update(String(token)).digest('hex');
+    return users.findOne({ resetToken: h, resetTokenExpires: { $gt: new Date().toISOString() } });
   },
 
+  /** New password from a reset link: also signs the account out everywhere. */
   async clearResetToken(id, newPasswordHash) {
-    return users.update({ _id: id }, { $set: { passwordHash: newPasswordHash, resetToken: null, resetTokenExpires: null } });
+    return users.update({ _id: id }, { $set: { passwordHash: newPasswordHash, resetToken: null, resetTokenExpires: null, passwordChangedAt: new Date().toISOString() }, $inc: { tokenVersion: 1 } });
+  },
+
+  /** End every session for this user (sign out of all devices). */
+  async bumpTokenVersion(id) {
+    return users.update({ _id: id }, { $inc: { tokenVersion: 1 } });
   },
 
   async delete(id) {
