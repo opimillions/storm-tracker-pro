@@ -84,3 +84,10 @@ test('public assistant: answers prospects, rate limited, no login', async () => 
     assert.ok(limited, 'per-visitor limit kicks in');
   } finally { srv.close(); delete process.env.ANTHROPIC_API_KEY; }
 });
+
+test('live / current hail questions find the right answer', () => {
+  const help = require('../lib/help-content');
+  for (const q of ['Does this app show active, current or past hail locations', 'real time hail tracking?', 'can I see hail happening right now']) {
+    assert.strictEqual(help.search(q, 2, { publicOnly: true })[0].title, 'Does it show live, active or current hail?', q);
+  }
+});
