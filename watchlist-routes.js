@@ -101,6 +101,26 @@ module.exports = function(app, { requireAuth, watchlistOps }) {
   });
 
   // Get contacts for current user
+  // "Send me a test alert": emails the signed-in user the portfolio alert they
+  // would get if one of their properties were hit. Nothing is saved or synced.
+  const testUse = new Map();
+  app.post('/api/watchlist/test-alert', requireAuth, async (req, res) => {
+    const id = String(req.user._id), now = Date.now();
+    const recent = (testUse.get(id) || []).filter(t => now - t < 3600000);
+    if (recent.length >= 5) return res.status(429).json({ error: 'You can send 5 test alerts an hour. Try again later.' });
+    const list = (await watchlistOps.getForUser(req.user._id)).filter(c => c.lat != null);
+    const c = (req.body && req.body.id && list.find(x => x._id === req.body.id)) || list[0];
+    if (!c) return res.status(400).json({ error: 'Add a property with a valid address to your portfolio first.' });
+    recent.push(now); testUse.set(id, recent);
+    const { portfolioEmail } = require('./lib/alerts');
+    const { sendMail } = require('./lib/mailer');
+    const date = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const msg = portfolioEmail(date, [{ c, best: 1.75, radarIn: 1.75, groundHail: 1.5, tornado: false, sevProb: 80 }], { test: true });
+    const sent = await sendMail({ to: req.user.email, subject: msg.subject, html: msg.html });
+    if (!sent) return res.status(502).json({ error: 'The email could not be sent. Check email settings (Admin → Test Email).' });
+    res.json({ success: true, to: req.user.email, property: c.name || c.address });
+  });
+
   app.get('/api/watchlist', requireAuth, async (req, res) => {
     const contacts = await watchlistOps.getForUser(req.user._id);
     if (contacts.some(needsGeocode) || contacts.some(c => repairFields(c))) geocodeMissing(watchlistOps, req.user._id).catch(e => console.error('geocode:', e.message));

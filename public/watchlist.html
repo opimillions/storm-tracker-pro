@@ -48,6 +48,7 @@
     <div class="stat-pill"><strong id="statHits">0</strong> Hit by 0.75"+ hail (3 years)</div>
     <div class="stat-pill"><strong id="statRecent">0</strong> Hit in the last 90 days</div>
     <div class="stat-pill"><button class="btn btn-sm btn-outline" onclick="exportPortfolio()">Download storm summary (CSV)</button></div>
+    <div class="stat-pill"><button class="btn btn-sm btn-outline" onclick="sendTestAlert()" title="Email yourself a sample hail alert for one of your properties">Send me a test alert</button></div>
   </div>
 
   <!-- Upload CSV -->
@@ -237,6 +238,14 @@ function handleCSV(input) {
     loadContacts();
   };
   reader.readAsText(file);
+}
+
+async function sendTestAlert(id) {
+  try {
+    const r = await fetch('/api/watchlist/test-alert', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(id ? { id } : {}) });
+    const d = await r.json();
+    alert(r.ok ? `Test alert sent to ${d.to} for ${d.property}. Check your inbox (and spam folder).` : (d.error || 'Could not send the test alert.'));
+  } catch (e) { alert('Connection error. Try again.'); }
 }
 
 async function deleteAll() {
