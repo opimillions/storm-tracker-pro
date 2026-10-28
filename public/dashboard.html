@@ -961,7 +961,8 @@ function renderDateOfLoss(data) {
   const pl = document.getElementById('proLink');
   if (list.length && data.lat != null) {
     const q = `lat=${(+data.lat).toFixed(4)}&lon=${(+data.lon).toFixed(4)}`;
-    pl.innerHTML = `Need help with a claim on this property? Find a <a href="/find-a-pro?${q}&cat=public-adjusters" target="_blank" rel="noopener">public adjuster</a>, <a href="/find-a-pro?${q}&cat=appraisers" target="_blank" rel="noopener">appraiser</a> or <a href="/find-a-pro?${q}&cat=attorneys" target="_blank" rel="noopener">attorney</a> in this state.`;
+    const rq = `address=${encodeURIComponent(data.address || '')}&lat=${(+data.lat).toFixed(6)}&lon=${(+data.lon).toFixed(6)}&date=${encodeURIComponent(list[0].date)}`;
+    pl.innerHTML = `Homeowner needs help with the claim? <a href="/referrals?ask=public-adjuster&${rq}">Ask a public adjuster</a> or <a href="/referrals?ask=appraiser&${rq}">ask an appraiser</a>. You can also <a href="/find-a-pro?${q}&cat=public-adjusters" target="_blank" rel="noopener">browse the directory</a>.`;
     pl.style.display = 'block';
   } else pl.style.display = 'none';
   const c = data.coverage || {};

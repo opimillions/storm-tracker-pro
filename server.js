@@ -168,7 +168,13 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const existing = await userOps.findByEmail(email);
     if (existing) return res.status(409).json({ error: 'An account with this email already exists' });
-    await userOps.create({ email, password, name, company, role: 'subscriber', tier: 'trial', lookupLimit: 1 });
+    // Partner invite (/join/CODE): free Partner account instead of the trial.
+    const inviteCode = (req.body && req.body.invite) || (req.cookies && req.cookies.scp_invite) || null;
+    const invite = inviteCode ? await db.inviteOps.usable(inviteCode) : null;
+    await userOps.create(invite
+      ? { email, password, name, company, phone: req.body.phone, role: 'subscriber', tier: invite.tier || 'partner', invitedBy: invite.code }
+      : { email, password, name, company, phone: req.body.phone, role: 'subscriber', tier: 'trial', lookupLimit: 1 });
+    if (invite) { await db.inviteOps.use(invite.code); res.clearCookie('scp_invite'); }
     // Record where the sign-up came from (UTM tags kept by /js/tracking.js).
     const utm = require('./tracking-routes').readUtm(req);
     if (utm) { const nu = await userOps.findByEmail(email); if (nu) await userOps.update(nu._id, { signupSource: utm }); }
@@ -799,6 +805,7 @@ cron.schedule('30 8 * * *', () => backups.run().then(r => console.log('[backup]'
 setTimeout(() => { if (!backups.latest() && process.env.DATA_JOBS !== 'off') backups.run().catch(e => console.error('[backup]', e.message)); }, 90000);
 require('./public-pages')(app, { db });
 require('./pro-routes')(app, { db, requireAuth, requireAdmin });
+require('./referral-routes')(app, { db, requireAuth, requireAdmin, geocodeAddress });
 
 // ── Root redirect ─────────────────────────────────────────────────────────────
 

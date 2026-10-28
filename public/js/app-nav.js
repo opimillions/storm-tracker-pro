@@ -8,6 +8,7 @@
     ['/storms', 'Storms'],
     ['/watchlist', 'Portfolio'],
     ['/leads', 'Lead Lists'],
+    ['/referrals', 'Referrals'],
     ['/alert-settings', 'Alerts'],
     ['/integrations', 'Integrations'],
     ['/settings', 'Settings'],

@@ -27,6 +27,11 @@ freeAlerts.ensureIndex({ fieldName: 'token', unique: true });
 const reviews = Datastore.create({ filename: path.join(DATA_DIR, 'reviews.db'), autoload: true });
 const integrations = Datastore.create({ filename: path.join(DATA_DIR, 'integrations.db'), autoload: true });
 integrations.ensureIndex({ fieldName: 'userId' });
+const referrals = Datastore.create({ filename: path.join(DATA_DIR, 'referrals.db'), autoload: true });
+referrals.ensureIndex({ fieldName: 'userId' });
+referrals.ensureIndex({ fieldName: 'token', unique: true });
+const invites = Datastore.create({ filename: path.join(DATA_DIR, 'invites.db'), autoload: true });
+invites.ensureIndex({ fieldName: 'code', unique: true });
 const pros = Datastore.create({ filename: path.join(DATA_DIR, 'pros.db'), autoload: true });
 pros.ensureIndex({ fieldName: 'category' });
 const prospects = Datastore.create({ filename: path.join(DATA_DIR, 'prospects.db'), autoload: true });
@@ -45,6 +50,8 @@ const TIERS = {
   pro:        { lookupLimit: -1, price: 79,   users: 1, maxStates: -1, states: null, branding: true,  logo: false, whitelabel: false, predictive: false, playback: true,  label: 'Pro' },
   team:       { lookupLimit: -1, price: 149,  users: 5, maxStates: -1, states: null, branding: true,  logo: true,  whitelabel: false, predictive: true,  playback: true,  label: 'Team' },
   enterprise: { lookupLimit: -1, price: 199,  users: -1,maxStates: -1, states: null, branding: true,  logo: true,  whitelabel: true,  predictive: true,  playback: true,  label: 'Enterprise' },
+  // Free partner contractors (invite link). Pro features; not tied to sending referrals.
+  partner:    { lookupLimit: -1, price: 0,    users: 1, maxStates: -1, states: null, branding: true,  logo: false, whitelabel: false, predictive: false, playback: true,  label: 'Partner (free)' },
   client:     { lookupLimit: -1, price: 0,    users: 1, maxStates: -1, states: null, branding: false, logo: false, whitelabel: false, predictive: false, playback: true,  label: 'Client' },
   admin:      { lookupLimit: -1, price: 0,    users: -1,maxStates: -1, states: null, branding: true,  logo: true,  whitelabel: true,  predictive: true,  playback: true,  label: 'Admin' },
   suspended:  { lookupLimit: 0,  price: 0,    users: 0, maxStates: 0,  states: [],   branding: false, logo: false, whitelabel: false, predictive: false, playback: false, label: 'Suspended' },
@@ -76,6 +83,8 @@ const userOps = {
       lookupsThisMonth: 0,
       lookupLimit: data.lookupLimit !== undefined ? data.lookupLimit : tierLookupLimit(data.tier),
       notes: data.notes || null,
+      phone: data.phone ? String(data.phone).slice(0, 30) : null,
+      invitedBy: data.invitedBy || null,
       createdAt: new Date().toISOString(),
       lastLogin: null,
       trialEndsAt: null, // No time limit — 1 free lookup only
@@ -615,4 +624,43 @@ const proOps = {
   },
 };
 
-module.exports = { proOps, prospectOps, integrationOps, freeAlertOps, reviewOps, userOps, lookupOps, alertOps, profileOps, resultsCacheOps, affiliateOps, watchlistOps, alertSettingsOps, AFFILIATE_COMMISSION, TIERS, tierFeatures, tierLookupLimit };
+// ── Referrals ("Ask a public adjuster / appraiser") ────────────────────────────
+const referralOps = {
+  async create(data) {
+    const token = require('crypto').randomBytes(24).toString('hex');
+    return referrals.insert({ ...data, token, status: 'new', history: [{ status: 'new', at: new Date().toISOString() }], createdAt: new Date().toISOString() });
+  },
+  async get(id) { return referrals.findOne({ _id: id }); },
+  async byToken(token) { return token ? referrals.findOne({ token: String(token) }) : null; },
+  async forUser(userId) { return referrals.find({ userId }).sort({ createdAt: -1 }); },
+  async all() { return referrals.find({}).sort({ createdAt: -1 }); },
+  async setStatus(id, status, by, note) {
+    const r = await referrals.findOne({ _id: id });
+    if (!r) return null;
+    const history = [...(r.history || []), { status, by, note: note || '', at: new Date().toISOString() }].slice(-30);
+    await referrals.update({ _id: id }, { $set: { status, history, updatedAt: new Date().toISOString() } });
+    return referrals.findOne({ _id: id });
+  },
+  async update(id, data) { return referrals.update({ _id: id }, { $set: { ...data, updatedAt: new Date().toISOString() } }); },
+};
+
+// ── Partner invite codes (free accounts for partner contractors) ───────────────
+const inviteOps = {
+  async create({ code, label, tier = 'partner', maxUses = 0, expiresAt = null }) {
+    return invites.insert({ code: code.toUpperCase(), label, tier, maxUses, expiresAt, uses: 0, active: true, createdAt: new Date().toISOString() });
+  },
+  async all() { return invites.find({}).sort({ createdAt: -1 }); },
+  /** The invite if it can still be used. */
+  async usable(code) {
+    const i = await invites.findOne({ code: String(code || '').toUpperCase() });
+    if (!i || !i.active) return null;
+    if (i.maxUses && i.uses >= i.maxUses) return null;
+    if (i.expiresAt && i.expiresAt < new Date().toISOString().slice(0, 10)) return null;
+    return i;
+  },
+  async use(code) { return invites.update({ code: String(code).toUpperCase() }, { $inc: { uses: 1 } }); },
+  async update(id, data) { return invites.update({ _id: id }, { $set: data }); },
+  async remove(id) { return invites.remove({ _id: id }); },
+};
+
+module.exports = { referralOps, inviteOps, proOps, prospectOps, integrationOps, freeAlertOps, reviewOps, userOps, lookupOps, alertOps, profileOps, resultsCacheOps, affiliateOps, watchlistOps, alertSettingsOps, AFFILIATE_COMMISSION, TIERS, tierFeatures, tierLookupLimit };
