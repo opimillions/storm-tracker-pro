@@ -30,9 +30,10 @@
 
   <div class="register-card">
     <h2>Create Your Account</h2>
-    <span class="trial-badge">1 Free Hail Report — No Credit Card</span>
+    <span class="trial-badge" id="trialBadge">1 Free Hail Report — No Credit Card</span>
 
-    <div class="trial-info">
+    <div class="trial-info" id="partnerInfo" style="display:none"></div>
+    <div class="trial-info" id="trialInfo">
       ✅ No credit card required<br>
       ✅ 1 free hail history report included<br>
       ✅ Upgrade to Pro for unlimited lookups ($79/mo)
@@ -48,6 +49,10 @@
       <div class="form-group">
         <label>Company Name</label>
         <input type="text" id="company" placeholder="Smith Roofing LLC">
+      </div>
+      <div class="form-group">
+        <label>Mobile phone <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+        <input type="tel" id="phone" placeholder="(817) 555-0100" autocomplete="tel">
       </div>
       <div class="form-group">
         <label>Email Address *</label>
@@ -84,6 +89,8 @@
           company: document.getElementById('company').value,
           email: document.getElementById('email').value,
           password: document.getElementById('password').value,
+          phone: document.getElementById('phone').value,
+          invite: inviteCode || undefined,
         })
       });
       const data = await res.json();
@@ -104,6 +111,23 @@
       btn.disabled = false;
     }
   });
+
+  // Partner invite link (/join/CODE): free Partner account.
+  const inviteCode = new URLSearchParams(location.search).get('invite');
+  if (inviteCode && inviteCode !== 'expired') {
+    fetch('/api/invites/' + encodeURIComponent(inviteCode)).then(r => r.json()).then(d => {
+      if (!d.valid) return;
+      document.getElementById('trialBadge').textContent = 'Free Partner Account';
+      document.getElementById('trialInfo').style.display = 'none';
+      const p = document.getElementById('partnerInfo');
+      p.style.display = 'block';
+      p.innerHTML = '✅ Free unlimited hail reports, hail maps and storm playback<br>✅ Portfolio and territory alerts<br>✅ No credit card, no contract' + (d.label ? '<br><span style="color:var(--muted)">' + d.label.replace(/[<>&]/g, '') + '</span>' : '');
+    }).catch(() => {});
+  } else if (inviteCode === 'expired') {
+    const e = document.getElementById('errorMsg');
+    e.textContent = 'That invite link has expired or reached its limit. You can still start a free trial below.';
+    e.style.display = 'block';
+  }
 </script>
 </body>
 </html>

@@ -59,6 +59,7 @@
     <div class="tab" onclick="switchTab('recaps')">Storm Recaps</div>
     <div class="tab" onclick="switchTab('pros')">Find a Pro</div>
     <div class="tab" onclick="switchTab('security')">Security &amp; Backups</div>
+    <div class="tab" onclick="switchTab('referrals')">Referrals &amp; Partners</div>
   </div>
 
   <!-- Users Tab -->
@@ -125,6 +126,11 @@
     </div>
   </div>
 
+  <!-- Referrals Tab -->
+  <div class="tab-panel" id="tab-referrals">
+    <div id="referralsRoot" style="display:grid;gap:16px">Loading…</div>
+  </div>
+
   <!-- Security Tab -->
   <div class="tab-panel" id="tab-security">
     <div id="securityRoot" style="display:grid;gap:16px">Loading…</div>
@@ -158,6 +164,7 @@
         <option value="pro">Pro (nationwide, $79/mo)</option>
         <option value="team">Team ($149/mo)</option>
         <option value="enterprise">Enterprise</option>
+        <option value="partner">Partner (free, Pro features)</option>
         <option value="client">Client (First Call client, free)</option>
       </select>
     </div>
@@ -375,7 +382,7 @@ function renderUsers() {
     const dateStr = created && created !== 'undefined' && created !== 'null' ? new Date(created).toLocaleDateString('en-US', {month:'2-digit',day:'2-digit',year:'2-digit'}) : '-';
     const tier = u.tier || 'trial';
     const isAdmin = u.role === 'admin';
-    const tiers = ['trial','starter','pro','team','enterprise','client','suspended'];
+    const tiers = ['trial','starter','pro','team','enterprise','partner','client','suspended'];
     return `<tr>
       <td><strong>${u.name||'—'}</strong></td>
       <td style="font-size:0.85em">${u.email}</td>
@@ -441,7 +448,7 @@ async function addUser() {
 }
 
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['users','lookups','alerts','reviews','data','recaps','pros','security'][i]===name));
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['users','lookups','alerts','reviews','data','recaps','pros','security','referrals'][i]===name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   if (name === 'reviews') loadReviews();
@@ -449,6 +456,7 @@ function switchTab(name) {
   if (name === 'recaps') loadRecaps();
   if (name === 'pros') loadPros();
   if (name === 'security') loadSecurity();
+  if (name === 'referrals') loadReferrals();
 }
 
 async function logout() {
@@ -463,5 +471,6 @@ init();
 <script src="/js/admin-recaps.js"></script>
 <script src="/js/admin-pros.js"></script>
 <script src="/js/admin-security.js"></script>
+<script src="/js/admin-referrals.js"></script>
 </body>
 </html>

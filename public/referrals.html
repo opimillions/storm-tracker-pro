@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#172235">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.json">
+  <title>Referrals — StormCheck Pro</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .wrap { max-width: 980px; margin: 0 auto; padding: 24px 16px 60px; }
+    .hero { background: linear-gradient(135deg, #172235, #1e3a5f); color: #fff; border-radius: 12px; padding: 24px 26px; margin-bottom: 18px; }
+    .hero h1 { font-size: 1.6em; margin: 0 0 6px; }
+    .hero p { opacity: .88; margin: 0; }
+    .asks { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 18px; }
+    .ask { background: #fff; border: 2px solid transparent; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 8px rgba(0,0,0,.06); cursor: pointer; text-align: left; font: inherit; color: inherit; }
+    .ask:hover, .ask.on { border-color: #F2A93B; }
+    .ask b { display: block; font-size: 1.15em; color: var(--navy); margin-bottom: 4px; }
+    .ask span { color: var(--muted); font-size: .93em; }
+    .panel { background: #fff; border-radius: 12px; padding: 20px 22px; box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-bottom: 18px; }
+    .panel h2 { font-size: 1.2em; color: var(--navy); margin: 0 0 4px; }
+    .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+    .f label { display: block; font-weight: 600; font-size: .9em; margin-bottom: 4px; color: var(--navy); }
+    .f input, .f select, .f textarea { width: 100%; min-height: 46px; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font: inherit; font-size: 16px; box-sizing: border-box; background: #fff; }
+    .pros { display: grid; gap: 8px; }
+    .pro { display: flex; gap: 10px; align-items: flex-start; border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+    .pro input { margin-top: 4px; width: 18px; height: 18px; }
+    .pro.on { border-color: #172235; background: #f8fafc; }
+    .tag { display: inline-block; font-size: .75em; font-weight: 700; border-radius: 999px; padding: 2px 8px; margin-left: 6px; background: #E3F4EA; color: #17603A; }
+    .tag.you { background: #FDF0DB; color: #7A4A06; }
+    .st { display: inline-block; font-size: .8em; font-weight: 700; border-radius: 999px; padding: 3px 10px; background: #e2e8f0; color: #334155; white-space: nowrap; }
+    .st.new { background: #DBEAFE; color: #1E40AF; } .st.signed { background: #DCFCE7; color: #166534; } .st.not-a-fit, .st.closed { background: #F1F5F9; color: #64748B; } .st.contacted, .st.inspection { background: #FEF3C7; color: #92400E; }
+    .rlist { display: grid; gap: 10px; }
+    .ritem { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .muted { color: var(--muted); font-size: .9em; }
+  </style>
+</head>
+<body>
+<nav id="appNav" class="app-nav"></nav>
+<script src="/js/app-nav.js"></script>
+
+<div class="wrap">
+  <div class="hero">
+    <h1>Referrals</h1>
+    <p>Homeowner needs help with a claim? Send them to a licensed public adjuster or appraiser in a minute, and follow along here.</p>
+  </div>
+
+  <div class="asks">
+    <button class="ask" type="button" data-cat="public-adjuster"><b>Ask a Public Adjuster</b><span>Claim denied, underpaid or the homeowner wants help filing. A public adjuster works for the homeowner, not the insurance company.</span></button>
+    <button class="ask" type="button" data-cat="appraiser"><b>Ask an Appraiser</b><span>The homeowner and the insurance company agree there's damage but disagree on the amount. An appraiser handles the appraisal process.</span></button>
+  </div>
+
+  <form class="panel" id="refForm" style="display:none" autocomplete="off">
+    <h2 id="formTitle">Send to a public adjuster</h2>
+    <p class="muted" style="margin:0 0 14px">Only send a homeowner who asked for help and agreed to be contacted.</p>
+    <div id="formMsg" class="alert" style="display:none;margin-bottom:12px"></div>
+    <div class="grid2">
+      <div class="f"><label for="hoName">Homeowner name</label><input id="hoName" required maxlength="80"></div>
+      <div class="f"><label for="hoPhone">Homeowner phone</label><input id="hoPhone" type="tel" maxlength="30"></div>
+      <div class="f"><label for="hoEmail">Homeowner email</label><input id="hoEmail" type="email" maxlength="120"></div>
+    </div>
+    <div class="f" style="margin-top:12px"><label for="addr">Property address</label><input id="addr" required maxlength="200" placeholder="123 Main St, Keller, TX 76248"></div>
+    <div class="grid2" style="margin-top:12px">
+      <div class="f"><label for="reason">Situation</label><select id="reason"></select></div>
+      <div class="f"><label for="carrier">Insurance company (optional)</label><input id="carrier" maxlength="80"></div>
+      <div class="f"><label for="claim">Claim number (optional)</label><input id="claim" maxlength="60"></div>
+      <div class="f"><label for="dol">Date of loss (optional)</label><input id="dol" type="date"></div>
+    </div>
+    <div class="f" style="margin-top:12px"><label for="notes">Notes for the pro (optional)</label><textarea id="notes" rows="3" maxlength="1500" placeholder="What the adjuster said, what's been paid, roof age, anything useful"></textarea></div>
+    <div style="margin-top:16px">
+      <div style="font-weight:700;color:var(--navy);margin-bottom:6px" id="proLabel">Send to</div>
+      <div class="pros" id="pros"><div class="muted">Loading…</div></div>
+      <p class="muted" style="margin:8px 0 0">Are you a public adjuster or appraiser? <a href="/find-a-pro/get-listed" target="_blank" rel="noopener">Add yourself to this list</a>.</p>
+    </div>
+    <label style="display:flex;gap:10px;align-items:flex-start;margin-top:16px;font-size:.95em"><input type="checkbox" id="consent" style="width:20px;height:20px;margin-top:2px"> The homeowner asked for this help and agreed to be contacted by this professional.</label>
+    <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-primary" type="submit" id="sendBtn">Send referral</button><button class="btn btn-outline" type="button" id="cancelBtn">Cancel</button></div>
+  </form>
+
+  <div class="panel">
+    <h2>Your referrals</h2>
+    <p class="muted" style="margin:0 0 12px">Status updates from the professional show here, and you get an email when it changes.</p>
+    <div class="rlist" id="rlist"><div class="muted">Loading…</div></div>
+  </div>
+
+  <p class="muted" style="font-size:.82em">StormCheck Pro is owned by the founder of First Call Public Adjusters and First Call Appraisal, which appear in this list. You're free to send a homeowner to any listed professional, or to none. Your account never depends on sending referrals, and no one pays or receives a fee for them.</p>
+</div>
+
+<script>
+(function () {
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var cat = null, prefill = {};
+  var q = new URLSearchParams(location.search);
+  if (q.get('address')) prefill = { address: q.get('address'), lat: q.get('lat'), lon: q.get('lon'), state: q.get('state'), dol: q.get('date') };
+  var form = document.getElementById('refForm');
+
+  function msg(text, ok) { var m = document.getElementById('formMsg'); m.style.display = text ? 'block' : 'none'; m.className = 'alert ' + (ok ? 'alert-success' : 'alert-error'); m.textContent = text || ''; }
+
+  async function loadPros() {
+    var box = document.getElementById('pros');
+    box.innerHTML = '<div class="muted">Loading…</div>';
+    var st = prefill.state || ((document.getElementById('addr').value.match(/,\s*([A-Z]{2})[\s,]+\d{5}/i) || [])[1] || '');
+    var r = await fetch('/api/referrals/pros?category=' + cat + '&state=' + encodeURIComponent(st.toUpperCase()));
+    var d = await r.json();
+    var sel = document.getElementById('reason');
+    if (!sel.options.length) sel.innerHTML = Object.entries(d.reasons).map(function (e) { return '<option value="' + e[0] + '">' + esc(e[1]) + '</option>'; }).join('');
+    if (cat === 'appraiser') sel.value = 'appraisal';
+    if (!d.pros.length) { box.innerHTML = '<div class="muted">No one is listed yet. Check back soon.</div>'; return; }
+    box.innerHTML = d.pros.map(function (p, i) {
+      return '<label class="pro' + (i === 0 ? ' on' : '') + '"><input type="radio" name="pro" value="' + esc(p.id) + '"' + (i === 0 ? ' checked' : '') + '>' +
+        '<div><strong>' + esc(p.company) + '</strong>' + (p.verified ? '<span class="tag">License checked</span>' : '') + (p.yours ? '<span class="tag you">Founder\'s firm</span>' : '') +
+        '<div class="muted">Serves ' + esc(p.states.join(', ')) + (p.areas ? ' · ' + esc(p.areas) : '') + (p.phone ? ' · ' + esc(p.phone) : '') + '</div></div></label>';
+    }).join('');
+    box.querySelectorAll('input[name=pro]').forEach(function (inp) {
+      inp.addEventListener('change', function () { box.querySelectorAll('.pro').forEach(function (l) { l.classList.toggle('on', l.contains(inp) && inp.checked); }); });
+    });
+  }
+
+  function open(c) {
+    cat = c;
+    document.querySelectorAll('.ask').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-cat') === c); });
+    document.getElementById('formTitle').textContent = c === 'appraiser' ? 'Send to an appraiser' : 'Send to a public adjuster';
+    document.getElementById('proLabel').textContent = c === 'appraiser' ? 'Send to this appraiser' : 'Send to this public adjuster';
+    form.style.display = 'block';
+    if (prefill.address && !document.getElementById('addr').value) document.getElementById('addr').value = prefill.address;
+    if (prefill.dol && !document.getElementById('dol').value) document.getElementById('dol').value = prefill.dol;
+    msg('');
+    loadPros();
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  document.querySelectorAll('.ask').forEach(function (b) { b.addEventListener('click', function () { open(b.getAttribute('data-cat')); }); });
+  document.getElementById('cancelBtn').onclick = function () { form.style.display = 'none'; cat = null; document.querySelectorAll('.ask').forEach(function (b) { b.classList.remove('on'); }); };
+  document.getElementById('addr').addEventListener('change', function () { prefill.lat = prefill.lon = prefill.state = null; if (cat) loadPros(); });
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var pro = form.querySelector('input[name=pro]:checked');
+    if (!pro) return msg('Choose who to send it to.', false);
+    if (!document.getElementById('consent').checked) return msg('Confirm the homeowner agreed to be contacted.', false);
+    var btn = document.getElementById('sendBtn'); btn.disabled = true; btn.textContent = 'Sending…';
+    try {
+      var r = await fetch('/api/referrals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        category: cat, proId: pro.value, consent: true,
+        homeownerName: document.getElementById('hoName').value, homeownerPhone: document.getElementById('hoPhone').value, homeownerEmail: document.getElementById('hoEmail').value,
+        address: document.getElementById('addr').value, reason: document.getElementById('reason').value, carrier: document.getElementById('carrier').value,
+        claimNumber: document.getElementById('claim').value, dateOfLoss: document.getElementById('dol').value, notes: document.getElementById('notes').value,
+        lat: prefill.lat, lon: prefill.lon, state: prefill.state,
+      }) });
+      var d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Could not send.');
+      form.reset(); prefill = {};
+      msg('Sent to ' + d.proName + '. You\'ll see their updates below.', true);
+      loadList();
+    } catch (err) { msg(err.message, false); }
+    btn.disabled = false; btn.textContent = 'Send referral';
+  });
+
+  async function loadList() {
+    var box = document.getElementById('rlist');
+    var r = await fetch('/api/referrals'); var d = await r.json();
+    if (!d.referrals.length) { box.innerHTML = '<div class="muted">No referrals yet.</div>'; return; }
+    box.innerHTML = d.referrals.map(function (x) {
+      return '<div class="ritem"><div><strong>' + esc(x.homeownerName) + '</strong> · ' + esc(x.address) +
+        '<div class="muted">' + (x.category === 'appraiser' ? 'Appraiser' : 'Public adjuster') + ': ' + esc(x.proName) + ' · sent ' + esc(new Date(x.createdAt).toLocaleDateString()) + '</div>' +
+        (x.lastNote ? '<div style="margin-top:4px;font-size:.92em">"' + esc(x.lastNote) + '"</div>' : '') + '</div>' +
+        '<div><span class="st ' + esc(x.status) + '">' + esc(x.statusLabel) + '</span></div></div>';
+    }).join('');
+  }
+  loadList();
+  if (q.get('ask') === 'appraiser' || q.get('ask') === 'public-adjuster') open(q.get('ask'));
+})();
+</script>
+</body>
+</html>

@@ -125,7 +125,7 @@
   }
 
   // Links like /admin#pros (from the new-listing email) open this tab.
-  function fromHash() { var t = location.hash.slice(1); if ((t === 'pros' || t === 'recaps' || t === 'security') && window.switchTab) window.switchTab(t); }
+  function fromHash() { var t = location.hash.slice(1); if ((t === 'pros' || t === 'recaps' || t === 'security' || t === 'referrals') && window.switchTab) window.switchTab(t); }
   // After every admin script has loaded (they define the tab loaders).
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fromHash); else setTimeout(fromHash, 0);
   window.addEventListener('hashchange', fromHash);

@@ -229,7 +229,7 @@ module.exports = function proRoutes(app, { db, requireAuth, requireAdmin }) {
       body: `<section><div class="wrap narrow">
         <p class="crumbs"><a href="/find-a-pro">Find a pro</a> / Get listed</p>
         <h1>Get listed free</h1>
-        <p class="lede">Basic listings are free. We review every listing and check licenses before it goes live, usually within two business days.</p>
+        <p class="lede">Basic listings are free. We review every listing and check licenses before it goes live, usually within two business days. Listed public adjusters and appraisers also appear on the Referrals tab, where contractors using StormCheck Pro can send you homeowners who ask for help. No referral fees, either way.</p>
         <form id="apply" style="display:grid;gap:14px">
           <div class="form-row">
             <div class="field"><label for="a-cat">Type</label><select id="a-cat" name="category">${Object.values(CATS).map(c => `<option value="${c.key}">${esc(c.one.replace(/^./, x => x.toUpperCase()))}</option>`).join('')}</select></div>
