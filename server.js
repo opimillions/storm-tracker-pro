@@ -24,7 +24,7 @@ const spcStore = require('./lib/spc-store');
 const dataJobs = require('./lib/data-jobs');
 const { generateToken, generateMfaTicket, requireAuth, requireAdmin, requireActiveSubscription } = require('./auth');
 const security = require('./lib/security');
-const { geocodeAddress, fetchHailHistory, getImpactScore, getImpactRating } = require('./hail-engine');
+const { geocodeAddress, reverseGeocode, fetchHailHistory, getImpactScore, getImpactRating } = require('./hail-engine');
 const axios = require('axios');
 
 // Simple in-memory cache for lookup results (saves re-scanning same address)
@@ -532,6 +532,22 @@ app.get('/logos/:file', (req, res) => {
 // ── Hail Lookup API ───────────────────────────────────────────────────────────
 
 // POST /api/lookup — starts async job, returns jobId immediately
+// "Use my location": the street address at the phone's GPS position.
+const revUse = new Map();
+app.get('/api/reverse-geocode', requireAuth, async (req, res) => {
+  const lat = parseFloat(req.query.lat), lon = parseFloat(req.query.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < 17 || lat > 72 || lon < -180 || lon > -64) {
+    return res.status(400).json({ error: 'That location is outside the United States.' });
+  }
+  const id = String(req.user._id), now = Date.now();
+  const recent = (revUse.get(id) || []).filter(t => now - t < 60000);
+  if (recent.length >= 10) return res.status(429).json({ error: 'Too many location lookups. Wait a minute.' });
+  recent.push(now); revUse.set(id, recent);
+  const r = await reverseGeocode(lat, lon);
+  if (!r) return res.status(404).json({ error: 'Could not find an address at your location.' });
+  res.json(r);
+});
+
 app.post('/api/lookup', requireAuth, requireActiveSubscription, async (req, res) => {
   const { address, years = 5 } = req.body;
   if (!address) return res.status(400).json({ error: 'Address is required' });
@@ -539,7 +555,7 @@ app.post('/api/lookup', requireAuth, requireActiveSubscription, async (req, res)
   // Portfolio properties are already located: use their coordinates directly.
   const lat = parseFloat(req.body.lat), lon = parseFloat(req.body.lon);
   const geo = Number.isFinite(lat) && Number.isFinite(lon)
-    ? { lat, lon, formattedAddress: address, state: req.body.state || null }
+    ? { lat, lon, formattedAddress: address, state: req.body.state ? String(req.body.state).toUpperCase().slice(0, 2) : null }
     : await geocodeAddress(address);
   if (!geo) {
     const hint = /\d{5}/.test(address) ? '' : ' Include the city, state and ZIP code.';

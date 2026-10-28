@@ -176,6 +176,10 @@
       </select>
       <button class="btn btn-primary" id="lookupBtn" onclick="runLookup()">Search</button>
     </div>
+    <button type="button" class="btn btn-outline btn-sm" id="myLocBtn" onclick="useMyLocation()" style="margin-top:10px;display:inline-flex;align-items:center;gap:6px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/></svg>
+      Use my current location
+    </button>
     <div class="lookup-limit" id="lookupLimit"></div>
   </div>
 
@@ -385,6 +389,42 @@ async function init() {
   }
 }
 
+// ── Use my current location (phone GPS) ───────────────────────────────────────
+function useMyLocation() {
+  const btn = document.getElementById('myLocBtn');
+  const label = btn.innerHTML;
+  const done = () => { btn.disabled = false; btn.innerHTML = label; };
+  if (!('geolocation' in navigator)) return showAlert('This browser can\'t share your location. Type the address instead.', 'error');
+  btn.disabled = true; btn.textContent = 'Finding your location…';
+  hideAlert();
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const { latitude: lat, longitude: lon, accuracy } = pos.coords;
+    try {
+      const r = await fetch(`/api/reverse-geocode?lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}`);
+      const d = await r.json();
+      if (!r.ok) { done(); return showAlert(d.error || 'Could not find an address at your location.', 'error'); }
+      document.getElementById('addressInput').value = d.address;
+      // Report on the exact GPS spot; the address is the label.
+      pendingCoords = { address: d.address, lat, lon, state: d.state };
+      done();
+      await runLookup();
+      if (accuracy > 150) showAlert(`Your phone's location is only accurate to about ${Math.round(accuracy * 3.28).toLocaleString()} ft, so this may not be the exact house. Check Street View below, or type the address.`, 'warning');
+    } catch (e) { done(); showAlert('Connection error. Try again.', 'error'); }
+  }, err => {
+    done();
+    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    if (err.code === 1) {
+      showAlert(ios
+        ? 'Location is turned off for this site. On iPhone: Settings → Privacy &amp; Security → Location Services → Safari Websites → "While Using the App", then try again.'
+        : 'Location is blocked for this site. Allow location in your browser\'s site settings, then try again.', 'error');
+    } else if (err.code === 3) {
+      showAlert('Finding your location took too long. Step outside or near a window and try again.', 'error');
+    } else {
+      showAlert('Could not get your location. Make sure Location Services is on, then try again.', 'error');
+    }
+  }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 30000 });
+}
+
 // ── Lookup — async job pattern ───────────────────────────────────────────────
 async function runLookup() {
   const address = document.getElementById('addressInput').value.trim();
@@ -401,7 +441,7 @@ async function runLookup() {
     const startRes = await fetch('/api/lookup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(Object.assign({ address, years }, (pendingCoords && pendingCoords.address === address) ? { lat: pendingCoords.lat, lon: pendingCoords.lon } : {}))
+      body: JSON.stringify(Object.assign({ address, years }, (pendingCoords && pendingCoords.address === address) ? { lat: pendingCoords.lat, lon: pendingCoords.lon, state: pendingCoords.state || undefined } : {}))
     });
     const startData = await startRes.json();
 
