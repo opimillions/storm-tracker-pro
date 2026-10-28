@@ -351,7 +351,8 @@ async function init() {
 
 
   // Show upgrade banner for trial/inactive
-  if (user.tier === 'trial' || user.subscription_status === 'inactive') {
+  // Free plans (Client, Partner) and admins never see the upgrade banner.
+  if (user.tier === 'trial' || (user.subscription_status === 'inactive' && !['client', 'partner', 'admin'].includes(user.tier))) {
     document.getElementById('upgradeBanner').style.display = 'flex';
   }
 

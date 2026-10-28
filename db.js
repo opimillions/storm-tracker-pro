@@ -52,7 +52,7 @@ const TIERS = {
   enterprise: { lookupLimit: -1, price: 199,  users: -1,maxStates: -1, states: null, branding: true,  logo: true,  whitelabel: true,  predictive: true,  playback: true,  label: 'Enterprise' },
   // Free partner contractors (invite link). Pro features; not tied to sending referrals.
   partner:    { lookupLimit: -1, price: 0,    users: 1, maxStates: -1, states: null, branding: true,  logo: false, whitelabel: false, predictive: false, playback: true,  label: 'Partner (free)' },
-  client:     { lookupLimit: -1, price: 0,    users: 1, maxStates: -1, states: null, branding: false, logo: false, whitelabel: false, predictive: false, playback: true,  label: 'Client' },
+  client:     { lookupLimit: -1, price: 0,    users: 1, maxStates: -1, states: null, branding: true,  logo: false, whitelabel: false, predictive: false, playback: true,  label: 'Client' },
   admin:      { lookupLimit: -1, price: 0,    users: -1,maxStates: -1, states: null, branding: true,  logo: true,  whitelabel: true,  predictive: true,  playback: true,  label: 'Admin' },
   suspended:  { lookupLimit: 0,  price: 0,    users: 0, maxStates: 0,  states: [],   branding: false, logo: false, whitelabel: false, predictive: false, playback: false, label: 'Suspended' },
 };
