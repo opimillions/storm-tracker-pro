@@ -26,7 +26,7 @@ function header() {
   return `<header class="site-head"><div class="wrap">
   <a href="/" class="logo">${LOGO}<span>StormCheck Pro</span></a>
   <nav class="site-nav" aria-label="Main">
-    <a href="/hail-maps">Hail maps</a><a href="/#features">Features</a><a href="/#pricing">Pricing</a><a href="/alerts">Free alerts</a>
+    <a href="/hail-maps">Hail maps</a><a href="/#features">Features</a><a href="/#pricing">Pricing</a><a href="/alerts">Free alerts</a><a href="/find-a-pro">Find a pro</a>
     <a href="/login" style="color:#fff">Sign in</a>
     <a href="/register" class="btn btn-accent">Run a free report</a>
   </nav></div></header>`;
@@ -39,7 +39,7 @@ function footer() {
   <nav class="states" aria-label="Hail history by state">${states}</nav>
   <div class="row">
     <p style="margin:0">StormCheck Pro is built by <a href="https://thepublicadjustertx.com">First Call Public Adjusters</a> · Southlake, TX · <a href="tel:+18176189884">(817) 618-9884</a></p>
-    <p style="margin:0">Storm data: NOAA National Weather Service · <a href="/sample-report">Sample report</a> · <a href="/hail-maps">Hail maps</a></p>
+    <p style="margin:0">Storm data: NOAA National Weather Service · <a href="/sample-report">Sample report</a> · <a href="/hail-maps">Hail maps</a> · <a href="/find-a-pro">Find a public adjuster, appraiser or attorney</a></p>
   </div></div></footer>`;
 }
 
@@ -58,6 +58,8 @@ ${noindex ? '<meta name="robots" content="noindex,follow">' : ''}
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/site.css">
+<link rel="manifest" href="/manifest.json"><link rel="apple-touch-icon" href="/icons/icon-192.png">
+<script src="/js/tracking.js" async></script>
 ${jsonld ? `<script type="application/ld+json">${JSON.stringify(jsonld).replace(/</g, '\\u003c')}</script>` : ''}
 ${head}
 </head><body>${header()}<main>${body}</main>${footer()}<script src="/js/assistant.js" data-mode="public" defer></script></body></html>`;
@@ -205,6 +207,51 @@ module.exports = function publicPages(app, { db }) {
   });
 
   // ── Free alerts landing ────────────────────────────────────────────────────
+  // ── Install on your phone ──────────────────────────────────────────────────
+  app.get('/install', (req, res) => {
+    const share = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>';
+    res.send(page({
+      title: 'Put StormCheck Pro on Your Phone | StormCheck Pro',
+      description: 'Add StormCheck Pro to your iPhone or Android home screen. It opens full-screen like an app, with no app store download.',
+      path: '/install',
+      head: '<script src="/js/install.js" defer></script>',
+      body: `<section class="dark" style="padding:48px 0"><div class="wrap narrow">
+        <p class="eyebrow">No app store needed</p>
+        <h1>Put StormCheck Pro on your phone.</h1>
+        <p class="lede">Add it to your home screen once and it opens full-screen like any other app, signed in and ready to check an address.</p>
+        <button type="button" class="btn btn-accent" data-install-button hidden onclick="if(!window.scpInstall()){document.getElementById('android').scrollIntoView()}">Install now</button>
+      </div></section>
+      <section><div class="wrap narrow">
+        <div class="grid">
+          <div class="card" id="iphone"><h2 style="font-size:24px">iPhone or iPad</h2>
+            <ol style="color:var(--muted);line-height:1.7;padding-left:20px">
+              <li>Open <strong>${esc(baseUrl().replace(/^https?:\/\//, ''))}</strong> in <strong>Safari</strong>.</li>
+              <li>Tap the <strong>Share</strong> button ${share} at the bottom of the screen (top right on iPad).</li>
+              <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+              <li>Tap <strong>Add</strong>. The StormCheck Pro icon appears on your home screen.</li>
+            </ol>
+            <p style="font-size:15px">Using Chrome on iPhone? Tap the Share button in the address bar, then <strong>Add to Home Screen</strong>.</p>
+          </div>
+          <div class="card" id="android"><h2 style="font-size:24px">Android</h2>
+            <ol style="color:var(--muted);line-height:1.7;padding-left:20px">
+              <li>Open <strong>${esc(baseUrl().replace(/^https?:\/\//, ''))}</strong> in <strong>Chrome</strong>.</li>
+              <li>Tap the <strong>⋮</strong> menu at the top right.</li>
+              <li>Tap <strong>Install app</strong> (on some phones it says <strong>Add to Home screen</strong>).</li>
+              <li>Tap <strong>Install</strong>. The StormCheck Pro icon appears with your other apps.</li>
+            </ol>
+          </div>
+        </div>
+        <h2 style="margin-top:48px;font-size:28px">After it's installed</h2>
+        <ul style="color:var(--muted);line-height:1.7;padding-left:20px">
+          <li>Sign in once; you stay signed in.</li>
+          <li>To get hail alerts on the phone, open the app and tap <strong>Enable Alerts</strong> on the Lookup page, then allow notifications.</li>
+          <li>Updates arrive automatically. There's nothing to update in an app store.</li>
+        </ul>
+        <p style="margin-top:28px"><a class="btn btn-navy" href="/register">Create a free account</a></p>
+      </div></section>`,
+    }));
+  });
+
   app.get('/alerts', (req, res) => {
     res.send(page({
       title: 'Free Hail Alerts by ZIP Code | StormCheck Pro',
@@ -455,8 +502,16 @@ module.exports = function publicPages(app, { db }) {
     res.type('text/plain').send(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /dashboard\nDisallow: /admin\nSitemap: ${baseUrl()}/sitemap.xml\n`);
   });
 
-  app.get('/sitemap.xml', (req, res) => {
-    const urls = ['/', '/hail-maps', '/alerts', '/sample-report'];
+  app.get('/sitemap.xml', async (req, res) => {
+    const urls = ['/', '/hail-maps', '/alerts', '/sample-report', '/find-a-pro', '/find-a-pro/get-listed',
+      '/find-a-pro/public-adjusters', '/find-a-pro/appraisers', '/find-a-pro/attorneys'];
+    // Directory state pages that have listings.
+    try {
+      const slugs = { 'public-adjuster': 'public-adjusters', appraiser: 'appraisers', attorney: 'attorneys' };
+      const seen = new Set();
+      for (const p of await db.proOps.active()) for (const st of p.states || []) seen.add(`/find-a-pro/${slugs[p.category]}/${st.toLowerCase()}`);
+      urls.push(...seen);
+    } catch { /* directory unavailable */ }
     for (const st of Object.keys(places.STATE_NAMES)) urls.push(`/hail/${st.toLowerCase()}`);
     const cutoff = new Date(Date.now() - 730 * 86400000).toISOString().slice(0, 10);
     for (const s of stormDays.recent({ limit: 2000, minIn: 1 })) {
@@ -478,3 +533,8 @@ module.exports = function publicPages(app, { db }) {
       body: '<section><div class="wrap narrow"><h1>No hail map for that date.</h1><p class="lede">We only publish maps for days when radar showed hail. <a href="/hail-maps">See recent storms</a>.</p></div></section>' });
   }
 };
+
+// Shared with other server-rendered public pages (Find a Pro).
+module.exports.page = page;
+module.exports.rateLimited = rateLimited;
+module.exports.esc = esc;

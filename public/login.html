@@ -21,6 +21,7 @@
     .divider::before { left: 0; }
     .divider::after { right: 0; }
   </style>
+  <script src="/js/tracking.js" async></script>
 </head>
 <body>
 <div class="login-wrap">
@@ -49,7 +50,18 @@
       </div>
     </form>
 
-    <div class="divider">or</div>
+    <!-- Two-step sign-in: shown after a correct password when it's turned on -->
+    <form id="codeForm" style="display:none">
+      <p style="margin:0 0 12px;font-size:0.92em;color:var(--muted)">Open your authenticator app and enter the 6-digit code for StormCheck Pro.</p>
+      <div class="form-group">
+        <label for="code">Sign-in code</label>
+        <input type="text" id="code" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" maxlength="11" required style="font-size:1.3em;letter-spacing:0.2em;text-align:center">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="codeBtn">Verify</button>
+      <div style="text-align:center;margin-top:12px;font-size:0.85em;color:var(--muted)">Lost your phone? Enter one of your backup codes instead.</div>
+    </form>
+
+    <div class="divider" id="orDivider">or</div>
     <a href="/register" class="btn btn-outline btn-block">Create Free Trial Account</a>
   </div>
 
@@ -84,6 +96,13 @@
         })
       });
       const data = await res.json();
+      if (data.twoFactor) {
+        ticket = data.ticket;
+        document.getElementById('loginForm').style.display = 'none';
+        document.getElementById('codeForm').style.display = 'block';
+        document.getElementById('code').focus();
+        return;
+      }
       if (data.success) {
         window.location = data.redirect;
       } else {
@@ -98,6 +117,35 @@
       btn.innerHTML = 'Sign In';
       btn.disabled = false;
     }
+  });
+
+  let ticket = null;
+  document.getElementById('codeForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('codeBtn');
+    const errEl = document.getElementById('errorMsg');
+    errEl.style.display = 'none';
+    btn.disabled = true; btn.textContent = 'Checking…';
+    try {
+      const res = await fetch('/api/auth/login/verify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticket, code: document.getElementById('code').value }),
+      });
+      const data = await res.json();
+      if (data.success) { window.location = data.redirect; return; }
+      errEl.textContent = data.error || 'That code did not work.';
+      errEl.style.display = 'block';
+      if (data.restart) {
+        document.getElementById('codeForm').style.display = 'none';
+        document.getElementById('loginForm').style.display = 'block';
+        document.getElementById('loginBtn').innerHTML = 'Sign In';
+        document.getElementById('loginBtn').disabled = false;
+      }
+    } catch (err) {
+      errEl.textContent = 'Connection error. Please try again.';
+      errEl.style.display = 'block';
+    }
+    btn.disabled = false; btn.textContent = 'Verify';
   });
 </script>
 </body>

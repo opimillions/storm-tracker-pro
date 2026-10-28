@@ -28,6 +28,15 @@ See `.env.example`. New or changed:
 | `MESH_BACKFILL_FROM` | Oldest radar day to load. Default `2020-10-15`. |
 | `NCEI_FROM_YEAR` | Oldest NWS Storm Events year. Default `1996`. |
 | `RETENTION_YEARS` | Years of storm data to keep. Default `5`. Older radar days, NWS events, SPC reports, storm pages and playback frames are deleted at startup and daily, and never backfilled. Overrides the two settings above. `off` keeps everything. |
+| `META_PIXEL_ID`, `GA4_MEASUREMENT_ID` | Optional ad tracking (Facebook/Instagram pixel, Google Analytics). Off until set. Sign-ups and paid upgrades are reported as conversions. |
+| `GOOGLE_ADS_ID` + `_SIGNUP_LABEL`/`_PURCHASE_LABEL`, `LINKEDIN_PARTNER_ID` + conversion IDs | Optional Google Ads and LinkedIn conversion tracking. |
+| `BUSINESS_ADDRESS` | Postal address printed in storm recap emails (required by CAN-SPAM before recaps can send). Can also be set on Admin → Storm Recaps. |
+| `JWT_SECRET` | **Set this.** Signs sign-ins; 64+ random characters (`openssl rand -hex 48`). If missing, the app generates one on the volume and warns. Setting it later signs everyone out once. |
+| `NODE_ENV=production` | Forces HTTPS and secure cookies. |
+| `BACKUP_KEY` | Passphrase that encrypts the nightly backups. Save a copy in a password manager: backups can't be restored without it. |
+| `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY`, `BACKUP_S3_SECRET_KEY` | Optional off-server copy of each backup to S3-compatible storage (Cloudflare R2 recommended). Set a 30-day lifecycle rule on the bucket. |
+| `GOOGLE_MAPS_EMBED_KEY` | Optional. Shows Street View of the property on each report. In Google Cloud, enable the **Maps Embed API**, create an API key and restrict it to HTTP referrers `stormcheckpro.thepublicadjustertx.com/*`. Embed API use is free. Without a key, reports show an "Open Street View" button. |
+| `MAP_TILE_URL` | Optional base map tiles for recap map images. Defaults to OpenStreetMap. |
 
 ## 3. First start: data loads itself
 
@@ -87,3 +96,9 @@ Events: `checkout.session.completed`, `customer.subscription.updated`, `customer
 - NOAA SPC daily storm reports
 - NWS active alerts API (warnings)
 - Census geocoder (addresses), bundled city and ZIP gazetteers
+
+## Security checklist
+
+Admin → **Security & Backups** shows what's done. Restore a backup with
+`BACKUP_KEY=... node scripts/restore-backup.js <file.bin> [folder]`; it writes
+the files to a separate folder, never over live data.

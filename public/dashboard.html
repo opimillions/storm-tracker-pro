@@ -176,6 +176,10 @@
       </select>
       <button class="btn btn-primary" id="lookupBtn" onclick="runLookup()">Search</button>
     </div>
+    <button type="button" class="btn btn-outline btn-sm" id="myLocBtn" onclick="useMyLocation()" style="margin-top:10px;display:inline-flex;align-items:center;gap:6px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/></svg>
+      Use my current location
+    </button>
     <div class="lookup-limit" id="lookupLimit"></div>
   </div>
 
@@ -197,6 +201,9 @@
     <!-- Impact Header -->
     <div class="impact-header card" id="impactHeader"></div>
 
+    <!-- Street View: confirm it's the right house -->
+    <div class="card" id="streetCard" style="display:none;margin-bottom:16px;padding:14px"></div>
+
     <!-- Report actions -->
     <div style="display:flex;justify-content:flex-end;gap:10px;margin-bottom:16px;flex-wrap:wrap">
       <button class="btn btn-secondary btn-sm" onclick="openPrint('standard')">Print / Save as PDF</button>
@@ -210,6 +217,7 @@
       <h3>Most likely dates of loss</h3>
       <div style="font-size:0.85em;color:var(--muted)">Ranked by estimated hail size at this property, with radar and ground reports combined. Click a date to see its hail swath.</div>
       <div class="dol-list" id="dolList"></div>
+      <div id="proLink" style="display:none;margin-top:10px;font-size:0.88em"></div>
       <div class="src-note" id="srcNote"></div>
     </div>
 
@@ -295,6 +303,7 @@
               <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #e2e8f0">1 mi</th>
               <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #e2e8f0">3 mi</th>
               <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #e2e8f0">10 mi</th>
+              <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #e2e8f0" title="NWS radar hail algorithm: highest probability of 1-inch or larger hail for storm cells within 3 miles">Severe hail chance</th>
               <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #e2e8f0">Ground reports</th>
               <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #e2e8f0">Confidence</th>
             </tr>
@@ -374,9 +383,46 @@ async function init() {
   if (pending) { document.getElementById('addressInput').value = pending; setTimeout(runLookup, 200); }
   if (params.get('review') === 'paid') showAlert('Payment received. Your reviewed report is in the queue; we will email you when it is ready.', 'success');
   if (params.get('subscribed')) {
+    (function fire(n) { if (window.scpTrack) window.scpTrack('subscribe', { plan: params.get('plan') || user.tier }); else if (n < 20) setTimeout(function () { fire(n + 1); }, 250); })(0);
     showAlert('🎉 Subscription activated! You now have unlimited lookups.', 'success');
     history.replaceState({}, '', '/dashboard');
   }
+}
+
+// ── Use my current location (phone GPS) ───────────────────────────────────────
+function useMyLocation() {
+  const btn = document.getElementById('myLocBtn');
+  const label = btn.innerHTML;
+  const done = () => { btn.disabled = false; btn.innerHTML = label; };
+  if (!('geolocation' in navigator)) return showAlert('This browser can\'t share your location. Type the address instead.', 'error');
+  btn.disabled = true; btn.textContent = 'Finding your location…';
+  hideAlert();
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const { latitude: lat, longitude: lon, accuracy } = pos.coords;
+    try {
+      const r = await fetch(`/api/reverse-geocode?lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}`);
+      const d = await r.json();
+      if (!r.ok) { done(); return showAlert(d.error || 'Could not find an address at your location.', 'error'); }
+      document.getElementById('addressInput').value = d.address;
+      // Report on the exact GPS spot; the address is the label.
+      pendingCoords = { address: d.address, lat, lon, state: d.state };
+      done();
+      await runLookup();
+      if (accuracy > 150) showAlert(`Your phone's location is only accurate to about ${Math.round(accuracy * 3.28).toLocaleString()} ft, so this may not be the exact house. Check Street View below, or type the address.`, 'warning');
+    } catch (e) { done(); showAlert('Connection error. Try again.', 'error'); }
+  }, err => {
+    done();
+    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    if (err.code === 1) {
+      showAlert(ios
+        ? 'Location is turned off for this site. On iPhone: Settings → Privacy &amp; Security → Location Services → Safari Websites → "While Using the App", then try again.'
+        : 'Location is blocked for this site. Allow location in your browser\'s site settings, then try again.', 'error');
+    } else if (err.code === 3) {
+      showAlert('Finding your location took too long. Step outside or near a window and try again.', 'error');
+    } else {
+      showAlert('Could not get your location. Make sure Location Services is on, then try again.', 'error');
+    }
+  }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 30000 });
 }
 
 // ── Lookup — async job pattern ───────────────────────────────────────────────
@@ -395,7 +441,7 @@ async function runLookup() {
     const startRes = await fetch('/api/lookup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(Object.assign({ address, years }, (pendingCoords && pendingCoords.address === address) ? { lat: pendingCoords.lat, lon: pendingCoords.lon } : {}))
+      body: JSON.stringify(Object.assign({ address, years }, (pendingCoords && pendingCoords.address === address) ? { lat: pendingCoords.lat, lon: pendingCoords.lon, state: pendingCoords.state || undefined } : {}))
     });
     const startData = await startRes.json();
 
@@ -495,6 +541,7 @@ function renderResults(data) {
     </div>
   `;
 
+  renderStreetView(lat, lon, address);
   renderDateOfLoss(data);
 
   // Populate date filter (storm dates include radar-only days)
@@ -858,6 +905,40 @@ window.reRunLookup = reRunLookup;
 function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function confBadge(c) { const k = c === 'Ground report' ? 'Ground' : c; return `<span class="conf conf-${k}">${c === 'Verified' ? '✓ Verified' : c}</span>`; }
 
+// Street View of the property so the user can confirm it's the right house.
+// Embedded when GOOGLE_MAPS_EMBED_KEY is set; otherwise a link to Google Street View.
+let mapsConfig = null;
+async function renderStreetView(lat, lon, address) {
+  const card = document.getElementById('streetCard');
+  if (lat == null || lon == null) { card.style.display = 'none'; return; }
+  if (!mapsConfig) { try { mapsConfig = await (await fetch('/api/config/maps')).json(); } catch (e) { mapsConfig = {}; } }
+  const ll = `${(+lat).toFixed(6)},${(+lon).toFixed(6)}`;
+  const pano = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${ll}`;
+  const sat = `https://www.google.com/maps/@?api=1&map_action=map&center=${ll}&zoom=20&basemap=satellite`;
+  const links = `<a href="${pano}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">Open Street View ↗</a>
+    <a href="${sat}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">Satellite view ↗</a>
+    <button type="button" class="btn btn-outline btn-sm" onclick="wrongHouse()">Wrong house?</button>`;
+  card.style.display = 'block';
+  if (mapsConfig.embedKey) {
+    card.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div><strong style="color:var(--navy)">Is this the right property?</strong><div style="font-size:0.82em;color:var(--muted)">Street View near ${esc(address || '')}. Drag to look around.</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${links}</div></div>
+      <iframe title="Street View of ${esc(address || 'the property')}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen
+        style="width:100%;height:320px;border:0;border-radius:8px;background:#e2e8f0"
+        src="https://www.google.com/maps/embed/v1/streetview?key=${encodeURIComponent(mapsConfig.embedKey)}&location=${ll}&fov=80"></iframe>`;
+  } else {
+    card.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <div><strong style="color:var(--navy)">Is this the right property?</strong><div style="font-size:0.82em;color:var(--muted)">Check the house in Street View before relying on the report.</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${links}</div></div>`;
+  }
+}
+function wrongHouse() {
+  const input = document.getElementById('addressInput') || document.querySelector('input[type="text"]');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (input) { input.focus(); input.select(); }
+  alert('Enter the full address with house number, street, city, state and ZIP, then run the report again. If the pin is still off, try the nearest known address.');
+}
+
 function renderDateOfLoss(data) {
   const card = document.getElementById('dolCard');
   if (!data.dateOfLoss) { card.style.display = 'none'; return; }
@@ -867,6 +948,7 @@ function renderDateOfLoss(data) {
     const g = s.groundReports;
     const bits = [];
     if (s.radar) bits.push(`Radar ${s.radar.atPropertyIn.toFixed(2)}" at the property, ${s.radar.within1miIn.toFixed(2)}" within 1 mi`);
+    if (s.hailAlgorithm && s.hailAlgorithm.severeProbWithin3mi) bits.push(`${s.hailAlgorithm.severeProbWithin3mi}% severe hail probability within 3 mi`);
     if (g.hailWithin3mi) bits.push(`${g.hailWithin3mi} ground hail report${g.hailWithin3mi > 1 ? 's' : ''} within 3 mi`);
     if (g.maxWindMph) bits.push(`wind gusts to ${g.maxWindMph} mph`);
     if (g.nearestTornadoMi != null && g.nearestTornadoMi <= 3) bits.push(`tornado ${g.nearestTornadoMi} mi away`);
@@ -876,13 +958,30 @@ function renderDateOfLoss(data) {
       <div class="dol-size">${s.bestEstimateIn ? s.bestEstimateIn.toFixed(2) + '"' : '—'}<div style="font-size:0.5em;font-weight:600;color:var(--muted)">${esc(s.sizeName || s.severity)}</div></div>
     </div>`;
   }).join('') : '<div style="color:var(--muted);font-size:0.9em">No damaging hail, wind or tornado activity at this property in the selected period.</div>';
+  const pl = document.getElementById('proLink');
+  if (list.length && data.lat != null) {
+    const q = `lat=${(+data.lat).toFixed(4)}&lon=${(+data.lon).toFixed(4)}`;
+    pl.innerHTML = `Need help with a claim on this property? Find a <a href="/find-a-pro?${q}&cat=public-adjusters" target="_blank" rel="noopener">public adjuster</a>, <a href="/find-a-pro?${q}&cat=appraisers" target="_blank" rel="noopener">appraiser</a> or <a href="/find-a-pro?${q}&cat=attorneys" target="_blank" rel="noopener">attorney</a> in this state.`;
+    pl.style.display = 'block';
+  } else pl.style.display = 'none';
   const c = data.coverage || {};
   const parts = [];
   if (c.radar && c.radar.first) parts.push(`radar hail ${fmtDate(c.radar.first)} – ${fmtDate(c.radar.last)}`);
   if (c.ncei && c.ncei.firstYear) parts.push(`NWS storm events ${c.ncei.firstYear} – ${fmtDate(c.ncei.end)}`);
   if (c.spc && c.spc.first) parts.push(`spotter reports through ${fmtDate(c.spc.last)}`);
   document.getElementById('srcNote').innerHTML = `<strong>Verified</strong> = radar shows 0.75"+ hail at the property and at least one ground report within 3 miles the same day. ` +
-    `<strong>Radar</strong> = radar estimate only. Data: NOAA MRMS radar, NCEI Storm Events, SPC storm reports${parts.length ? ` (${parts.join('; ')})` : ''}. Radar estimates can differ from what fell at a specific roof.`;
+    `<strong>Radar</strong> = radar estimate only. <strong>Severe hail chance</strong> = the National Weather Service radar hail algorithm's highest probability of 1"+ hail for storm cells within 3 miles. Data: NOAA MRMS radar, NWS radar hail algorithm, NCEI Storm Events, SPC storm reports${parts.length ? ` (${parts.join('; ')})` : ''}. Radar estimates can differ from what fell at a specific roof.`;
+}
+
+// NWS radar hail algorithm probability of 1"+ hail within 3 miles.
+function probCell(h) {
+  const td = 'text-align:center;padding:10px 12px;border-bottom:1px solid #e2e8f0;';
+  if (!h) return `<td style="${td}color:#94a3b8" title="Not loaded yet for this date">…</td>`;
+  const p = h.severeProbWithin3mi;
+  if (!p) return `<td style="${td}color:#94a3b8">—</td>`;
+  const bg = p >= 70 ? '#fee2e2' : p >= 50 ? '#ffedd5' : p >= 30 ? '#fef9c3' : '#f1f5f9';
+  const fg = p >= 70 ? '#991b1b' : p >= 50 ? '#9a3412' : p >= 30 ? '#854d0e' : '#475569';
+  return `<td style="${td}background:${bg};color:${fg};font-weight:700">${p}%</td>`;
 }
 
 function buildStormDateTable(stormDates) {
@@ -893,7 +992,7 @@ function buildStormDateTable(stormDates) {
     return `<td style="text-align:center;padding:10px 12px;border-bottom:1px solid #e2e8f0;background:${c.bg};color:${c.text};font-weight:700">${sz.toFixed(2)}"</td>`;
   }
   document.getElementById('summaryBody').innerHTML = rows.length === 0
-    ? '<tr><td colspan="7" style="text-align:center;color:#888;padding:20px">No storm activity found</td></tr>'
+    ? '<tr><td colspan="8" style="text-align:center;color:#888;padding:20px">No storm activity found</td></tr>'
     : rows.map(s => {
         const r = s.radar || {};
         const g = s.groundReports;
@@ -901,6 +1000,7 @@ function buildStormDateTable(stormDates) {
         return `<tr onclick="filterMapToDate('${s.date}')" style="cursor:pointer" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
           <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#1e293b">${fmtDate(s.date)}</td>
           ${cell(r.atPropertyIn)}${cell(r.within1miIn)}${cell(r.within3miIn)}${cell(r.within10miIn)}
+          ${probCell(s.hailAlgorithm)}
           <td style="text-align:center;padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:0.85em">${ground}</td>
           <td style="text-align:center;padding:10px 12px;border-bottom:1px solid #e2e8f0">${confBadge(s.confidence)}</td>
         </tr>`;

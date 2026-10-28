@@ -22,8 +22,9 @@ const compression = require('compression');
 const reportEngine = require('./lib/report-engine');
 const spcStore = require('./lib/spc-store');
 const dataJobs = require('./lib/data-jobs');
-const { generateToken, requireAuth, requireAdmin, requireActiveSubscription } = require('./auth');
-const { geocodeAddress, fetchHailHistory, getImpactScore, getImpactRating } = require('./hail-engine');
+const { generateToken, generateMfaTicket, requireAuth, requireAdmin, requireActiveSubscription } = require('./auth');
+const security = require('./lib/security');
+const { geocodeAddress, reverseGeocode, fetchHailHistory, getImpactScore, getImpactRating } = require('./hail-engine');
 const axios = require('axios');
 
 // Simple in-memory cache for lookup results (saves re-scanning same address)
@@ -36,6 +37,8 @@ const jobs = new Map(); // jobId -> { status, result, error, startedAt }
 const app = express();
 // Railway sits one proxy hop in front of the app; use the real visitor IP for rate limits.
 app.set('trust proxy', 1);
+app.disable('x-powered-by');
+app.use(security.headers());
 const { startStormMonitor } = require('./storm-alerts');
 
 const PORT = process.env.PORT || 3000;
@@ -120,11 +123,15 @@ app.get('/register', (req, res) => res.sendFile(path.join(__dirname, 'public', '
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+  const wait = security.lockedFor(email, req.ip);
+  if (wait) return res.status(429).json({ error: `Too many wrong passwords. Try again in ${wait} minute${wait === 1 ? '' : 's'}, or reset your password.` });
   try {
     const user = await userOps.findByEmail(email);
     if (!user || !userOps.verifyPassword(user, password)) {
+      security.recordFailure(email, req.ip);
       return res.status(401).json({ error: 'Invalid email or password' });
     }
+    security.clearFailures(email);
     if (user.tier === 'suspended') {
       return res.status(403).json({ error: 'Your account has been suspended. Contact (817) 618-9884.' });
     }
@@ -136,8 +143,9 @@ app.post('/api/auth/login', async (req, res) => {
       try { const aff = await affiliateOps.findByCode(refCode); if (aff) { await userOps.update(user._id, { referredBy: refCode.toUpperCase() }); console.log('Referral tracked: ' + email + ' by ' + refCode); } } catch(re) {}
       res.clearCookie('ref');
     }
-    const token = generateToken(user);
-    res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 7 * 24 * 60 * 60 * 1000 });
+    // Two-step sign-in: password was right; now ask for the authenticator code.
+    if (user.totpEnabled) return res.json({ twoFactor: true, ticket: generateMfaTicket(user) });
+    security.setSessionCookie(req, res, generateToken(user));
     res.json({ success: true, redirect: user.role === 'admin' ? '/admin' : '/dashboard' });
   } catch (err) {
     console.error('Login error:', err && err.stack || err);
@@ -161,6 +169,9 @@ app.post('/api/auth/register', async (req, res) => {
     const existing = await userOps.findByEmail(email);
     if (existing) return res.status(409).json({ error: 'An account with this email already exists' });
     await userOps.create({ email, password, name, company, role: 'subscriber', tier: 'trial', lookupLimit: 1 });
+    // Record where the sign-up came from (UTM tags kept by /js/tracking.js).
+    const utm = require('./tracking-routes').readUtm(req);
+    if (utm) { const nu = await userOps.findByEmail(email); if (nu) await userOps.update(nu._id, { signupSource: utm }); }
     const user = await userOps.findByEmail(email);
     // Track affiliate referral if ref cookie set
     const refCode = (req.cookies && req.cookies.ref) ? req.cookies.ref : null;
@@ -168,8 +179,7 @@ app.post('/api/auth/register', async (req, res) => {
       try { const aff = await affiliateOps.findByCode(refCode); if (aff) { await userOps.update(user._id, { referredBy: refCode.toUpperCase() }); console.log('Referral: '+email+' by '+refCode); } } catch(re) {}
       res.clearCookie('ref');
     }
-    const token = generateToken(user);
-    res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 7 * 24 * 60 * 60 * 1000 });
+    security.setSessionCookie(req, res, generateToken(user));
     res.json({ success: true, redirect: '/dashboard' });
   } catch (err) {
     res.status(500).json({ error: 'Registration failed. Please try again.' });
@@ -183,6 +193,9 @@ app.get('/reset-password', (req, res) => res.sendFile(path.join(__dirname, 'publ
 app.post('/api/auth/forgot-password', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email required' });
+  // Limit reset emails per address and per IP (shares the sign-in limiter).
+  if (security.lockedFor('reset:' + email, req.ip)) return res.json({ success: true });
+  security.recordFailure('reset:' + email, req.ip);
   try {
     const user = await userOps.findByEmail(email);
     if (user) {
@@ -192,7 +205,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       await userOps.setResetToken(email, token, expires);
       const baseUrl = process.env.BASE_URL || 'https://stormcheckpro.thepublicadjustertx.com';
       const resetUrl = `${baseUrl}/reset-password?token=${token}`;
-      // Send the reset email (Resend or SMTP); if email isn't configured, log the link.
+      // Send the reset email (Resend or SMTP).
       const mailer = require('./lib/mailer');
       if (mailer.isConfigured()) {
         const sent = await mailer.sendMail({
@@ -200,10 +213,10 @@ app.post('/api/auth/forgot-password', async (req, res) => {
           subject: 'Reset your StormCheck Pro password',
           html: mailer.layout('Password reset', `<p>Click the button below to reset your password. This link expires in 1 hour.</p><p><a href="${resetUrl}" style="background:#172235;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold">Reset password</a></p><p style="color:#5b6a80;font-size:13px">Or paste this link: ${resetUrl}</p><p style="color:#5b6a80;font-size:13px">If you didn't request this, ignore this email.</p>`),
         });
-        if (!sent) console.log(`\nPASSWORD RESET LINK for ${email} (email failed):\n${resetUrl}\n`);
+        // Never write the link itself to the logs: anyone who can read logs could use it.
+        if (!sent) console.error(`Password reset email to ${email} failed. Check email settings (Admin → Test Email).`);
       } else {
-        // No email configured — log the reset URL so admin can share manually
-        console.log(`\nPASSWORD RESET LINK for ${email}:\n${resetUrl}\n`);
+        console.error(`Password reset requested for ${email}, but email is not configured (set RESEND_API_KEY).`);
       }
     }
     // Always return success to prevent email enumeration
@@ -224,6 +237,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
     const bcrypt = require('bcryptjs');
     const hash = bcrypt.hashSync(password, 12);
     await userOps.clearResetToken(user._id, hash);
+    security.clearFailures(user.email);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Reset failed. Please try again.' });
@@ -232,7 +246,14 @@ app.post('/api/auth/reset-password', async (req, res) => {
 
 // Logout
 app.post('/api/auth/logout', (req, res) => {
-  res.clearCookie('token');
+  security.clearSessionCookie(req, res);
+  res.json({ success: true });
+});
+
+// Sign out of every device (ends all sessions, including this one).
+app.post('/api/auth/logout-all', requireAuth, async (req, res) => {
+  await userOps.bumpTokenVersion(req.user._id);
+  security.clearSessionCookie(req, res);
   res.json({ success: true });
 });
 
@@ -323,9 +344,29 @@ app.post('/api/me/states', requireAuth, async (req, res) => {
   res.json({ success: true });
 });
 
+// Browser-side Google Maps Embed key (restrict it to this domain in Google Cloud).
+app.get('/api/config/maps', (req, res) => {
+  const k = String(process.env.GOOGLE_MAPS_EMBED_KEY || '').trim();
+  res.set('Cache-Control', 'public, max-age=300');
+  res.json({ embedKey: /^[A-Za-z0-9_-]{20,60}$/.test(k) ? k : null });
+});
 app.get('/alert-settings', requireAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'alert-settings.html')));
 app.get('/api/alert-settings', requireAuth, async (req, res) => { const settings = await alertSettingsOps.get(req.user._id); res.json({ settings }); });
-app.post('/api/alert-settings', requireAuth, async (req, res) => { await alertSettingsOps.save(req.user._id, req.body); res.json({ success: true }); });
+app.post('/api/alert-settings', requireAuth, async (req, res) => {
+  const b = req.body || {};
+  const num = (v, lo, hi, d) => { const n = parseFloat(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
+  const regions = (Array.isArray(b.regions) ? b.regions : []).slice(0, 25)
+    .map(r => ({ name: String(r.name || 'Region').slice(0, 80), lat: num(r.lat, -90, 90, NaN), lon: num(r.lon, -180, 180, NaN), radius: Math.round(num(r.radius, 1, 250, 50)) }))
+    .filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lon));
+  await alertSettingsOps.save(req.user._id, {
+    minHailSize: num(b.minHailSize, 0.5, 4, 1),
+    minSevProb: Math.round(num(b.minSevProb, 0, 100, 0)),
+    alertHail: b.alertHail !== false, alertWind: b.alertWind !== false,
+    alertTornado: b.alertTornado !== false, alertEmail: b.alertEmail !== false,
+    regions,
+  });
+  res.json({ success: true });
+});
 
 app.get('/hailmap', requireAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'hailmap.html')));
 app.get('/storms', requireAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'storms.html')));
@@ -491,6 +532,22 @@ app.get('/logos/:file', (req, res) => {
 // ── Hail Lookup API ───────────────────────────────────────────────────────────
 
 // POST /api/lookup — starts async job, returns jobId immediately
+// "Use my location": the street address at the phone's GPS position.
+const revUse = new Map();
+app.get('/api/reverse-geocode', requireAuth, async (req, res) => {
+  const lat = parseFloat(req.query.lat), lon = parseFloat(req.query.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < 17 || lat > 72 || lon < -180 || lon > -64) {
+    return res.status(400).json({ error: 'That location is outside the United States.' });
+  }
+  const id = String(req.user._id), now = Date.now();
+  const recent = (revUse.get(id) || []).filter(t => now - t < 60000);
+  if (recent.length >= 10) return res.status(429).json({ error: 'Too many location lookups. Wait a minute.' });
+  recent.push(now); revUse.set(id, recent);
+  const r = await reverseGeocode(lat, lon);
+  if (!r) return res.status(404).json({ error: 'Could not find an address at your location.' });
+  res.json(r);
+});
+
 app.post('/api/lookup', requireAuth, requireActiveSubscription, async (req, res) => {
   const { address, years = 5 } = req.body;
   if (!address) return res.status(400).json({ error: 'Address is required' });
@@ -498,7 +555,7 @@ app.post('/api/lookup', requireAuth, requireActiveSubscription, async (req, res)
   // Portfolio properties are already located: use their coordinates directly.
   const lat = parseFloat(req.body.lat), lon = parseFloat(req.body.lon);
   const geo = Number.isFinite(lat) && Number.isFinite(lon)
-    ? { lat, lon, formattedAddress: address, state: req.body.state || null }
+    ? { lat, lon, formattedAddress: address, state: req.body.state ? String(req.body.state).toUpperCase().slice(0, 2) : null }
     : await geocodeAddress(address);
   if (!geo) {
     const hint = /\d{5}/.test(address) ? '' : ' Include the city, state and ZIP code.';
@@ -605,14 +662,17 @@ function sendCsv(res, name, rows) {
 
 app.get('/api/admin/export/users.csv', requireAuth, requireAdmin, async (req, res) => {
   const users = (await userOps.getAll()).filter(u => u.role !== 'admin');
-  const rows = [['Name', 'Email', 'Company', 'Phone', 'Plan', 'Subscription Status', 'Lookups This Month', 'Joined', 'Last Login', 'Referred By', 'Notes']];
+  const rows = [['Name', 'Email', 'Company', 'Phone', 'Plan', 'Subscription Status', 'Lookups This Month', 'Joined', 'Last Login', 'Referred By', 'Source', 'Campaign', 'Ad / Content', 'Landing Page', 'Notes']];
   for (const u of users) {
     let p = null;
     try { p = await profileOps.get(u._id); } catch { /* no profile */ }
     rows.push([
       u.name, u.email, (p && p.companyName) || u.company || '', (p && p.companyPhone) || '',
       (TIERS[u.tier] && TIERS[u.tier].label) || u.tier, u.subscriptionStatus || '',
-      u.lookupsThisMonth || 0, csvDate(u.createdAt), csvDate(u.lastLogin), u.referredBy || '', u.notes || '',
+      u.lookupsThisMonth || 0, csvDate(u.createdAt), csvDate(u.lastLogin), u.referredBy || '',
+      [u.signupSource && u.signupSource.utm_source, u.signupSource && u.signupSource.utm_medium].filter(Boolean).join(' / '),
+      (u.signupSource && u.signupSource.utm_campaign) || '', (u.signupSource && u.signupSource.utm_content) || '',
+      (u.signupSource && u.signupSource.landing) || '', u.notes || '',
     ]);
   }
   sendCsv(res, 'stormcheck-users', rows);
@@ -705,7 +765,7 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
       payment_method_types: ['card'],
       customer_email: req.user.email,
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${process.env.BASE_URL}/dashboard?subscribed=1`,
+      success_url: `${process.env.BASE_URL}/dashboard?subscribed=1&plan=${encodeURIComponent(tier || 'pro')}`,
       cancel_url: `${process.env.BASE_URL}/upgrade`,
       metadata: { userId: req.user._id, tier: tier || 'pro' },
       ...(promoCode ? { discounts: [{ coupon: promoCode }] } : { allow_promotion_codes: true }),
@@ -720,7 +780,25 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
 require('./platform-routes')(app, { requireAuth, requireAdmin, requireActiveSubscription, tierFeatures, db });
 require('./integration-routes')(app, { requireAuth, tierFeatures, db });
 require('./help-routes')(app, { requireAuth, requireAdmin, tierFeatures, db });
+require('./tracking-routes')(app);
+require('./recap-routes')(app, { db, requireAuth, requireAdmin });
+require('./security-routes')(app, { db, requireAuth, requireAdmin });
+
+// ── Backups (admin) ───────────────────────────────────────────────────────────
+const backups = require('./lib/backups');
+app.post('/api/admin/backups/run', requireAuth, requireAdmin, async (req, res) => {
+  try { res.json(await backups.run()); } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.get('/api/admin/backups/:name', requireAuth, requireAdmin, (req, res) => {
+  const p = backups.filePath(req.params.name);
+  if (!p) return res.status(404).json({ error: 'Not found' });
+  res.download(p);
+});
+// Nightly at 08:30 UTC (about 3:30 AM Central), plus one at startup if the last is old.
+cron.schedule('30 8 * * *', () => backups.run().then(r => console.log('[backup]', r.name, r.offsite)).catch(e => console.error('[backup]', e.message)));
+setTimeout(() => { if (!backups.latest() && process.env.DATA_JOBS !== 'off') backups.run().catch(e => console.error('[backup]', e.message)); }, 90000);
 require('./public-pages')(app, { db });
+require('./pro-routes')(app, { db, requireAuth, requireAdmin });
 
 // ── Root redirect ─────────────────────────────────────────────────────────────
 

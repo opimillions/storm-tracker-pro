@@ -6,8 +6,8 @@
   <title>Admin — StormCheck Pro</title>
   <link rel="stylesheet" href="/style.css">
   <style>
-    .tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 2px solid var(--border); }
-    .tab { padding: 10px 20px; cursor: pointer; font-weight: 600; font-size: 0.92em; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 2px solid var(--border); overflow-x: auto; }
+    .tab { white-space: nowrap; padding: 10px 16px; cursor: pointer; font-weight: 600; font-size: 0.92em; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
     .tab.active { color: var(--navy); border-bottom-color: var(--red); }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
@@ -56,6 +56,9 @@
     <div class="tab" onclick="switchTab('alerts')">Storm Alerts</div>
     <div class="tab" onclick="switchTab('reviews')">Review Orders</div>
     <div class="tab" onclick="switchTab('data')">Data Pipeline</div>
+    <div class="tab" onclick="switchTab('recaps')">Storm Recaps</div>
+    <div class="tab" onclick="switchTab('pros')">Find a Pro</div>
+    <div class="tab" onclick="switchTab('security')">Security &amp; Backups</div>
   </div>
 
   <!-- Users Tab -->
@@ -97,7 +100,6 @@
       </div>
     </div>
   </div>
-</div>
 
   <!-- Reviews Tab -->
   <div class="tab-panel" id="tab-reviews">
@@ -121,6 +123,21 @@
       </div>
       <pre id="dataLog" style="margin-top:14px;max-height:320px;overflow:auto;background:#0f172a;color:#cbd5e1;padding:12px;border-radius:8px;font-size:0.78em;white-space:pre-wrap"></pre>
     </div>
+  </div>
+
+  <!-- Security Tab -->
+  <div class="tab-panel" id="tab-security">
+    <div id="securityRoot" style="display:grid;gap:16px">Loading…</div>
+  </div>
+
+  <!-- Find a Pro Tab -->
+  <div class="tab-panel" id="tab-pros">
+    <div id="prosRoot" style="display:grid;gap:16px">Loading…</div>
+  </div>
+
+  <!-- Storm Recaps Tab -->
+  <div class="tab-panel" id="tab-recaps">
+    <div id="recapsRoot" style="display:grid;gap:16px">Loading…</div>
   </div>
 </div>
 
@@ -180,7 +197,8 @@ async function loadDataStatus() {
   document.getElementById('dataStatus').innerHTML = `
     <strong>Radar hail (MRMS MESH):</strong> ${d.mesh.count} days loaded${d.mesh.first ? ` (${d.mesh.first} → ${d.mesh.last})` : ''}${d.backfilling ? ' · backfilling now' : ''}<br>
     <strong>NWS Storm Events (NCEI):</strong> ${d.ncei.firstYear ? `${d.ncei.firstYear}–${d.ncei.lastYear}, covers through ~${d.ncei.end}` : 'not loaded yet'}<br>
-    <strong>SPC reports:</strong> ${d.spc.days} days${d.spc.last ? ` (latest ${d.spc.last})` : ''}`;
+    <strong>SPC reports:</strong> ${d.spc.days} days${d.spc.last ? ` (latest ${d.spc.last})` : ''}<br>
+    <strong>Radar hail algorithm (severe probability):</strong> ${d.hailsig && d.hailsig.days ? `${d.hailsig.days} days (${d.hailsig.first} → ${d.hailsig.last})` : 'not loaded yet'}${d.sigBackfilling ? ' · loading now' : ''}`;
   document.getElementById('dataLog').textContent = (d.log || []).slice().reverse().join('\n');
 }
 async function ingestDay() {
@@ -423,11 +441,14 @@ async function addUser() {
 }
 
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['users','lookups','alerts','reviews','data'][i]===name));
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['users','lookups','alerts','reviews','data','recaps','pros','security'][i]===name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   if (name === 'reviews') loadReviews();
   if (name === 'data') loadDataStatus();
+  if (name === 'recaps') loadRecaps();
+  if (name === 'pros') loadPros();
+  if (name === 'security') loadSecurity();
 }
 
 async function logout() {
@@ -439,5 +460,8 @@ window.logout = logout;
 window.switchTab = switchTab;
 init();
 </script>
+<script src="/js/admin-recaps.js"></script>
+<script src="/js/admin-pros.js"></script>
+<script src="/js/admin-security.js"></script>
 </body>
 </html>

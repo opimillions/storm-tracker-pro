@@ -14,9 +14,13 @@ const { toCsv } = require('./lib/csv');
 
 const LOG = () => dataPath('assistant-log.jsonl');
 
-function logQuestion(user, question, mode) {
+// Each line records the question AND the answer given, so the guide's answers can be checked.
+function logQuestion(user, question, mode, answer = '', matched = []) {
   try {
-    const line = JSON.stringify({ at: new Date().toISOString(), userId: user._id, email: user.email, tier: user.tier, mode, question: String(question).slice(0, 1000) }) + '\n';
+    const line = JSON.stringify({
+      at: new Date().toISOString(), userId: user._id, email: user.email, tier: user.tier, mode,
+      question: String(question).slice(0, 1000), answer: String(answer || '').slice(0, 3000), matched,
+    }) + '\n';
     fs.appendFileSync(LOG(), line);
     const st = fs.statSync(LOG());
     if (st.size > 5e6) { // keep the newest ~half
@@ -67,16 +71,21 @@ Rules:
 ${help.publicText()}`;
 }
 
-function fallbackReply(question, { publicOnly = false } = {}) {
+/** Keyword-search answer and the guide topics it used. */
+function fallbackDetail(question, { publicOnly = false } = {}) {
   if (publicOnly) {
     const hits = help.search(question, 2, { publicOnly: true });
-    if (!hits.length) return `I can help with questions about StormCheck Pro. See the sample report (/sample-report) or pricing (/#pricing), or ${help.SUPPORT}`;
-    return hits.map(h => `${h.title}\n${h.text}`).join('\n\n') + '\n\nTry it free: /register';
+    if (!hits.length) return { reply: `I can help with questions about StormCheck Pro. See the sample report (/sample-report) or pricing (/#pricing), or ${help.SUPPORT}`, matched: [] };
+    return { reply: hits.map(h => `${h.title}\n${h.text}`).join('\n\n') + '\n\nTry it free: /register', matched: hits.map(h => h.title) };
   }
   const hits = help.search(question, 2);
-  if (!hits.length) return `I couldn't find that in the guide. Try the Help tab (/help), or ${help.SUPPORT}`;
-  return hits.map(h => `${h.title}\n${h.text.length > 600 ? h.text.slice(0, 600) + '…' : h.text}\n(${h.link})`).join('\n\n') + `\n\nMore in the Help tab (/help).`;
+  if (!hits.length) return { reply: `I couldn't find that in the guide. Try the Help tab (/help), or ${help.SUPPORT}`, matched: [] };
+  return {
+    reply: hits.map(h => `${h.title}\n${h.text.length > 600 ? h.text.slice(0, 600) + '…' : h.text}\n(${h.link})`).join('\n\n') + `\n\nMore in the Help tab (/help).`,
+    matched: hits.map(h => h.title),
+  };
 }
+const fallbackReply = (q, o) => fallbackDetail(q, o).reply;
 
 module.exports = function helpRoutes(app, { requireAuth, requireAdmin, tierFeatures, db }) {
   const { userOps, watchlistOps, integrationOps } = db;
@@ -104,8 +113,9 @@ module.exports = function helpRoutes(app, { requireAuth, requireAdmin, tierFeatu
     if (overLimit(String(req.user._id))) return res.status(429).json({ error: 'You have asked a lot of questions in a short time. Please wait a few minutes.' });
 
     if (!process.env.ANTHROPIC_API_KEY) {
-      logQuestion(req.user, last.content, 'search');
-      return res.json({ reply: fallbackReply(last.content), mode: 'search' });
+      const f = fallbackDetail(last.content);
+      logQuestion(req.user, last.content, 'search', f.reply, f.matched);
+      return res.json({ reply: f.reply, mode: 'search' });
     }
 
     const features = tierFeatures(req.user.tier);
@@ -124,12 +134,14 @@ module.exports = function helpRoutes(app, { requireAuth, requireAdmin, tierFeatu
         timeout: 30000,
       });
       const reply = (r.data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
-      logQuestion(req.user, last.content, 'ai');
-      res.json({ reply: reply || fallbackReply(last.content), mode: 'ai' });
+      const out = reply || fallbackReply(last.content);
+      logQuestion(req.user, last.content, 'ai', out);
+      res.json({ reply: out, mode: 'ai' });
     } catch (e) {
       console.error('Assistant error:', e.response ? JSON.stringify(e.response.data) : e.message);
-      logQuestion(req.user, last.content, 'fallback');
-      res.json({ reply: fallbackReply(last.content), mode: 'search' });
+      const f = fallbackDetail(last.content);
+      logQuestion(req.user, last.content, 'fallback', f.reply, f.matched);
+      res.json({ reply: f.reply, mode: 'search' });
     }
   });
 
@@ -159,8 +171,9 @@ module.exports = function helpRoutes(app, { requireAuth, requireAdmin, tierFeatu
     if (today !== dayKey) { dayKey = today; dayCount = 0; }
     const visitor = { _id: null, email: '', tier: 'visitor' };
     if (!process.env.ANTHROPIC_API_KEY || ++dayCount > DAILY_CAP) {
-      logQuestion(visitor, last.content, 'public-search');
-      return res.json({ reply: fallbackReply(last.content, { publicOnly: true }), mode: 'search' });
+      const f = fallbackDetail(last.content, { publicOnly: true });
+      logQuestion(visitor, last.content, 'public-search', f.reply, f.matched);
+      return res.json({ reply: f.reply, mode: 'search' });
     }
     try {
       const r = await axios.post('https://api.anthropic.com/v1/messages', {
@@ -173,12 +186,14 @@ module.exports = function helpRoutes(app, { requireAuth, requireAdmin, tierFeatu
         timeout: 30000,
       });
       const reply = (r.data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
-      logQuestion(visitor, last.content, 'public-ai');
-      res.json({ reply: reply || fallbackReply(last.content, { publicOnly: true }), mode: 'ai' });
+      const out = reply || fallbackReply(last.content, { publicOnly: true });
+      logQuestion(visitor, last.content, 'public-ai', out);
+      res.json({ reply: out, mode: 'ai' });
     } catch (e) {
       console.error('Public assistant error:', e.response ? JSON.stringify(e.response.data) : e.message);
-      logQuestion(visitor, last.content, 'public-fallback');
-      res.json({ reply: fallbackReply(last.content, { publicOnly: true }), mode: 'search' });
+      const f = fallbackDetail(last.content, { publicOnly: true });
+      logQuestion(visitor, last.content, 'public-fallback', f.reply, f.matched);
+      res.json({ reply: f.reply, mode: 'search' });
     }
   });
 
@@ -186,8 +201,16 @@ module.exports = function helpRoutes(app, { requireAuth, requireAdmin, tierFeatu
   app.get('/api/admin/assistant-log.csv', requireAuth, requireAdmin, (req, res) => {
     let lines = [];
     try { lines = fs.readFileSync(LOG(), 'utf8').trim().split('\n').filter(Boolean); } catch { /* none */ }
-    const rows = [['asked_at', 'email', 'plan', 'answered_by', 'question']];
-    for (const l of lines.reverse()) { try { const j = JSON.parse(l); rows.push([j.at, j.email, j.tier, j.mode, j.question]); } catch { /* skip */ } }
+    const MODES = { search: 'Guide search', fallback: 'Guide search', ai: 'AI', 'public-search': 'Guide search (website)', 'public-fallback': 'Guide search (website)', 'public-ai': 'AI (website)' };
+    const rows = [['asked_at', 'email', 'plan', 'answered_by', 'question', 'answer_given', 'guide_topics_used']];
+    for (const l of lines.reverse()) {
+      try {
+        const j = JSON.parse(l);
+        rows.push([j.at, j.email, j.tier, MODES[j.mode] || j.mode, j.question,
+          j.answer != null ? j.answer : '(not recorded: asked before answers were saved)',
+          (j.matched || []).join(' | ') || (j.answer != null && /^(guide|public-search|public-fallback|search|fallback)/.test(j.mode) ? 'none matched' : '')]);
+      } catch { /* skip */ }
+    }
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="assistant-questions.csv"');
     res.send(toCsv(rows));

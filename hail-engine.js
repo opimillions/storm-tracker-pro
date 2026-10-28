@@ -234,4 +234,37 @@ function getImpactRating(score) {
   return { rating: 'LOW', color: '#27ae60', cssClass: 'low', desc: 'Limited storm activity detected near this property.' };
 }
 
-module.exports = { geocodeAddress, fetchHailHistory, getImpactScore, getImpactRating, getSizeDescription, getDistanceMiles };
+/**
+ * Street address for a GPS position (phone "use my location").
+ * Falls back to the nearest city when no street address is found.
+ */
+const reverseCache = new Map();
+async function reverseGeocode(lat, lon) {
+  const key = `${lat.toFixed(5)},${lon.toFixed(5)}`;
+  if (reverseCache.has(key)) return reverseCache.get(key);
+  let out = null;
+  try {
+    const r = await axios.get('https://nominatim.openstreetmap.org/reverse', {
+      params: { lat, lon, format: 'jsonv2', addressdetails: 1, zoom: 18 },
+      headers: { 'User-Agent': 'StormCheckPro/2.0 (stormcheckpro.thepublicadjustertx.com)', 'Accept-Language': 'en-US' },
+      timeout: 8000,
+    });
+    const a = (r.data && r.data.address) || {};
+    if (a.country_code && a.country_code !== 'us') return null;
+    const state = STATE_ABBR[String(a.state || '').toLowerCase()] || '';
+    const line1 = [a.house_number, a.road].filter(Boolean).join(' ');
+    const city = a.city || a.town || a.village || a.hamlet || a.suburb || a.county || '';
+    const text = [line1, city, [state, a.postcode].filter(Boolean).join(' ')].filter(Boolean).join(', ').toUpperCase();
+    if (text) out = { address: text, state, zip: a.postcode || '', exact: !!a.house_number };
+  } catch (err) { /* fall back below */ }
+  if (!out) {
+    try {
+      const c = require('./lib/places').nearestCity(lat, lon);
+      if (c) out = { address: `NEAR ${c.name.toUpperCase()}, ${c.state} (${lat.toFixed(5)}, ${lon.toFixed(5)})`, state: c.state, zip: '', exact: false };
+    } catch { /* none */ }
+  }
+  if (out) { reverseCache.set(key, out); if (reverseCache.size > 5000) reverseCache.clear(); }
+  return out;
+}
+
+module.exports = { reverseGeocode, geocodeAddress, fetchHailHistory, getImpactScore, getImpactRating, getSizeDescription, getDistanceMiles };

@@ -27,6 +27,11 @@ freeAlerts.ensureIndex({ fieldName: 'token', unique: true });
 const reviews = Datastore.create({ filename: path.join(DATA_DIR, 'reviews.db'), autoload: true });
 const integrations = Datastore.create({ filename: path.join(DATA_DIR, 'integrations.db'), autoload: true });
 integrations.ensureIndex({ fieldName: 'userId' });
+const pros = Datastore.create({ filename: path.join(DATA_DIR, 'pros.db'), autoload: true });
+pros.ensureIndex({ fieldName: 'category' });
+const prospects = Datastore.create({ filename: path.join(DATA_DIR, 'prospects.db'), autoload: true });
+prospects.ensureIndex({ fieldName: 'email', unique: true });
+prospects.ensureIndex({ fieldName: 'token', unique: true });
 
 // Indexes
 users.ensureIndex({ fieldName: 'email', unique: true });
@@ -131,16 +136,26 @@ const userOps = {
     return users.update({ _id: id }, { $set: data });
   },
 
+  // Reset links are stored hashed, so a copy of the database can't be used to reset passwords.
   async setResetToken(email, token, expiresAt) {
-    return users.update({ email: email.toLowerCase() }, { $set: { resetToken: token, resetTokenExpires: expiresAt } });
+    const h = require('crypto').createHash('sha256').update(String(token)).digest('hex');
+    return users.update({ email: email.toLowerCase() }, { $set: { resetToken: h, resetTokenExpires: expiresAt } });
   },
 
   async findByResetToken(token) {
-    return users.findOne({ resetToken: token, resetTokenExpires: { $gt: new Date().toISOString() } });
+    if (!token) return null;
+    const h = require('crypto').createHash('sha256').update(String(token)).digest('hex');
+    return users.findOne({ resetToken: h, resetTokenExpires: { $gt: new Date().toISOString() } });
   },
 
+  /** New password from a reset link: also signs the account out everywhere. */
   async clearResetToken(id, newPasswordHash) {
-    return users.update({ _id: id }, { $set: { passwordHash: newPasswordHash, resetToken: null, resetTokenExpires: null } });
+    return users.update({ _id: id }, { $set: { passwordHash: newPasswordHash, resetToken: null, resetTokenExpires: null, passwordChangedAt: new Date().toISOString() }, $inc: { tokenVersion: 1 } });
+  },
+
+  /** End every session for this user (sign out of all devices). */
+  async bumpTokenVersion(id) {
+    return users.update({ _id: id }, { $inc: { tokenVersion: 1 } });
   },
 
   async delete(id) {
@@ -551,4 +566,53 @@ const integrationOps = {
   async findByInboundToken(token) { return token ? integrations.findOne({ type: 'inbound', token }) : null; },
 };
 
-module.exports = { integrationOps, freeAlertOps, reviewOps, userOps, lookupOps, alertOps, profileOps, resultsCacheOps, affiliateOps, watchlistOps, alertSettingsOps, AFFILIATE_COMMISSION, TIERS, tierFeatures, tierLookupLimit };
+// ── Storm recap prospects (imported email list) ───────────────────────────────
+// Unsubscribed prospects are kept (active: false) so a re-import can't add them back.
+const prospectOps = {
+  async upsertMany(list) {
+    const crypto = require('crypto');
+    let added = 0, updated = 0, skipped = 0;
+    for (const p of list) {
+      const existing = await prospects.findOne({ email: p.email });
+      if (existing) {
+        if (!existing.active) { skipped++; continue; }
+        await prospects.update({ _id: existing._id }, { $set: { ...p, updatedAt: new Date().toISOString() } });
+        updated++;
+      } else {
+        await prospects.insert({ ...p, token: crypto.randomBytes(20).toString('hex'), active: true, recaps: 0, createdAt: new Date().toISOString() });
+        added++;
+      }
+    }
+    return { added, updated, skipped };
+  },
+  async getActive() { return prospects.find({ active: true }); },
+  async list({ limit = 200, skip = 0 } = {}) { return prospects.find({}).sort({ createdAt: -1 }).skip(skip).limit(limit); },
+  async all() { return prospects.find({}).sort({ createdAt: -1 }); },
+  async counts() {
+    const [active, unsubscribed] = await Promise.all([prospects.count({ active: true }), prospects.count({ active: false })]);
+    return { active, unsubscribed };
+  },
+  async byToken(token) { return token ? prospects.findOne({ token }) : null; },
+  async unsubscribe(token) { return prospects.update({ token }, { $set: { active: false, unsubscribedAt: new Date().toISOString() } }); },
+  async markSent(id, date) { return prospects.update({ _id: id }, { $set: { lastRecapAt: new Date().toISOString(), lastRecapDate: date }, $inc: { recaps: 1 } }); },
+  async remove(id) { return prospects.remove({ _id: id }); },
+  async removeAllActive() { return prospects.remove({ active: true }, { multi: true }); },
+};
+
+// ── Find a Pro directory listings ──────────────────────────────────────────────
+// status: active | pending (applied, awaiting review) | hidden
+const proOps = {
+  async create(data) { return pros.insert({ status: 'pending', views: 0, clicks: 0, ...data, createdAt: new Date().toISOString() }); },
+  async get(id) { return pros.findOne({ _id: id }); },
+  async update(id, data) { return pros.update({ _id: id }, { $set: { ...data, updatedAt: new Date().toISOString() } }); },
+  async remove(id) { return pros.remove({ _id: id }); },
+  async all() { return pros.find({}).sort({ createdAt: -1 }); },
+  async active(category) { return pros.find({ status: 'active', ...(category ? { category } : {}) }); },
+  async count() { return pros.count({}); },
+  async bump(ids, field) {
+    if (!ids.length) return;
+    await pros.update({ _id: { $in: ids } }, { $inc: { [field]: 1 } }, { multi: true });
+  },
+};
+
+module.exports = { proOps, prospectOps, integrationOps, freeAlertOps, reviewOps, userOps, lookupOps, alertOps, profileOps, resultsCacheOps, affiliateOps, watchlistOps, alertSettingsOps, AFFILIATE_COMMISSION, TIERS, tierFeatures, tierLookupLimit };
