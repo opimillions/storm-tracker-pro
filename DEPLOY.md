@@ -35,6 +35,7 @@ See `.env.example`. New or changed:
 | `NODE_ENV=production` | Forces HTTPS and secure cookies. |
 | `BACKUP_KEY` | Passphrase that encrypts the nightly backups. Save a copy in a password manager: backups can't be restored without it. |
 | `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY`, `BACKUP_S3_SECRET_KEY` | Optional off-server copy of each backup to S3-compatible storage (Cloudflare R2 recommended). Set a 30-day lifecycle rule on the bucket. |
+| `GOOGLE_MAPS_SERVER_KEY` | Recommended with Street View. A second Google key (enable **Street View Static API**, restrict it to that API, no website restriction) used by the server to find the nearest street photo and aim it at the house. These metadata lookups are free. Without it, the Open Street View button uses Google's own nearest-photo search. |
 | `GOOGLE_MAPS_EMBED_KEY` | Optional. Shows Street View of the property on each report. In Google Cloud, enable the **Maps Embed API**, create an API key and restrict it to HTTP referrers `stormcheckpro.thepublicadjustertx.com/*`. Embed API use is free. Without a key, reports show an "Open Street View" button. |
 | `MAP_TILE_URL` | Optional base map tiles for recap map images. Defaults to OpenStreetMap. |
 
