@@ -350,6 +350,37 @@ app.post('/api/me/states', requireAuth, async (req, res) => {
   res.json({ success: true });
 });
 
+// Street View for a property: the nearest street-level photo (within ~110 yd)
+// and the compass direction from it to the house, so the view faces the home.
+// Google's Street View metadata lookup is free; it needs a server key with the
+// Street View Static API enabled (GOOGLE_MAPS_SERVER_KEY, else the embed key).
+const svCache = new Map();
+app.get('/api/streetview', requireAuth, async (req, res) => {
+  const lat = parseFloat(req.query.lat), lon = parseFloat(req.query.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return res.status(400).json({ error: 'lat and lon required' });
+  const key = String(process.env.GOOGLE_MAPS_SERVER_KEY || process.env.GOOGLE_MAPS_EMBED_KEY || '').trim();
+  if (!key) return res.json({ available: false, reason: 'no-key' });
+  const ck = `${lat.toFixed(5)},${lon.toFixed(5)}`;
+  if (svCache.has(ck)) return res.json(svCache.get(ck));
+  try {
+    const r = await axios.get('https://maps.googleapis.com/maps/api/streetview/metadata', {
+      params: { location: `${lat},${lon}`, radius: 100, source: 'outdoor', key }, timeout: 8000,
+    });
+    let out = { available: false, reason: r.data && r.data.status };
+    if (r.data && r.data.status === 'OK' && r.data.location) {
+      const pl = r.data.location.lat, pn = r.data.location.lng;
+      const toRad = d => d * Math.PI / 180, toDeg = r2 => r2 * 180 / Math.PI;
+      const y = Math.sin(toRad(lon - pn)) * Math.cos(toRad(lat));
+      const x = Math.cos(toRad(pl)) * Math.sin(toRad(lat)) - Math.sin(toRad(pl)) * Math.cos(toRad(lat)) * Math.cos(toRad(lon - pn));
+      out = { available: true, panoId: r.data.pano_id, lat: pl, lon: pn, heading: Math.round((toDeg(Math.atan2(y, x)) + 360) % 360), date: r.data.date || null };
+    }
+    svCache.set(ck, out); if (svCache.size > 5000) svCache.clear();
+    res.json(out);
+  } catch (e) {
+    res.json({ available: false, reason: 'lookup-failed' });
+  }
+});
+
 // Browser-side Google Maps Embed key (restrict it to this domain in Google Cloud).
 app.get('/api/config/maps', (req, res) => {
   const k = String(process.env.GOOGLE_MAPS_EMBED_KEY || '').trim();

@@ -927,22 +927,36 @@ async function renderStreetView(lat, lon, address) {
   if (lat == null || lon == null) { card.style.display = 'none'; return; }
   if (!mapsConfig) { try { mapsConfig = await (await fetch('/api/config/maps')).json(); } catch (e) { mapsConfig = {}; } }
   const ll = `${(+lat).toFixed(6)},${(+lon).toFixed(6)}`;
-  const pano = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${ll}`;
-  const sat = `https://www.google.com/maps/@?api=1&map_action=map&center=${ll}&zoom=20&basemap=satellite`;
+  // Find the nearest street-level photo and face it toward the house. The
+  // property point is usually the middle of the lot, 30+ yards from the street,
+  // where Google has no photo; opening Street View exactly there shows black.
+  let sv = null;
+  try { sv = await (await fetch(`/api/streetview?lat=${(+lat).toFixed(6)}&lon=${(+lon).toFixed(6)}`)).json(); } catch (e) { sv = null; }
+  const found = sv && sv.available;
+  const pano = found
+    ? `https://www.google.com/maps/@?api=1&map_action=pano&pano=${encodeURIComponent(sv.panoId)}&heading=${sv.heading}&pitch=5&fov=80`
+    : `https://www.google.com/maps?layer=c&cbll=${ll}&cbp=12,0,0,0,5`;
+  const sat = `https://www.google.com/maps/search/?api=1&query=${ll}`;
   const links = `<a href="${pano}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">Open Street View ↗</a>
-    <a href="${sat}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">Satellite view ↗</a>
+    <a href="${sat}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">Map / satellite ↗</a>
     <button type="button" class="btn btn-outline btn-sm" onclick="wrongHouse()">Wrong house?</button>`;
+  const photoDate = found && sv.date ? ` Photo from ${esc(sv.date)}.` : '';
   card.style.display = 'block';
-  if (mapsConfig.embedKey) {
+  if (mapsConfig.embedKey && (found || !sv || sv.reason === 'no-key' || sv.reason === 'lookup-failed')) {
+    const src = found
+      ? `https://www.google.com/maps/embed/v1/streetview?key=${encodeURIComponent(mapsConfig.embedKey)}&pano=${encodeURIComponent(sv.panoId)}&heading=${sv.heading}&pitch=5&fov=80`
+      : `https://www.google.com/maps/embed/v1/streetview?key=${encodeURIComponent(mapsConfig.embedKey)}&location=${ll}&fov=80`;
     card.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-        <div><strong style="color:var(--navy)">Is this the right property?</strong><div style="font-size:0.82em;color:var(--muted)">Street View near ${esc(address || '')}. Drag to look around.</div></div>
+        <div><strong style="color:var(--navy)">Is this the right property?</strong><div style="font-size:0.82em;color:var(--muted)">Street View facing ${esc(address || 'the property')}. Drag to look around.${photoDate}</div></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">${links}</div></div>
       <iframe title="Street View of ${esc(address || 'the property')}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen
-        style="width:100%;height:320px;border:0;border-radius:8px;background:#e2e8f0"
-        src="https://www.google.com/maps/embed/v1/streetview?key=${encodeURIComponent(mapsConfig.embedKey)}&location=${ll}&fov=80"></iframe>`;
+        style="width:100%;height:320px;border:0;border-radius:8px;background:#e2e8f0" src="${src}"></iframe>`;
   } else {
+    const note = sv && sv.available === false && sv.reason === 'ZERO_RESULTS'
+      ? 'Google has no street-level photo near this address (common for new streets and private roads). Use Map / satellite instead.'
+      : 'Check the house in Street View before relying on the report.';
     card.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-        <div><strong style="color:var(--navy)">Is this the right property?</strong><div style="font-size:0.82em;color:var(--muted)">Check the house in Street View before relying on the report.</div></div>
+        <div><strong style="color:var(--navy)">Is this the right property?</strong><div style="font-size:0.82em;color:var(--muted)">${note}${photoDate}</div></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">${links}</div></div>`;
   }
 }
