@@ -68,6 +68,10 @@
     .history-section { background: white; border-radius: 12px; padding: 24px; }
     .history-section h3 { margin-bottom: 14px; font-size: 1.1em; color: var(--navy); }
     .history-empty { color: var(--muted); font-size: 0.9em; text-align: center; padding: 20px; }
+    .history-row { cursor: pointer; }
+    .history-row:hover td, .history-row:focus td { background: #f1f5f9; }
+    .history-row:focus { outline: 2px solid #F2A93B; outline-offset: -2px; }
+    .history-row .go { color: #1D4E89; font-weight: 700; white-space: nowrap; }
 
     /* Upgrade banner */
     .upgrade-banner { background: linear-gradient(135deg, var(--navy), #2c3e50); color: white; border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
@@ -327,7 +331,7 @@
 
   <!-- Lookup History -->
   <div class="history-section">
-    <h3>Recent Lookups</h3>
+    <h3>Recent Lookups <span style="font-weight:400;font-size:0.75em;color:var(--muted)">· click a row to run it again</span></h3>
     <div id="historyContent"><div class="history-empty">No lookups yet. Search for an address above.</div></div>
   </div>
 
@@ -370,9 +374,16 @@ async function init() {
       const d = new Date(l.createdAt || l.created_at).toLocaleDateString('en-US');
       const eventsFound = l.eventsFound ?? l.events_found ?? 0;
       const impactScore = l.impactScore ?? l.impact_score ?? 0;
-      return `<tr><td>${d}</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.address}</td><td>${eventsFound}</td><td>${impactScore}/100</td></tr>`;
+      return `<tr class="history-row" tabindex="0" role="button" data-i="${recentLookups.indexOf(l)}" title="Run this report again"><td>${d}</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.address)}</td><td>${eventsFound}</td><td>${impactScore}/100</td><td class="go">View ›</td></tr>`;
     }).join('');
-    document.getElementById('historyContent').innerHTML = `<table><thead><tr><th>Date</th><th>Address</th><th>Events</th><th>Score</th></tr></thead><tbody>${rows}</tbody></table>`;
+    const hc = document.getElementById('historyContent');
+    hc.innerHTML = `<table><thead><tr><th>Date</th><th>Address</th><th>Events</th><th>Score</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+    hc.querySelectorAll('.history-row').forEach(tr => {
+      const l = recentLookups[+tr.dataset.i];
+      const go = () => reRunLookup(l.address, l.lat, l.lon);
+      tr.addEventListener('click', go);
+      tr.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+    });
   }
 
   // Check for subscribed param
@@ -883,7 +894,7 @@ async function loadHomeBrief() {
       listEl.innerHTML = recentLookups.slice(0, 5).map(l => {
         const addr = l.address || l.formattedAddress || 'Unknown address';
         const score = l.impactScore !== undefined ? l.impactScore : (l.impact_score !== undefined ? l.impact_score : '?');
-        return `<div class="rl-item" onclick="reRunLookup('${addr}')">
+        return `<div class="rl-item" onclick='reRunLookup(${JSON.stringify(String(addr)).replace(/'/g, "&#39;")}, ${l.lat != null ? +l.lat : 'null'}, ${l.lon != null ? +l.lon : 'null'})'>
           <div class="rl-addr">${addr}</div>
           <div class="rl-score">${score}/100</div>
         </div>`;
@@ -893,10 +904,13 @@ async function loadHomeBrief() {
   } catch (e) { /* silent */ }
 }
 
-function reRunLookup(address) {
+// Re-run a past search. Uses the saved location when there is one, so it
+// doesn't depend on the address being looked up again.
+function reRunLookup(address, lat, lon) {
   document.getElementById('addressInput').value = address;
+  if (lat != null && lon != null && isFinite(lat) && isFinite(lon)) pendingCoords = { address, lat: +lat, lon: +lon };
+  window.scrollTo({ top: 0, behavior: 'smooth' });
   runLookup();
-  document.getElementById('addressInput').scrollIntoView({ behavior: 'smooth' });
 }
 window.reRunLookup = reRunLookup;
 
