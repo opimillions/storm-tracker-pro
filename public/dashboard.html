@@ -139,10 +139,7 @@
 <div class="page-wrap">
 
   <!-- Push Notification Enable -->
-  <div id="pushBanner" style="display:none;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:white;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-    <div><div style="font-weight:700;font-size:0.95em">Get instant hail alerts on this device</div><div style="font-size:0.82em;opacity:0.75;margin-top:2px">Tap to receive push notifications the moment hail is detected – even when the app is closed.</div></div>
-    <button onclick="enablePushNotifications()" class="btn btn-primary btn-sm" id="pushEnableBtn">Enable Alerts</button>
-  </div>
+  <div id="pushBanner" style="display:none;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:white;border-radius:12px;padding:16px 20px;margin-bottom:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px"></div>
   <!-- Upgrade banner (shown for trial/no sub) -->
   <div class="upgrade-banner" id="upgradeBanner" style="display:none">
     <div>
@@ -802,58 +799,7 @@ window.filterMapToDate = filterMapToDate;
 window.setRadius = setRadius;
 window.resetMapFilters = resetMapFilters;
 window.logout = logout;
-// Push notification setup
-async function initPushNotifications() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-  const banner = document.getElementById('pushBanner');
-  if (!banner) return;
-  const perm = Notification.permission;
-  if (perm === 'denied') return;
-  if (perm === 'default') {
-    banner.style.display = 'flex';
-  }
-}
-
-async function enablePushNotifications() {
-  try {
-    const btn = document.getElementById('pushEnableBtn');
-    btn.textContent = 'Enabling...'; btn.disabled = true;
-    // Register service worker
-    const reg = await navigator.serviceWorker.register('/sw.js');
-    // Get VAPID key
-    const kr = await fetch('/api/push/vapid-key');
-    const { publicKey } = await kr.json();
-    if (!publicKey) { alert('Push not configured yet.'); return; }
-    // Subscribe
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey)
-    });
-    await fetch('/api/push/subscribe', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sub)
-    });
-    const banner = document.getElementById('pushBanner');
-    if (banner) banner.style.display = 'none';
-    showAlert('Push notifications enabled! Youll get alerts the moment hail is detected.', 'success');
-  } catch (err) {
-    showAlert('Could not enable push notifications: ' + err.message, 'error');
-    const pushBtn = document.getElementById('pushEnableBtn');
-    if (pushBtn) {
-      pushBtn.textContent = 'Enable Alerts';
-      pushBtn.disabled = false;
-    }
-  }
-}
-
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)));
-}
-
-window.enablePushNotifications = enablePushNotifications;
+// Phone alerts: see /js/push-setup.js (fills #pushBanner).
 
 function toggleMobileMenu() { document.getElementById('mobileMenu').classList.toggle('open'); }
 function closeMobileMenu() { document.getElementById('mobileMenu').classList.remove('open'); }
@@ -869,7 +815,7 @@ async function loadHomeBrief() {
     const alertsEl = document.getElementById('activeAlertsSection');
     if (activeAlerts && activeAlerts.length > 0) {
       alertsEl.innerHTML = activeAlerts.map(a => `
-        <div class="alert-banner-live" onclick="window.location=`/storms`" style="cursor:pointer">
+        <div class="alert-banner-live" onclick="window.location='/storms'" style="cursor:pointer">
           <div class="alert-icon">&#9888;&#65039;</div>
           <div><h4>${a.event}</h4><p>${a.headline || a.event} | Severity: ${a.severity}</p></div>
         </div>`).join('');
@@ -882,7 +828,7 @@ async function loadHomeBrief() {
       return (Date.now() - d.getTime()) < 7 * 24 * 60 * 60 * 1000;
     }).length;
     briefEl.innerHTML = `
-      <div class="brief-card accent" style="cursor:pointer" onclick="window.location=`/hailmap`"><div class="bc-val">${Math.max(sevenDayAlerts, recentSPCCount || 0) || 0}</div><div class="bc-lbl">Storm days (1+ hail) last 7 days</div>${Math.max(sevenDayAlerts, recentSPCCount||0) > 0 ? `<div style="margin-top:6px"><a href="/hailmap" style="font-size:0.75em;color:var(--red);font-weight:700">View Hail Map</a></div>` : ""}</div>
+      <div class="brief-card accent" style="cursor:pointer" onclick="window.location='/hailmap'"><div class="bc-val">${Math.max(sevenDayAlerts, recentSPCCount || 0) || 0}</div><div class="bc-lbl">Storm days (1+ hail) last 7 days</div>${Math.max(sevenDayAlerts, recentSPCCount||0) > 0 ? `<div style="margin-top:6px"><a href="/hailmap" style="font-size:0.75em;color:var(--red);font-weight:700">View Hail Map</a></div>` : ""}</div>
       <div class="brief-card"><div class="bc-val">${(recentLookups||[]).length}</div><div class="bc-lbl">Recent lookups</div></div>
       <div class="brief-card"><div class="bc-val" style="font-size:1.2em">${watchArea || 'Nationwide'}</div><div class="bc-lbl">Watch area</div></div>
     `;
@@ -1175,9 +1121,10 @@ window.applyFilters = function() {
 };
 
 loadHomeBrief();
-initPushNotifications();
+
 init();
 </script>
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{});}</script>
+<script src="/js/push-setup.js"></script>
 </body>
 </html>

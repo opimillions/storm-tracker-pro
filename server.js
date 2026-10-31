@@ -39,7 +39,6 @@ const app = express();
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(security.headers());
-const { startStormMonitor } = require('./storm-alerts');
 
 const PORT = process.env.PORT || 3000;
 
@@ -275,7 +274,8 @@ app.get('/upgrade', requireAuth, (req, res) => {
 
 // User info API
 app.get('/api/me', requireAuth, async (req, res) => {
-  const { passwordHash, ...user } = req.user;
+  // Never send secrets back to the browser, even the user's own.
+  const { passwordHash, resetToken, resetTokenExpires, totpSecret, totpPending, totpBackup, totpLastStep, tokenVersion, ...user } = req.user;
   const recentLookups = await lookupOps.getForUser(user._id, 10);
   const features = tierFeatures(user.tier);
   // Add watchedStates and maxStates to response
@@ -307,38 +307,33 @@ const watchlistRoutes = require('./watchlist-routes');
 watchlistRoutes(app, { requireAuth, watchlistOps });
 
 
-// -- Web Push Setup ------------------------------------------------------------
-const webpush = require('web-push');
-if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(
-    'mailto:' + (process.env.ADMIN_EMAIL || 'admin@example.com'),
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
-  );
-}
-const pushSubscriptionStore = [];
-
-// Subscribe to push notifications
-app.post('/api/push/subscribe', requireAuth, (req, res) => {
-  const sub = req.body;
-  if (!sub || !sub.endpoint) return res.status(400).json({ error: 'Invalid subscription' });
-  const exists = pushSubscriptionStore.some(s => s.endpoint === sub.endpoint);
-  if (!exists) pushSubscriptionStore.push(sub);
+// -- Phone / browser push alerts (saved per user; see lib/push.js) -------------
+const push = require('./lib/push');
+push.init(db);
+const validSub = s => s && typeof s.endpoint === 'string' && /^https:\/\//.test(s.endpoint) && s.endpoint.length < 1000
+  && s.keys && typeof s.keys.p256dh === 'string' && typeof s.keys.auth === 'string' && s.keys.p256dh.length < 200 && s.keys.auth.length < 100;
+app.post('/api/push/subscribe', requireAuth, async (req, res) => {
+  if (!validSub(req.body)) return res.status(400).json({ error: 'Invalid subscription' });
+  if ((await db.pushOps.countForUser(req.user._id)) >= 10) return res.status(400).json({ error: 'Too many devices. Turn alerts off on an old device first.' });
+  await db.pushOps.save(req.user._id, req.body, req.get('user-agent'));
   res.json({ success: true });
 });
-
-// Unsubscribe
-app.post('/api/push/unsubscribe', requireAuth, (req, res) => {
-  const { endpoint } = req.body;
-  const idx = pushSubscriptionStore.findIndex(s => s.endpoint === endpoint);
-  if (idx !== -1) pushSubscriptionStore.splice(idx, 1);
+app.post('/api/push/unsubscribe', requireAuth, async (req, res) => {
+  if (req.body && req.body.endpoint) await db.pushOps.removeForUser(req.user._id, String(req.body.endpoint));
   res.json({ success: true });
 });
-
-// Get VAPID public key (needed by browser to subscribe)
-app.get('/api/push/vapid-key', (req, res) => {
-  res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || '' });
+app.get('/api/push/vapid-key', (req, res) => res.json({ publicKey: push.publicKey() }));
+app.get('/api/push/status', requireAuth, async (req, res) => res.json({ devices: await db.pushOps.countForUser(req.user._id) }));
+const pushTests = new Map();
+app.post('/api/push/test', requireAuth, async (req, res) => {
+  const id = String(req.user._id), now = Date.now();
+  const recent = (pushTests.get(id) || []).filter(t => now - t < 3600000);
+  if (recent.length >= 5) return res.status(429).json({ error: 'You can send 5 test notifications an hour.' });
+  recent.push(now); pushTests.set(id, recent);
+  const sent = await push.sendToUser(req.user._id, { title: 'StormCheck Pro test alert', body: 'Phone alerts are working. You will get a notification like this when hail hits your properties or territories.', url: '/alert-settings', tag: 'test' });
+  res.json({ sent });
 });
+
 // Affiliate routes
 require('./affiliate-routes')(app, { requireAuth, requireAdmin, affiliateOps, AFFILIATE_COMMISSION });
 
@@ -757,7 +752,11 @@ app.delete('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) =
 app.get('/api/admin/stats', requireAuth, requireAdmin, async (req, res) => {
   const allUsers = await userOps.getAll();
   const lookupStats = await lookupOps.getStats();
-  const recentAlerts = await alertOps.getRecent(10);
+  // Alerts sent to customers (portfolio, territory, NWS warnings).
+  const recentAlerts = require('./lib/alerts').recentAlerts(25).map(a => ({
+    detectedAt: a.at, area: `${a.email || ''} · ${a.detail || ''}`, eventType: a.type,
+    hailSize: a.maxIn || null, severity: [a.emailed ? 'Email' : '', a.phones ? `${a.phones} phone${a.phones === 1 ? '' : 's'}` : ''].filter(Boolean).join(' + ') || 'None',
+  }));
   const recentLookups = await lookupOps.getRecent(20);
   res.json({
     users: {
@@ -871,7 +870,6 @@ app.listen(PORT, () => {
   console.log(`Env: ${process.env.NODE_ENV || 'development'}\n`);
 });
 
-startStormMonitor(alertOps, pushSubscriptionStore);
 dataJobs.start({ db, tierFeatures, freeAlertOps });
 require('./lib/integrations').start({
   ...db,
