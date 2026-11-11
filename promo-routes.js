@@ -1,7 +1,10 @@
 /**
  * Promo Email Routes — Admin-triggered STORM50 campaign
+ * Turned off unless PROMO_OFFERS=on.
  */
 module.exports = function(app, { requireAuth, requireAdmin, userOps }) {
+  const offersOn = () => String(process.env.PROMO_OFFERS || '').toLowerCase() === 'on';
+  const offersOff = res => res.status(403).json({ error: 'Discount offers are turned off. Set PROMO_OFFERS=on in Railway to send them.' });
 
   async function sendPromoMail(to, name, base, coupon) {
     if (!require('./lib/mailer').isConfigured()) return false;
@@ -38,6 +41,7 @@ module.exports = function(app, { requireAuth, requireAdmin, userOps }) {
 
   // Send promo to single user
   app.post('/api/admin/send-promo', requireAuth, requireAdmin, async (req, res) => {
+    if (!offersOn()) return offersOff(res);
     const { email, userId } = req.body;
     if (!email) return res.status(400).json({ error: 'Email required' });
     try {
@@ -51,6 +55,7 @@ module.exports = function(app, { requireAuth, requireAdmin, userOps }) {
 
   // Send promo to all trial users
   app.post('/api/admin/send-promo-all', requireAuth, requireAdmin, async (req, res) => {
+    if (!offersOn()) return offersOff(res);
     try {
       const allUsers = await userOps.getAll();
       const trialUsers = allUsers.filter(u => u.tier === 'trial' && u.email);

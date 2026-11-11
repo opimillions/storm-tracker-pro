@@ -1,6 +1,6 @@
 /**
  * Trial Conversion Email Sequence — StormCheck Pro
- * Day 7: 50% off first month offer
+ * Day 7: 50% off first month offer (only when PROMO_OFFERS=on)
  * Day 14: gentle nudge to use free lookup
  */
 module.exports = function(cron, userOps, env) {
@@ -10,6 +10,7 @@ module.exports = function(cron, userOps, env) {
       const t = { sendMail: o => require('./lib/mailer').deliver(o), verify: async () => true };
       const base = env.BASE_URL || 'https://stormcheckpro.thepublicadjustertx.com';
       const coupon = env.TRIAL_COUPON_CODE || 'STORM50';
+      const offersOn = String(env.PROMO_OFFERS || '').toLowerCase() === 'on';
       const from = undefined; // mailer picks EMAIL_FROM
 
       const allUsers = await userOps.getAll();
@@ -19,7 +20,7 @@ module.exports = function(cron, userOps, env) {
         const daysSince = Math.floor((Date.now() - new Date(user.createdAt).getTime()) / 86400000);
 
         // Day 7: 50% off offer
-        if (daysSince === 7 && !user.trialEmail7Sent) {
+        if (offersOn && daysSince === 7 && !user.trialEmail7Sent) {
           try {
             await t.sendMail({
               from,
@@ -105,5 +106,6 @@ module.exports = function(cron, userOps, env) {
 
   // Run daily at 9 AM CDT
   cron.schedule('0 9 * * *', sendTrialEmails, { timezone: 'America/Chicago' });
-  console.log('Trial conversion emails: active (daily 9 AM CDT, day 7 = 50% off, day 14 = nudge)');
+  const offersOn = String(env.PROMO_OFFERS || '').toLowerCase() === 'on';
+  console.log('Trial conversion emails: active (daily 9 AM CDT, ' + (offersOn ? 'day 7 = 50% off, ' : 'discount offers off, ') + 'day 14 = nudge)');
 };
