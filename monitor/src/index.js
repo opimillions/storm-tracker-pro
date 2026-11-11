@@ -114,7 +114,8 @@ async function loop() {
     try {
       if (due(engine.state.lastFeedCycle, config.intervals.feedsMin)) await feedCycle();
       if (due(engine.state.lastWorkflow, config.intervals.workflowMin)) await workflowCycle();
-      if (due(engine.state.lastAlertTest, config.intervals.alertTestHours * 60)) await alertCycle();
+      if (config.intervals.alertTestHours > 0) { if (due(engine.state.lastAlertTest, config.intervals.alertTestHours * 60)) await alertCycle(); }
+      else if (!engine.state.checks['wf.alert']) engine.record({ ...alertTest.CHECK, group: 'workflow' }, { status: 'setup', problem: 'Built but turned off until a test inbox is set up (ALERT_TEST_HOURS=0). It needs the test account to use that inbox address and its IMAP login.' });
       engine.beat('idle');
     } catch (e) { engine.log(`cycle error: ${e.stack || e.message}`); }
     await new Promise(r => setTimeout(r, 30000));
