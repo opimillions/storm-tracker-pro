@@ -790,18 +790,12 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
   if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ error: 'Stripe not configured yet' });
   const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
   const { tier, promoCode } = req.body;
+  const interval = req.body.interval === 'year' ? 'year' : 'month';
 
-  // Look up price ID for the requested tier
-  // Set STRIPE_PRICE_ID_STARTER, _PRO, _TEAM, _ENTERPRISE in Railway
-  // Falls back to STRIPE_PRICE_ID for backward compat
-  const tierPriceMap = {
-    starter: process.env.STRIPE_PRICE_ID_STARTER,
-    pro: process.env.STRIPE_PRICE_ID_PRO || process.env.STRIPE_PRICE_ID,
-    team: process.env.STRIPE_PRICE_ID_TEAM,
-    enterprise: process.env.STRIPE_PRICE_ID_ENTERPRISE,
-  };
-  const priceId = tier ? (tierPriceMap[tier] || process.env.STRIPE_PRICE_ID) : process.env.STRIPE_PRICE_ID;
-  if (!priceId) return res.status(500).json({ error: `No Stripe price configured for ${tier || 'this plan'}. Contact (817) 618-9884.` });
+  // Prices come from Railway: STRIPE_PRICE_ID_STARTER, _PRO, _TEAM, _ENTERPRISE (monthly)
+  // and the same names ending in _YEARLY for paying the whole year up front.
+  const priceId = billing.priceFor(tier || 'pro', interval);
+  if (!priceId) return res.status(500).json({ error: `No Stripe price configured for ${tier || 'this plan'} (${interval === 'year' ? 'yearly' : 'monthly'}). Contact (817) 618-9884.` });
 
   let discount = null;
   if (promoCode) {
@@ -815,9 +809,9 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
       payment_method_types: ['card'],
       customer_email: req.user.email,
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${process.env.BASE_URL}/dashboard?subscribed=1&plan=${encodeURIComponent(tier || 'pro')}`,
+      success_url: `${process.env.BASE_URL}/dashboard?subscribed=1&plan=${encodeURIComponent(tier || 'pro')}&billing=${interval}`,
       cancel_url: `${process.env.BASE_URL}/upgrade`,
-      metadata: { userId: req.user._id, tier: tier || 'pro' },
+      metadata: { userId: req.user._id, tier: tier || 'pro', interval },
       ...(discount ? { discounts: [discount] } : { allow_promotion_codes: true }),
     });
     res.json({ url: session.url });

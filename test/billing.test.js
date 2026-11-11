@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { tierForPrice, tierForSubscription, resolveDiscount } = require('../lib/billing');
 
-const env = { STRIPE_PRICE_ID_STARTER: 'price_s', STRIPE_PRICE_ID_PRO: 'price_p', STRIPE_PRICE_ID_TEAM: 'price_t', STRIPE_PRICE_ID_ENTERPRISE: 'price_e', TRIAL_COUPON_CODE: 'STORM50' };
+const env = { STRIPE_PRICE_ID_STARTER: 'price_s', STRIPE_PRICE_ID_PRO: 'price_p', STRIPE_PRICE_ID_TEAM: 'price_t', STRIPE_PRICE_ID_ENTERPRISE: 'price_e', TRIAL_COUPON_CODE: 'STORM50', PROMO_OFFERS: 'on' };
 
 test('maps Stripe prices to plans', () => {
   assert.strictEqual(tierForPrice('price_t', env), 'team');
@@ -33,4 +33,19 @@ test('promo codes: promotion codes, the trial coupon, and nothing else', async (
   assert.strictEqual(await resolveDiscount(s, 'FREE100', env), null, 'other coupon IDs cannot be typed in');
   assert.strictEqual(await resolveDiscount(s, 'NOPE', env), null);
   assert.strictEqual(await resolveDiscount(fakeStripe({ coupons: { STORM50: 'expired' } }), 'STORM50', env), null);
+});
+
+test('the trial coupon is refused while discount offers are off', async () => {
+  const s = fakeStripe({ coupons: { STORM50: true } });
+  assert.strictEqual(await resolveDiscount(s, 'STORM50', { ...env, PROMO_OFFERS: '' }), null);
+});
+
+test('yearly prices: checkout picks them and webhooks map them back to the plan', () => {
+  const e = { ...env, STRIPE_PRICE_ID_STARTER_YEARLY: 'price_sy', STRIPE_PRICE_ID_PRO_YEARLY: 'price_py' };
+  const { priceFor } = require('../lib/billing');
+  assert.strictEqual(priceFor('pro', 'year', e), 'price_py');
+  assert.strictEqual(priceFor('pro', 'month', e), 'price_p');
+  assert.strictEqual(priceFor('team', 'year', e), null, 'no yearly price set: refuse rather than charge monthly');
+  assert.strictEqual(tierForPrice('price_sy', e), 'starter');
+  assert.strictEqual(tierForSubscription({ items: { data: [{ price: { id: 'price_py' } }] } }, { tier: 'trial' }, e), 'pro');
 });
