@@ -39,3 +39,13 @@ test('the trial coupon is refused while discount offers are off', async () => {
   const s = fakeStripe({ coupons: { STORM50: true } });
   assert.strictEqual(await resolveDiscount(s, 'STORM50', { ...env, PROMO_OFFERS: '' }), null);
 });
+
+test('yearly prices: checkout picks them and webhooks map them back to the plan', () => {
+  const e = { ...env, STRIPE_PRICE_ID_STARTER_YEARLY: 'price_sy', STRIPE_PRICE_ID_PRO_YEARLY: 'price_py' };
+  const { priceFor } = require('../lib/billing');
+  assert.strictEqual(priceFor('pro', 'year', e), 'price_py');
+  assert.strictEqual(priceFor('pro', 'month', e), 'price_p');
+  assert.strictEqual(priceFor('team', 'year', e), null, 'no yearly price set: refuse rather than charge monthly');
+  assert.strictEqual(tierForPrice('price_sy', e), 'starter');
+  assert.strictEqual(tierForSubscription({ items: { data: [{ price: { id: 'price_py' } }] } }, { tier: 'trial' }, e), 'pro');
+});
