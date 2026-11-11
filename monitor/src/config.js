@@ -32,6 +32,9 @@ module.exports = {
 
   // Where incidents and recoveries go. Any or all; the panel always shows them.
   notify: {
+    // Mission Control (command.thepublicadjustertx.com): incidents become urgent StormCheck tasks for Billy Bob.
+    missionControlUrl: env('MISSION_CONTROL_URL', 'https://command.thepublicadjustertx.com'),
+    missionControlSecret: env('MISSION_CONTROL_SECRET'),
     slackWebhook: env('ALERT_SLACK_WEBHOOK'),
     smtpHost: env('ALERT_SMTP_HOST'),
     smtpPort: num('ALERT_SMTP_PORT', 587),

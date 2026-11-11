@@ -38,7 +38,22 @@ sub('if(url.pathname==="/api/status")return json(',
     'if(url.pathname==="/api/stormcheck")return json(await stormStatus());'
     'if(url.pathname==="/api/status")return json(')
 
-# 3. Tell Billy Bob's planner about the new monitor (it still can't execute other bots).
+# 3. Billy Bob's chat: when asked about StormCheck or issues, he reads the live monitor status first.
+summary_fn = '''
+async function stormBrief(){const s:any=await stormStatus();if(!s.data)return "StormCheck monitor: "+(s.overdueReason||"not reporting")+" I can't vouch for StormCheck right now.";
+const c=(s.data.checks||[]);const bad=c.filter((x:any)=>x.status==="fail");const setup=c.filter((x:any)=>x.status==="setup");const open=(s.data.incidents||[]).filter((i:any)=>!i.closedAt);
+let t="StormCheck monitor"+(s.overdue?" (OVERDUE: "+s.overdueReason+")":"")+": ";
+if(open.length||bad.length)t+=(open.length||bad.length)+" issue(s). "+(open.length?open:bad).slice(0,4).map((x:any)=>"- "+x.name+": "+x.problem+(x.link?" Inspect: "+x.link:"")).join(" ");
+else t+="all running checks passing.";
+if(setup.length)t+=" Needs setup: "+setup.map((x:any)=>x.name).join(", ")+".";
+return t+" Full panel: /stormcheck";}
+'''
+sub('const json=(d:any,s=200)=>', summary_fn + 'const json=(d:any,s=200)=>')
+sub('const match=bots.map(', 'const scAsk=/storm|issue|problem|broken|down|health|status|alert|outage/i.test(message);const scBrief=scAsk?await stormBrief():"";const match=bots.map(')
+sub('content:rules}', 'content:rules+(scBrief?" Live monitor data you can rely on (do not invent beyond it): "+scBrief:"")}')
+sub('return json({owner,reply,executed:false})', 'if(scBrief)reply=scBrief+"\\n\\n"+reply;return json({owner,reply,executed:false})')
+
+# 4. Tell Billy Bob's planner about the new monitor (it still can't execute other bots).
 sub('SEO Ranking API and Animated Office.', 'SEO Ranking API and Animated Office, plus the StormCheck Monitor, which checks NOAA feeds and customer workflows and reports at /stormcheck.')
 
 open('new.ts', 'w', encoding='utf-8').write(src)
