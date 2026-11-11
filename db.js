@@ -276,7 +276,8 @@ seedAdmin().catch(console.error);
 // Auto-seed client users from environment variables
 // Format: SEED_USERS=name:email:password:tier|name:email:password:tier
 async function seedClientUsers() {
-  const seedData = process.env.SEED_USERS;
+  // MONITOR_SEED_USER is the monitor's dedicated test account, kept separate from SEED_USERS.
+  const seedData = [process.env.SEED_USERS, process.env.MONITOR_SEED_USER].filter(Boolean).join('|');
   if (!seedData) return;
   const entries = seedData.split('|');
   for (const entry of entries) {
