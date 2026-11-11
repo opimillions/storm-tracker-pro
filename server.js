@@ -882,6 +882,12 @@ app.listen(PORT, () => {
 
 startStormMonitor(alertOps, pushSubscriptionStore);
 dataJobs.start({ db, tierFeatures, freeAlertOps });
+// Staging/demo only (PRELOAD_DATES, DEMO_PORTFOLIO); does nothing when unset.
+setTimeout(() => {
+  const demo = require('./lib/demo-seed');
+  demo.seedPortfolio(db).catch(e => console.error('[demo]', e.message));
+  demo.preload(dataJobs, require('./lib/frames')).catch(e => console.error('[demo]', e.message));
+}, 8000);
 require('./lib/integrations').start({
   ...db,
   locateMissing: userId => watchlistRoutes._geocodeMissing(watchlistOps, userId).catch(e => console.error('[integrations] locate:', e.message)),
