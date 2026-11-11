@@ -89,6 +89,10 @@
     if (tm) {
       // Local date of the hail itself (a storm after midnight belongs to the next calendar day).
       $('stormDate').textContent = localDay(tm.start, true);
+      // When that differs from NOAA's storm-day label, say which NOAA day this is.
+      if (localDay(tm.start, true) !== new Date(S.date + 'T18:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })) {
+        $('stormKicker').textContent += ' · NOAA storm day ' + stormDayLabel.replace(/^\w+, /, '');
+      }
       var radarTimed = /hourly/i.test(tm.source);
       var when = sameLocalDay(tm.start, tm.end) ? hourSpan(tm.start, tm.end) : span(tm.start, tm.end);
       $('stormTime').innerHTML = (radarTimed ? 'Hail fell about <b>' + esc(when) + '</b><span class="tarea"> in this area</span>' : 'Hail reported <b>' + esc(when) + '</b>') +
