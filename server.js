@@ -26,6 +26,7 @@ const { generateToken, generateMfaTicket, requireAuth, requireAdmin, requireActi
 const security = require('./lib/security');
 const { geocodeAddress, reverseGeocode, fetchHailHistory, getImpactScore, getImpactRating } = require('./hail-engine');
 const axios = require('axios');
+const billing = require('./lib/billing');
 
 // Simple in-memory cache for lookup results (saves re-scanning same address)
 const lookupCache = new Map();
@@ -71,6 +72,8 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         if (user) {
           await userOps.updateSubscription(user._id, { customerId: session.customer, subscriptionId: session.subscription, status: 'active', tier: purchasedTier });
           await userOps.updateTier(user._id, purchasedTier, tierLookupLimit(purchasedTier));
+          // Remember the plan they paid for, so it can be restored if a failed card is fixed later.
+          await userOps.update(user._id, { paidTier: purchasedTier });
           if (user.referredBy) { try { await affiliateOps.recordReferral(user.referredBy, user._id, purchasedTier); } catch (e) { /* non-fatal */ } }
           console.log('Subscription activated: ' + user.email + ' -> ' + purchasedTier);
         }
@@ -81,9 +84,13 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         const sub = event.data.object;
         const user = await userOps.findByStripeCustomer(sub.customer);
         if (user) {
-          const active = sub.status === 'active' || sub.status === 'trialing';
-          await userOps.updateSubscription(user._id, { status: sub.status, tier: active ? user.tier : 'trial' });
-          if (!active) await userOps.updateTier(user._id, 'trial', tierLookupLimit('trial'));
+          const active = event.type !== 'customer.subscription.deleted' && (sub.status === 'active' || sub.status === 'trialing');
+          // Active again (e.g. a failed card was fixed) or a plan change: give the plan the
+          // subscription is actually for, not whatever the account was paused at.
+          const tier = active ? billing.tierForSubscription(sub, user) : 'trial';
+          await userOps.updateSubscription(user._id, { status: sub.status, tier });
+          await userOps.updateTier(user._id, tier, tierLookupLimit(tier));
+          if (active) await userOps.update(user._id, { paidTier: tier });
         }
         break;
       }
@@ -796,6 +803,12 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
   const priceId = tier ? (tierPriceMap[tier] || process.env.STRIPE_PRICE_ID) : process.env.STRIPE_PRICE_ID;
   if (!priceId) return res.status(500).json({ error: `No Stripe price configured for ${tier || 'this plan'}. Contact (817) 618-9884.` });
 
+  let discount = null;
+  if (promoCode) {
+    discount = await billing.resolveDiscount(stripe, promoCode);
+    if (!discount) return res.status(400).json({ error: `Promo code "${String(promoCode).slice(0, 40)}" isn't valid or has expired. Remove it to continue.`, promo: true });
+  }
+
   try {
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -805,10 +818,11 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
       success_url: `${process.env.BASE_URL}/dashboard?subscribed=1&plan=${encodeURIComponent(tier || 'pro')}`,
       cancel_url: `${process.env.BASE_URL}/upgrade`,
       metadata: { userId: req.user._id, tier: tier || 'pro' },
-      ...(promoCode ? { discounts: [{ coupon: promoCode }] } : { allow_promotion_codes: true }),
+      ...(discount ? { discounts: [discount] } : { allow_promotion_codes: true }),
     });
     res.json({ url: session.url });
   } catch (err) {
+    console.error('Stripe checkout failed:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

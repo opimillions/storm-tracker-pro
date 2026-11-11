@@ -153,6 +153,14 @@ async function checkout(tier) {
     });
     const data = await res.json();
     if (data.url) { window.location = data.url; }
+    else if (data.promo) {
+      // Bad promo code: say so, instead of the "checkout is being configured" message.
+      alertEl.className = 'alert alert-warning';
+      alertEl.textContent = data.error;
+      alertEl.style.display = 'block';
+      appliedPromo = '';
+      document.getElementById('promoMsg').style.display = 'none';
+    }
     else {
       alertEl.className = 'alert alert-warning';
       alertEl.innerHTML = 'Online checkout is being configured. <strong>Call or text (817) 618-9884</strong> to subscribe now.';
