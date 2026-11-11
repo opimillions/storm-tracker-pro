@@ -40,7 +40,7 @@ a { color: var(--blue); }
 
 /* ── Stage ─────────────────────────────────────────────────────────────── */
 .stage { position: relative; height: calc(100% - var(--bar-h)); display: flex; }
-#map { flex: 1; min-width: 0; height: 100%; background: #dfe5ec; }
+#map { flex: 1; min-width: 0; height: 100%; background: #dfe5ec; position: relative; }
 .panel { width: var(--panel-w); flex-shrink: 0; height: 100%; background: #fff; border-right: 1px solid var(--line); display: flex; flex-direction: column; z-index: 1000; transition: margin-left .22s ease; }
 .panel.collapsed { margin-left: calc(-1 * var(--panel-w)); }
 .collapse { position: absolute; top: 14px; left: var(--panel-w); z-index: 1000; width: 32px; height: 52px; border: 1px solid var(--line); border-left: 0; border-radius: 0 10px 10px 0; background: #fff; color: var(--navy); cursor: pointer; display: grid; place-items: center; box-shadow: 2px 2px 8px rgba(15,23,42,.08); transition: left .22s ease; }
