@@ -128,10 +128,10 @@ async function loop() {
 if (require.main === module) {
   if (!config.statusToken) console.warn('[monitor] STATUS_TOKEN not set: /api/status is closed');
   engine.state.startedAt = engine.now();
-  // Close incidents for checks that no longer exist (e.g. feed.iem, replaced by feed.live).
+  // Close incidents for checks that no longer exist (e.g. feed.iem: the 5-city watch-point monitor was retired).
   const known = new Set([...feeds.DEFS.map(d => d.id), ...STEPS.map(x => x.id), alertTest.CHECK.id]);
   for (const inc of engine.state.incidents) if (!inc.closedAt && !known.has(inc.checkId)) {
-    inc.closedAt = engine.now(); inc.recovery = 'Check retired: replaced by a newer check, which now covers this feature.';
+    inc.closedAt = engine.now(); inc.recovery = 'Check retired: the feature it watched was removed from StormCheck Pro.';
     delete engine.state.checks[inc.checkId];
   }
   engine.save();

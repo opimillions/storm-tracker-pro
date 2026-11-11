@@ -211,27 +211,6 @@ function evalFrames({ up: u, pipe, counts, now = Date.now() }) {
   return result(FRAMES, { ...base, status: 'ok', summary: 'NOAA hourly frames are current; cached storm days are complete.' });
 }
 
-// ── Live watch-point radar alerts (NOAA hourly MESH, checked by the app every 5 min) ──
-const LIVE = { id: 'feed.live', name: 'Live watch-point radar', feature: 'Your live hail texts/emails for DFW, Southlake, Fort Worth, OKC, Denver; push notifications', schedule: 'NOAA posts a new hourly hail frame every 2 min. StormCheck checks every 5 min.' };
-
-function evalLive({ up: u, pipe, now = Date.now() }) {
-  const lr = pipe.liveRadar;
-  const base = {
-    source: { label: 'NOAA', product: `Newest frame ${fmt.time(u.validTime)}`, time: u.publishedAt },
-    imported: { product: lr && lr.frameTime ? `Checked frame ${fmt.time(lr.frameTime)}` : 'none', time: lr ? lr.lastSuccess : null },
-    served: { product: lr && lr.frameTime ? `Watch points on ${fmt.time(lr.frameTime)}` : '—', time: null, label: 'Alerts use' },
-    link: link('/storms'),
-  };
-  if (!lr) return result(LIVE, { ...base, status: 'setup', kind: 'setup', problem: 'StormCheck Pro is still running the old live-radar code (Iowa Mesonet). Deploy the fix so it reads NOAA directly.' });
-  if (!lr.lastSuccess || now - Date.parse(lr.lastSuccess) > 15 * MIN) {
-    return result(LIVE, { ...base, status: 'fail', kind: 'import', problem: `StormCheck Pro hasn't completed a live radar check since ${lr.lastSuccess ? fmt.time(lr.lastSuccess) : 'it started'} (it should every 5 min). Live hail alerts for your watch points can't fire.${lr.lastError ? ` Last error: ${lr.lastError}` : ''}` });
-  }
-  if (lr.frameTime && Date.parse(u.validTime) - Date.parse(lr.frameTime) > 20 * MIN && now - Date.parse(u.publishedAt) > 15 * MIN) {
-    return result(LIVE, { ...base, status: 'fail', kind: 'import', problem: `NOAA posted a hail frame for ${fmt.time(u.validTime)}, but StormCheck Pro's live alerts are still checking ${fmt.time(lr.frameTime)}.` });
-  }
-  return result(LIVE, { ...base, status: 'ok', summary: `Live alerts are checking NOAA's frame from ${fmt.time(lr.frameTime)}.` });
-}
-
 // ── Runners ─────────────────────────────────────────────────────────────────
 function failed(def, e, kind = 'source') {
   if (e && e.setup) return result(def, { status: 'setup', kind: 'setup', problem: e.message });
@@ -275,13 +254,9 @@ function runners(getPipe) {
       for (const f of pipe.frames || []) if (Date.now() - Date.parse(f.date) < 4 * 86400000) counts[f.date] = await up.mrmsHourlyCount(f.date);
       return evalFrames({ up: u, pipe, counts });
     },
-    [LIVE.id]: async () => {
-      let u; try { u = await up.mrmsHourly(); } catch (e) { return failed(LIVE, new Error(`Couldn't read NOAA's hourly frame listing (${e.message}).`)); }
-      return evalLive({ up: u, pipe: await getPipe() });
-    },
   };
 }
 
-const DEFS = [MESH, SPC, NWS, FRAMES, SIG, NCEI, LIVE];
+const DEFS = [MESH, SPC, NWS, FRAMES, SIG, NCEI];
 
-module.exports = { DEFS, runners, evalLive, evalMesh, evalSpc, evalNcei, evalHailsig, evalNws, evalFrames, meshDeadline };
+module.exports = { DEFS, runners, evalMesh, evalSpc, evalNcei, evalHailsig, evalNws, evalFrames, meshDeadline };
