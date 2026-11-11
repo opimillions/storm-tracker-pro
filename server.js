@@ -883,6 +883,24 @@ app.listen(PORT, () => {
 });
 
 dataJobs.start({ db, tierFeatures, freeAlertOps });
+
+// One-time cleanup of radar tiles damaged by a cut-short write (see mesh-store),
+// then rebuild the storm summaries those bad records leaked into.
+setTimeout(() => {
+  const fs = require('fs');
+  const { dataPath } = require('./lib/paths');
+  const marker = dataPath('mesh', 'repair-v1.json');
+  if (fs.existsSync(marker)) return;
+  try {
+    const mesh = require('./lib/mesh-store');
+    const r = mesh.repairTiles();
+    console.log(`[mesh] repair: ${r.fixed.length} of ${r.tiles} tiles fixed, ${r.bytesRemoved} bytes removed, ${r.days.length} storm days to re-summarize`);
+    const stormDays = require('./lib/storm-days');
+    for (const d of r.days) { try { stormDays.summarize(d); } catch { /* skip */ } }
+    fs.writeFileSync(marker, JSON.stringify({ at: new Date().toISOString(), ...r }));
+  } catch (e) { console.error('[mesh] repair failed:', e.message); }
+}, 15000);
+
 require('./lib/integrations').start({
   ...db,
   locateMissing: userId => watchlistRoutes._geocodeMissing(watchlistOps, userId).catch(e => console.error('[integrations] locate:', e.message)),
