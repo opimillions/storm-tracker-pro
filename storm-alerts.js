@@ -58,20 +58,39 @@ async function sendPushNotifications(title, body, url) {
 
 // ── MRMS Radar Hail Detection ─────────────────────────────────────────────────
 // NOAA MRMS MESH (Maximum Expected Size of Hail) updates every 2 minutes
+// Last live radar check, read by the pipeline monitor (/api/monitor/pipeline).
+const liveRadar = { lastAttempt: null, lastSuccess: null, lastError: null, frameTime: null, lastFrameChecked: null };
+
+/** Max MESH (mm) within ~2 km of each watch point, from NOAA's newest hourly MESH frame. */
+async function meshAtWatchPoints() {
+  const mrms = require('./lib/mrms-source');
+  const { decodeGrib2 } = require('./lib/grib2');
+  const frame = await mrms.latestHourlyFrame();
+  const g = decodeGrib2(await mrms.download(frame.url), { minValue: MRMS_MIN_HAIL_IN * 25.4 });
+  const northToSouth = !(g.scanMode & 0x40);
+  const out = new Map(WATCH_POINTS.map(p => [p.name, 0]));
+  for (let k = 0; k < g.index.length; k++) {
+    const j = Math.floor(g.index[k] / g.ni), i = g.index[k] - j * g.ni;
+    const lat = g.la1 + (northToSouth ? -j : j) * g.dj, lon = g.lo1 + i * g.di;
+    for (const p of WATCH_POINTS) {
+      if (Math.abs(lat - p.lat) <= 0.02 && Math.abs(lon - p.lon) <= 0.02 && g.data[k] > out.get(p.name)) out.set(p.name, g.data[k]);
+    }
+  }
+  return { frame, values: out };
+}
+
 async function checkMRMSHail() {
+  liveRadar.lastAttempt = new Date().toISOString();
+  let res;
+  try { res = await meshAtWatchPoints(); }
+  catch (e) { liveRadar.lastError = e.message; console.error('Live radar check failed:', e.message); return; }
+  liveRadar.lastSuccess = liveRadar.lastAttempt; liveRadar.lastError = null; liveRadar.frameTime = res.frame.time;
+  if (liveRadar.lastFrameChecked === res.frame.time) return; // same frame as last run
+  liveRadar.lastFrameChecked = res.frame.time;
   for (const pt of WATCH_POINTS) {
     try {
-      // MRMS point query via Iowa State Mesonet (free, no key)
-      const url = `https://mesonet.agron.iastate.edu/json/mrms_rx.py?lat=${pt.lat}&lon=${pt.lon}`;
-      const r = await axios.get(url, {
-        timeout: 8000,
-        headers: { 'User-Agent': 'StormCheckPro/1.0 (stormcheckpro.thepublicadjustertx.com)' }
-      });
-
-      if (!r.data || !r.data.values) continue;
-
-      // MRMS MESH value is in mm — convert to inches
-      const meshMM = r.data.values?.['MESH'] || r.data.values?.['Q3MESH'] || 0;
+      // MESH value is in mm — convert to inches
+      const meshMM = res.values.get(pt.name) || 0;
       const meshIn = (meshMM / 25.4).toFixed(2);
 
       if (meshMM > 0 && meshIn >= MRMS_MIN_HAIL_IN) {
@@ -189,4 +208,4 @@ function startStormMonitor(alertOps, subscriptions) {
   }, 3000);
 }
 
-module.exports = { startStormMonitor, sendPushNotifications, get pushSubscriptions() { return pushSubscriptions; } };
+module.exports = { liveRadar, _meshAtWatchPoints: meshAtWatchPoints, startStormMonitor, sendPushNotifications, get pushSubscriptions() { return pushSubscriptions; } };

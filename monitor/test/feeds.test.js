@@ -101,6 +101,15 @@ test('Playback: day cached before NOAA finished posting frames fails', () => {
   assert.match(r.problem, /only posted 9 of its 24/);
 });
 
+test('Live radar: fresh check passes; old-code app shows setup; stalled check fails', () => {
+  const up = { validTime: '2026-11-11T22:00:00Z', publishedAt: '2026-11-11T22:01:10Z' };
+  assert.strictEqual(feeds.evalLive({ up, pipe: pipe(), now: T('2026-11-11T22:05:00Z') }).status, 'setup');
+  const ok = pipe({ liveRadar: { lastSuccess: '2026-11-11T22:04:00Z', frameTime: '2026-11-11T22:00:00Z' } });
+  assert.strictEqual(feeds.evalLive({ up, pipe: ok, now: T('2026-11-11T22:05:00Z') }).status, 'ok');
+  const stalled = pipe({ liveRadar: { lastSuccess: '2026-11-11T21:30:00Z', lastError: 'timeout', frameTime: '2026-11-11T21:20:00Z' } });
+  assert.match(feeds.evalLive({ up, pipe: stalled, now: T('2026-11-11T22:05:00Z') }).problem, /hasn't completed a live radar check .* Last error: timeout/);
+});
+
 test('engine: retry once, incident on 2nd failed run, one incident only, recovery', async () => {
   const sent = [];
   const e = new Engine({ notifier: async (text, kind) => { sent.push([kind, text]); return 'test'; }, sleep: async () => {} });

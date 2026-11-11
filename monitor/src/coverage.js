@@ -13,7 +13,7 @@ module.exports = [
   { feature: 'Storm list (recent reports)', checks: ['feed.spc'] },
   { feature: 'NWS warning heads-up emails (Team+)', checks: ['feed.nws'] },
   { feature: 'Radar hail probability in reports', checks: ['feed.hailsig'] },
-  { feature: 'Your live watch-point storm texts', checks: ['feed.iem'], note: 'Source only' },
+  { feature: 'Your live watch-point hail alerts', checks: ['feed.live'] },
   { feature: 'Storm Disclosure report', checks: [] },
   { feature: 'Territory alerts & storm recaps (email)', checks: [] },
   { feature: 'Free ZIP-code alert sign-up', checks: [] },

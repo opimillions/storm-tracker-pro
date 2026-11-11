@@ -16,6 +16,7 @@ const spc = require('./lib/spc-store');
 const ncei = require('./lib/ncei-store');
 const hailsig = require('./lib/hailsig-store');
 const dataJobs = require('./lib/data-jobs');
+const stormAlerts = require('./storm-alerts');
 
 const ds = d => d.toISOString().slice(0, 10);
 const shift = (date, n) => ds(new Date(Date.parse(date + 'T00:00:00Z') + n * 86400000));
@@ -74,6 +75,7 @@ function pipeline() {
     ncei: { coverage: ncei.coverage(), years: Object.fromEntries(recentYears.map(y => [y, years[y]])) },
     hailsig: { coverage: hailsig.coverage(), days: sigDays },
     frames: framesCache(),
+    liveRadar: { ...stormAlerts.liveRadar },
   };
 }
 

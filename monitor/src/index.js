@@ -31,6 +31,7 @@ async function feedCycle() {
     await engine.notify(actions);
     engine.beat('feeds');
   }
+  engine.log('feeds: ' + feeds.DEFS.map(d => `${d.id.slice(5)}=${(engine.state.checks[d.id] || {}).status}`).join(' '));
   engine.state.lastFeedCycle = engine.now();
   engine.state.cycles = (engine.state.cycles || 0) + 1;
   engine.beat('idle');
@@ -54,6 +55,7 @@ async function workflowCycle() {
     const { actions } = engine.record({ ...s, group: 'workflow' }, { status, summary: r.detail, problem: r.problem, link: r.link, measure: r.measure, note: r.note }, { retried: failedFirst });
     await engine.notify(actions);
   }
+  engine.log('workflow: ' + STEPS.map(x => `${x.id.slice(3)}=${(engine.state.checks[x.id] || {}).status}${res[x.id] && res[x.id].problem ? ` (${res[x.id].problem.slice(0, 160)})` : ''}`).join(' '));
   engine.state.lastWorkflow = engine.now();
   engine.beat('idle');
 }
@@ -126,6 +128,12 @@ async function loop() {
 if (require.main === module) {
   if (!config.statusToken) console.warn('[monitor] STATUS_TOKEN not set: /api/status is closed');
   engine.state.startedAt = engine.now();
+  // Close incidents for checks that no longer exist (e.g. feed.iem, replaced by feed.live).
+  const known = new Set([...feeds.DEFS.map(d => d.id), ...STEPS.map(x => x.id), alertTest.CHECK.id]);
+  for (const inc of engine.state.incidents) if (!inc.closedAt && !known.has(inc.checkId)) {
+    inc.closedAt = engine.now(); inc.recovery = 'Check retired: replaced by a newer check, which now covers this feature.';
+    delete engine.state.checks[inc.checkId];
+  }
   engine.save();
   serve();
   loop();
