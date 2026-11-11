@@ -374,7 +374,7 @@
     // 2. When, if hourly radar supports it
     if (d.hourly) {
       h += '<div class="ev"><div class="elabel">When it fell here</div><div class="eval">' + esc(hourSpan(d.hourly.windowStart, d.hourly.windowEnd)) + '</div>' +
-        '<div class="enote">' + esc(localDay(d.hourly.windowEnd, true)) + '. Largest hourly estimate ' + inch(d.hourly.inches) + (d.hourly.hoursWithHail.length > 1 ? ', ' + d.hourly.hoursWithHail.length + ' hours with hail' : '') + '.</div>' +
+        '<div class="enote">' + esc(localDay(d.hourly.windowStart, true)) + '. Largest hourly estimate ' + inch(d.hourly.inches) + (d.hourly.hoursWithHail.length > 1 ? ', ' + d.hourly.hoursWithHail.length + ' hours with hail' : '') + '.</div>' +
         '<div class="esrc">' + esc(d.hourly.source) + '</div></div>';
     } else if (d.status === 'in-swath') {
       h += '<div class="ev"><div class="elabel">When it fell here</div><div class="enote">The daily radar total only says sometime between ' + esc(periodText) + '. Hourly timing for this storm is loading.</div></div>';
