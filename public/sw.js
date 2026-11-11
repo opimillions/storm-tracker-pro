@@ -6,9 +6,9 @@ self.addEventListener('push', event => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: '/logo-icon.svg',
-      badge: '/logo-icon.svg',
-      tag: 'storm-alert',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      tag: data.tag || 'storm-alert',
       renotify: true,
       requireInteraction: true,
       data: { url: data.url }

@@ -27,6 +27,9 @@ freeAlerts.ensureIndex({ fieldName: 'token', unique: true });
 const reviews = Datastore.create({ filename: path.join(DATA_DIR, 'reviews.db'), autoload: true });
 const integrations = Datastore.create({ filename: path.join(DATA_DIR, 'integrations.db'), autoload: true });
 integrations.ensureIndex({ fieldName: 'userId' });
+const pushSubs = Datastore.create({ filename: path.join(DATA_DIR, 'push-subscriptions.db'), autoload: true });
+pushSubs.ensureIndex({ fieldName: 'endpoint', unique: true });
+pushSubs.ensureIndex({ fieldName: 'userId' });
 const referrals = Datastore.create({ filename: path.join(DATA_DIR, 'referrals.db'), autoload: true });
 referrals.ensureIndex({ fieldName: 'userId' });
 referrals.ensureIndex({ fieldName: 'token', unique: true });
@@ -663,4 +666,19 @@ const inviteOps = {
   async remove(id) { return invites.remove({ _id: id }); },
 };
 
-module.exports = { referralOps, inviteOps, proOps, prospectOps, integrationOps, freeAlertOps, reviewOps, userOps, lookupOps, alertOps, profileOps, resultsCacheOps, affiliateOps, watchlistOps, alertSettingsOps, AFFILIATE_COMMISSION, TIERS, tierFeatures, tierLookupLimit };
+// ── Phone / browser push subscriptions (one per device) ────────────────────────
+const pushOps = {
+  async save(userId, sub, ua) {
+    const doc = { userId, endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth }, ua: String(ua || '').slice(0, 200), updatedAt: new Date().toISOString() };
+    const existing = await pushSubs.findOne({ endpoint: sub.endpoint });
+    if (existing) return pushSubs.update({ _id: existing._id }, { $set: doc });
+    return pushSubs.insert({ ...doc, createdAt: doc.updatedAt });
+  },
+  async forUser(userId) { return pushSubs.find({ userId }); },
+  async countForUser(userId) { return pushSubs.count({ userId }); },
+  async remove(endpoint) { return pushSubs.remove({ endpoint }, { multi: true }); },
+  async removeForUser(userId, endpoint) { return pushSubs.remove({ userId, endpoint }, { multi: true }); },
+  async count() { return pushSubs.count({}); },
+};
+
+module.exports = { pushOps, referralOps, inviteOps, proOps, prospectOps, integrationOps, freeAlertOps, reviewOps, userOps, lookupOps, alertOps, profileOps, resultsCacheOps, affiliateOps, watchlistOps, alertSettingsOps, AFFILIATE_COMMISSION, TIERS, tierFeatures, tierLookupLimit };
