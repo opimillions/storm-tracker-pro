@@ -2,7 +2,6 @@
 import base64, json
 
 src = open('original.ts', encoding='utf-8').read()
-panel = open('panel.html', encoding='utf-8').read()
 
 def sub(old, new):
     global src
@@ -15,13 +14,13 @@ sub('<a href="https://command.thepublicadjustertx.com">Animated office ↗</a>',
 
 # 2. Panel page + status proxy (server side, behind the existing CEO sign-in).
 helpers = '''
-const stormPanel=''' + json.dumps(panel) + ''';
+const monBase=()=>(Bun.env.MONITOR_URL||"http://stormcheck-monitor.railway.internal:8080").replace(/\\/$/,"");
+const overduePage=(why:string)=>'<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>StormCheck Health</title><body style="margin:0;background:#081321;color:#eaf5ff;font:16px system-ui;padding:18px"><a href="/" style="color:#84dff1">\u2190 Billy Bob</a><div style="margin-top:14px;border:1px solid #55606e;border-radius:14px;padding:16px;background:#262d37"><b style="font-size:18px">Monitor overdue</b><p>'+why.replace(/[<>&]/g,"")+'</p><p>No StormCheck status can be shown until the monitor reports again.</p></div>';
 async function stormStatus(){
-  const base=(Bun.env.MONITOR_URL||"http://stormcheck-monitor.railway.internal:8080").replace(/\\/$/,"");
   const fetchedAt=new Date().toISOString();
   if(!Bun.env.MONITOR_STATUS_TOKEN)return {fetchedAt,overdue:true,overdueReason:"Billy Bob is missing MONITOR_STATUS_TOKEN, so he can't read the monitor.",data:null};
   try{
-    const r=await fetch(base+"/api/status",{headers:{authorization:"Bearer "+Bun.env.MONITOR_STATUS_TOKEN},signal:AbortSignal.timeout(8000)});
+    const r=await fetch(monBase()+"/api/status",{headers:{authorization:"Bearer "+Bun.env.MONITOR_STATUS_TOKEN},signal:AbortSignal.timeout(8000)});
     if(!r.ok)return {fetchedAt,overdue:true,overdueReason:"The monitor answered HTTP "+r.status+".",data:null};
     const data:any=await r.json();
     const every=(data.monitor&&data.monitor.expectedEveryMin)||10;
@@ -30,11 +29,12 @@ async function stormStatus(){
     return {fetchedAt,overdue:late,overdueReason:late?"The monitor is running but hasn't finished a check cycle since "+(hb||"it started")+".":null,data};
   }catch(e:any){return {fetchedAt,overdue:true,overdueReason:"The monitor isn't answering ("+(e&&e.message||"no response")+").",data:null}}
 }
+async function stormPanel(){try{const r=await fetch(monBase()+"/panel",{headers:{authorization:"Bearer "+(Bun.env.MONITOR_STATUS_TOKEN||"")},signal:AbortSignal.timeout(8000)});if(r.ok)return await r.text();return overduePage("The monitor answered HTTP "+r.status+".")}catch(e:any){return overduePage("The monitor isn't answering ("+(e&&e.message||"no response")+").")}}
 '''
 sub('const json=(d:any,s=200)=>', helpers + 'const json=(d:any,s=200)=>')
 
 sub('if(url.pathname==="/api/status")return json(',
-    'if(url.pathname==="/stormcheck"&&req.method==="GET")return new Response(stormPanel,{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff","x-frame-options":"DENY"}});'
+    'if(url.pathname==="/stormcheck"&&req.method==="GET")return new Response(await stormPanel(),{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff","x-frame-options":"DENY"}});'
     'if(url.pathname==="/api/stormcheck")return json(await stormStatus());'
     'if(url.pathname==="/api/status")return json(')
 

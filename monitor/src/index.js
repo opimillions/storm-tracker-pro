@@ -99,6 +99,7 @@ function serve() {
     if (url.pathname === '/health') return send(200, { ok: true, heartbeat: engine.state.heartbeat, phase: engine.state.phase });
     if (!authed(req)) return send(401, { error: 'Status token required' });
     if (url.pathname === '/api/status') return send(200, status());
+    if (url.pathname === '/panel') return send(200, fs.readFileSync(path.join(__dirname, 'panel.html'), 'utf8'), 'text/html; charset=utf-8');
     if (url.pathname === '/last-report.pdf') {
       const f = path.join(config.dataDir, 'last-report.pdf');
       return fs.existsSync(f) ? send(200, fs.readFileSync(f), 'application/pdf') : send(404, { error: 'No PDF yet' });
