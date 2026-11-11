@@ -1,0 +1,19 @@
+{
+  "name": "stormcheck-monitor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Billy Bob's StormCheck Pro monitor: NOAA source-to-screen checks, customer workflow test, incidents",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test test/*.test.js",
+    "simulate": "node scripts/simulate.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "imapflow": "^1.0.164",
+    "nodemailer": "^6.9.0",
+    "pdf-parse": "1.1.1",
+    "playwright": "1.63.0"
+  }
+}

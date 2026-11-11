@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>StormCheck Health</title>
+<style>
+:root{--bg:#081321;--panel:#11223a;--panel2:#0c1a2d;--line:#2b4562;--text:#eaf5ff;--muted:#9fb3c9;--ok:#2fbf71;--ok-bg:#12382a;--warn:#e9a93a;--warn-bg:#3a2c12;--fail:#ff5d5d;--fail-bg:#3d1719;--setup:#7aa7d8;--setup-bg:#172d47;--stale:#8a94a3;--stale-bg:#262d37;--link:#84dff1}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:760px;margin:0 auto;padding:14px 14px 40px}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+header h1{font-size:19px;margin:0;letter-spacing:.2px}header small{color:var(--muted)}
+.back{font-size:13px;white-space:nowrap}
+.banner{border-radius:14px;padding:14px 16px;margin:0 0 14px;border:1px solid var(--line);display:flex;gap:12px;align-items:flex-start}
+.banner .big{font-size:17px;font-weight:700}.banner p{margin:3px 0 0;color:var(--text);opacity:.92;font-size:14px}
+.banner.ok{background:var(--ok-bg);border-color:#1f6b45}.banner.fail{background:var(--fail-bg);border-color:#7a2a2d}.banner.warn{background:var(--warn-bg);border-color:#7a5a1f}
+.banner.overdue{background:repeating-linear-gradient(135deg,#2a313b,#2a313b 10px,#232a33 10px,#232a33 20px);border-color:#55606e}
+.dot{width:12px;height:12px;border-radius:50%;flex:0 0 12px;margin-top:5px}
+.dot.ok{background:var(--ok)}.dot.fail{background:var(--fail)}.dot.warn{background:var(--warn)}.dot.overdue,.dot.stale{background:var(--stale)}.dot.setup,.dot.pending,.dot.skipped{background:var(--setup)}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:22px 2px 8px;font-weight:650}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin-bottom:10px}
+.card.stale{opacity:.62;filter:grayscale(.6)}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.name{font-weight:700;font-size:15.5px}.feat{color:var(--muted);font-size:12.5px;margin-top:1px}
+.chip{font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;border:1px solid transparent}
+.chip.ok{color:var(--ok);background:var(--ok-bg);border-color:#1f6b45}.chip.fail{color:#ffb3b3;background:var(--fail-bg);border-color:#7a2a2d}
+.chip.warn{color:#ffd58a;background:var(--warn-bg);border-color:#7a5a1f}.chip.setup,.chip.pending,.chip.skipped{color:#b9d6f5;background:var(--setup-bg);border-color:#33557d}
+.chip.stale{color:#d0d6de;background:var(--stale-bg);border-color:#55606e}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:11px 0 8px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.compare>div{padding:9px 10px;background:var(--panel2)}.compare>div+div{border-left:1px solid var(--line)}
+.compare .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+.compare .val{font-weight:650;font-size:14px;margin-top:2px;word-break:break-word}.compare .t{font-size:12px;color:var(--muted);margin-top:2px}
+.compare.mismatch>div:last-child{background:#2c1518}
+.imported{font-size:12.5px;color:var(--muted);margin:0 0 6px}
+.problem{background:var(--fail-bg);border:1px solid #6e2a2e;border-radius:10px;padding:9px 11px;font-size:14px;margin:8px 0}
+.problem.warn{background:var(--warn-bg);border-color:#6e5420}.problem.setup{background:var(--setup-bg);border-color:#33557d}
+.summary{font-size:13.5px;margin:6px 0;color:#d6e6f5}
+.meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);margin-top:6px;align-items:center}
+.meta .go{margin-left:auto;font-weight:650;font-size:13px}
+.row{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}.row:first-child{border-top:0;padding-top:2px}
+.row .body{flex:1;min-width:0}.row .name{font-size:14.5px}
+.inc{border-left:4px solid var(--fail)}.inc.closed{border-left-color:var(--ok)}
+.cov{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}.cov:first-child{border-top:0}
+.cov .s{font-size:12.5px;white-space:nowrap}.cov .s.y{color:var(--ok)}.cov .s.p{color:var(--warn)}.cov .s.n{color:var(--muted)}
+.cov small{display:block;color:var(--muted);font-size:12px}
+footer{color:var(--muted);font-size:12px;margin-top:22px;line-height:1.6}
+.demo{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}.demo button{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:7px 12px;font:inherit;font-size:13px;cursor:pointer}
+.demo button.on{background:#204e66;border-color:#3d86a8}
+@media (max-width:420px){.compare{grid-template-columns:1fr}.compare>div+div{border-left:0;border-top:1px solid var(--line)}}
+</style></head>
+<body><div class="wrap">
+<header><div><h1>StormCheck Pro health</h1><small id="sub">Billy Bob's monitor</small></div><a class="back" href="/">← Billy Bob</a></header>
+<div class="demo" id="demo" hidden></div>
+<div id="banner" class="banner overdue"><span class="dot overdue"></span><div><div class="big">Loading…</div></div></div>
+<div id="incidents"></div>
+<h2>NOAA feeds · source → what customers see</h2><div id="feeds"></div>
+<h2>Customer workflow (test account)</h2><div class="card" id="workflow"></div>
+<h2>Feature coverage</h2><div class="card" id="coverage"></div>
+<footer id="foot"></footer>
+</div>
+<script>
+const TZ = 'America/Chicago';
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function ts(iso) { if (!iso) return '—'; const d = new Date(iso); if (isNaN(d)) return '—';
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: TZ, month: '2-digit', day: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).formatToParts(d).map(x => [x.type, x.value]));
+  return `${p.month}-${p.day}-${p.year} ${p.hour}:${p.minute} ${p.dayPeriod}`; }
+function ago(iso, now) { if (!iso) return 'never'; const m = Math.round((now - Date.parse(iso)) / 60000);
+  if (m < 1) return 'just now'; if (m < 60) return m + ' min ago'; const h = Math.round(m / 60); if (h < 48) return h + ' hr ago'; return Math.round(h / 24) + ' days ago'; }
+const LABEL = { ok: 'OK', fail: 'Needs attention', warn: 'Heads up', setup: 'Needs setup', pending: 'Not run yet', skipped: 'Skipped', stale: 'Stale' };
+
+let lastGood = null, lastGoodAt = 0, demo = null;
+
+function overdueOf(env, now) {
+  if (!env || !env.data) return { overdue: true, reason: env && env.overdueReason ? env.overdueReason : 'Billy Bob could not reach the monitor.' };
+  const m = env.data.monitor, every = (m.expectedEveryMin || 10);
+  const limit = (every * 2 + 5) * 60000;
+  if (env.overdue) return { overdue: true, reason: env.overdueReason };
+  if (!m.heartbeat || now - Date.parse(m.heartbeat) > limit) return { overdue: true, reason: `No report from the monitor since ${ts(m.heartbeat)} (expected every ${every} min).` };
+  return { overdue: false };
+}
+
+function feedCard(c, stale, now) {
+  const st = stale ? 'stale' : c.status;
+  const src = c.source || {}, srv = c.served || {}, imp = c.imported || {};
+  const mismatch = !stale && c.status === 'fail' && (c.kind === 'serve' || c.kind === 'import');
+  const prob = c.problem ? `<div class="problem ${c.status === 'warn' ? 'warn' : c.status === 'setup' ? 'setup' : ''}">${esc(c.problem)}</div>` : '';
+  return `<div class="card ${stale ? 'stale' : ''}">
+    <div class="top"><div><div class="name">${esc(c.name)}</div><div class="feat">${esc(c.feature || '')}</div></div><span class="chip ${st}">${LABEL[st] || st}</span></div>
+    ${src.product || srv.product ? `<div class="compare ${mismatch ? 'mismatch' : ''}">
+      <div><div class="lbl">${esc(src.label || 'Source')} has</div><div class="val">${esc(src.product || '—')}</div><div class="t">${src.time ? 'Posted ' + ts(src.time) : ''}</div></div>
+      <div><div class="lbl">${esc(srv.label || 'Customers see')}</div><div class="val">${esc(srv.product || '—')}</div><div class="t">${srv.time ? ts(srv.time) : ''}</div></div>
+    </div>` : ''}
+    ${imp.product ? `<div class="imported">Imported: ${esc(imp.product)}${imp.time ? ' · ' + ts(imp.time) : ''}${imp.detail ? ' · ' + esc(imp.detail) : ''}</div>` : ''}
+    ${prob}${!c.problem && c.summary ? `<div class="summary">${esc(c.summary)}</div>` : ''}
+    <div class="meta"><span>Last attempt ${ago(c.lastAttempt, now)}</span><span>Last success ${c.lastSuccess ? ago(c.lastSuccess, now) : 'never'}</span>${c.note ? `<span>${esc(c.note)}</span>` : ''}${c.link ? `<a class="go" href="${esc(c.link)}" target="_blank" rel="noopener">Inspect →</a>` : ''}</div>
+  </div>`;
+}
+
+function wfRow(c, stale, now) {
+  const st = stale ? 'stale' : c.status;
+  return `<div class="row"><span class="dot ${st}"></span><div class="body">
+    <div class="top"><div class="name">${esc(c.name)}</div><span class="chip ${st}">${LABEL[st] || st}</span></div>
+    ${c.problem ? `<div class="problem ${c.status === 'setup' || c.status === 'skipped' ? 'setup' : ''}">${esc(c.problem)}</div>` : c.summary ? `<div class="summary">${esc(c.summary)}</div>` : ''}
+    <div class="meta"><span>Last attempt ${ago(c.lastAttempt, now)}</span><span>Last success ${c.lastSuccess ? ago(c.lastSuccess, now) : 'never'}</span>${c.link ? `<a class="go" href="${esc(c.link)}" target="_blank" rel="noopener">Inspect →</a>` : ''}</div>
+  </div></div>`;
+}
+
+function render(env) {
+  const now = demo ? Date.parse(env.now) : Date.now();
+  const od = overdueOf(env, now);
+  const data = env && env.data ? env.data : (lastGood && lastGood.data);
+  const B = document.getElementById('banner');
+  if (!data) { B.className = 'banner overdue'; B.innerHTML = `<span class="dot overdue"></span><div><div class="big">Monitor overdue</div><p>${esc(od.reason)}</p></div>`; return; }
+  const checks = data.checks || [];
+  const feeds = checks.filter(c => c.id.startsWith('feed.')), wf = checks.filter(c => c.id.startsWith('wf.'));
+  const open = (data.incidents || []).filter(i => !i.closedAt), closed = (data.incidents || []).filter(i => i.closedAt).slice(0, 3);
+  const failing = checks.filter(c => c.status === 'fail'), setup = checks.filter(c => c.status === 'setup');
+  if (od.overdue) {
+    B.className = 'banner overdue';
+    B.innerHTML = `<span class="dot overdue"></span><div><div class="big">Monitor overdue</div><p>${esc(od.reason)} Everything below is from the last report and may be out of date.</p></div>`;
+  } else if (open.length || failing.length) {
+    B.className = 'banner fail';
+    B.innerHTML = `<span class="dot fail"></span><div><div class="big">${open.length || failing.length} need${(open.length || failing.length) === 1 ? 's' : ''} attention</div><p>${esc((open[0] || failing[0]).problem || '')}</p></div>`;
+  } else if (setup.length) {
+    B.className = 'banner warn';
+    B.innerHTML = `<span class="dot warn"></span><div><div class="big">Running · ${setup.length} check${setup.length === 1 ? '' : 's'} need setup</div><p>Everything that can run is passing.</p></div>`;
+  } else {
+    B.className = 'banner ok';
+    B.innerHTML = `<span class="dot ok"></span><div><div class="big">All clear</div><p>Every feed and customer step passed on the last run.</p></div>`;
+  }
+  const stale = od.overdue;
+  document.getElementById('incidents').innerHTML = (open.length || closed.length) ? `<h2>Incidents</h2>` + [...open, ...closed].map(i => `<div class="card inc ${i.closedAt ? 'closed' : ''}">
+      <div class="top"><div class="name">${esc(i.name)}</div><span class="chip ${i.closedAt ? 'ok' : 'fail'}">${i.closedAt ? 'Recovered' : 'Open'}</span></div>
+      <div class="summary">${esc(i.closedAt ? i.recovery : i.problem)}</div>
+      <div class="meta"><span>Opened ${ts(i.openedAt)}</span>${i.closedAt ? `<span>Cleared ${ts(i.closedAt)}</span>` : `<span>${i.failures} failed runs</span>`}<span>Alert: ${esc(i.notified || '—')}</span>${i.link ? `<a class="go" href="${esc(i.link)}" target="_blank" rel="noopener">Inspect →</a>` : ''}</div></div>`).join('') : '';
+  document.getElementById('feeds').innerHTML = feeds.map(c => feedCard(c, stale, now)).join('');
+  document.getElementById('workflow').innerHTML = wf.map(c => wfRow(c, stale, now)).join('');
+  const byId = Object.fromEntries(checks.map(c => [c.id, c]));
+  document.getElementById('coverage').innerHTML = (data.coverage || []).map(f => {
+    const ids = f.checks || [];
+    const running = ids.filter(id => byId[id] && !['setup', 'pending'].includes(byId[id].status));
+    const s = !ids.length ? ['n', f.note || 'Not covered'] : running.length === ids.length && !f.note ? ['y', 'Automated'] : running.length ? ['p', f.note || 'Partly running'] : ['p', 'Built · needs setup'];
+    return `<div class="cov"><div>${esc(f.feature)}${f.note && ids.length ? `<small>${esc(f.note)}</small>` : ''}</div><span class="s ${s[0]}">${s[0] === 'y' ? '✓ ' : s[0] === 'n' ? '— ' : '◐ '}${esc(s[1])}</span></div>`;
+  }).join('');
+  const m = data.monitor;
+  document.getElementById('foot').innerHTML = `Monitor heartbeat ${ts(m.heartbeat)} CT (${ago(m.heartbeat, now)}) · feeds every ${m.intervals.feedsMin} min, customer test every ${m.intervals.workflowMin} min, alert test every ${m.intervals.alertTestHours} hr<br>Known storm: ${esc(m.knownStorm.address)}, ${esc(m.knownStorm.date.slice(5, 7) + '-' + m.knownStorm.date.slice(8, 10) + '-' + m.knownStorm.date.slice(0, 4))} · Alerts go to: ${esc((m.alertChannels || []).join(' + ') || 'panel only')}<br>Times are Central.`;
+  document.getElementById('sub').textContent = od.overdue ? 'Monitor overdue' : `Updated ${ago(env.fetchedAt || m.heartbeat, now)}`;
+}
+
+async function refresh() {
+  if (demo) return;
+  let env;
+  try {
+    const r = await fetch('/api/stormcheck', { cache: 'no-store' });
+    env = await r.json();
+    if (env && env.data) { lastGood = env; lastGoodAt = Date.now(); }
+  } catch (e) {
+    env = { overdue: true, overdueReason: 'This page could not reach Billy Bob.', data: lastGood && lastGood.data };
+  }
+  render(env);
+}
+
+if (window.__SNAPSHOTS__) {
+  const D = document.getElementById('demo'); D.hidden = false;
+  const snaps = window.__SNAPSHOTS__;
+  const show = k => { demo = k; [...D.children].forEach(b => b.classList.toggle('on', b.dataset.k === k)); render(snaps[k].env); };
+  D.innerHTML = Object.keys(snaps).map(k => `<button data-k="${k}">${esc(snaps[k].label)}</button>`).join('');
+  D.onclick = e => { if (e.target.dataset.k) show(e.target.dataset.k); };
+  show(Object.keys(snaps)[0]);
+} else {
+  refresh(); setInterval(refresh, 60000);
+  setInterval(() => { if (lastGood) render(lastGood); }, 30000); // re-evaluate overdue even if nothing new arrives
+}
+</script></body></html>
