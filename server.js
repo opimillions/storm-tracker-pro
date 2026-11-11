@@ -845,6 +845,7 @@ setTimeout(() => { if (!backups.latest() && process.env.DATA_JOBS !== 'off') bac
 require('./public-pages')(app, { db });
 require('./pro-routes')(app, { db, requireAuth, requireAdmin });
 require('./referral-routes')(app, { db, requireAuth, requireAdmin, geocodeAddress });
+require('./weather-routes')(app, { db, requireAuth });
 
 // ── Root redirect ─────────────────────────────────────────────────────────────
 
