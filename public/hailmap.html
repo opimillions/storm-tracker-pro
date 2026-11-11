@@ -83,6 +83,7 @@
       <div class="muted" id="frameLabel"></div>
       <div class="row" style="margin-top:12px">
         <a class="btn btn-primary btn-sm" id="leadsLink" href="/leads" style="min-height:40px">Lead list for this view</a>
+        <a class="btn btn-outline btn-sm" id="stormLink" href="#" style="min-height:40px" onclick="this.href=stormViewUrl()">Storm view &amp; share link</a>
       </div>
     </div>
     <div class="panel-sec">
@@ -176,6 +177,7 @@ async function loadSwath(date, fit) {
   if (fit && j.cells.length) { const b = cellsBounds(j.cells.filter(c => c[2] >= 1).length ? j.cells.filter(c => c[2] >= 1) : j.cells); if (b) map.fitBounds(b, { maxZoom: 10, padding: [20, 20] }); }
 }
 
+function stormViewUrl() { const c = map.getCenter(); return `/storm/${currentDate}?lat=${c.lat.toFixed(4)}&lon=${c.lng.toFixed(4)}&z=${map.getZoom()}`; }
 function toggleReports() { if (document.getElementById('showReports').checked) reportsLayer.addTo(map); else map.removeLayer(reportsLayer); }
 
 async function togglePlayback() {

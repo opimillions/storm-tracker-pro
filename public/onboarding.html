@@ -173,8 +173,10 @@ async function saveStates() {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ states })
   });
-  if (res.ok) { window.location = '/dashboard'; }
-  else { btn.textContent='Continue to Dashboard →'; btn.disabled=false; window.location='/dashboard'; }
+  const nx = new URLSearchParams(location.search).get('next') || '';
+  const dest = /^\/dashboard(\?[^\s]*)?$/.test(nx) ? nx : '/dashboard';
+  if (res.ok) { window.location = dest; }
+  else { btn.textContent='Continue to Dashboard →'; btn.disabled=false; window.location=dest; }
 }
 
 init();

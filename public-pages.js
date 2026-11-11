@@ -317,6 +317,7 @@ module.exports = function publicPages(app, { db }) {
         </div>
       </div></section>
       <section style="padding-top:40px"><div class="wrap">
+        <p style="margin:0 0 16px"><a class="btn btn-accent" href="/storm/${sd.date}${bounds ? `?lat=${((bounds[1] + bounds[3]) / 2).toFixed(4)}&lon=${((bounds[0] + bounds[2]) / 2).toFixed(4)}&z=8` : ''}">Open the interactive storm map</a> <span style="color:var(--muted-2);font-size:15px">Check an address, switch layers, share the link.</span></p>
         <div id="m" class="map" role="img" aria-label="Radar hail swath map"></div>
         <div class="legend" id="m-legend"></div>
         <p style="color:var(--muted-2);font-size:15px">Radar-estimated maximum hail size (NOAA MRMS MESH), 12:00 UTC ${fmtShort(sd.date)} to 12:00 UTC the next day. Radar estimates can differ from what fell at a given roof.</p>
@@ -365,6 +366,7 @@ module.exports = function publicPages(app, { db }) {
         </div>
       </div></section>
       <section style="padding-top:40px"><div class="wrap">
+        <p style="margin:0 0 16px"><a class="btn btn-accent" href="/storm/${sd.date}${cities.length ? `?lat=${cities[0].lat.toFixed(4)}&lon=${cities[0].lon.toFixed(4)}&z=10` : ''}">Open the interactive storm map</a></p>
         <div id="m" class="map" role="img" aria-label="Radar hail swath map"></div><div class="legend" id="m-legend"></div>
       </div></section>
       <section class="white"><div class="wrap">

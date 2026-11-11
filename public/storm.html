@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#172235">
+<!--HEAD-->
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/lib/leaflet.min.css">
+<link rel="stylesheet" href="/storm.css">
+<script src="/lib/leaflet.min.js"></script>
+<script src="/js/swath-layer.js"></script>
+<script src="/js/tracking.js" async></script>
+</head>
+<body>
+<header class="sbar">
+  <a class="brand" href="/" aria-label="StormCheck Pro home">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2A93B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 14H7a4.5 4.5 0 1 1 1.1-8.86A6 6 0 0 1 19.5 9a2.5 2.5 0 0 1-2 5z"></path><circle cx="8" cy="19" r="1.3"></circle><circle cx="12.5" cy="20.5" r="1.3"></circle><circle cx="16.5" cy="18.5" r="1.3"></circle></svg>
+    <span>StormCheck Pro</span>
+  </a>
+  <div class="when" aria-live="polite">
+    <div class="kicker" id="stormKicker">Hail storm</div>
+    <h1 id="stormDate">Loading storm…</h1>
+    <div class="time" id="stormTime"></div>
+  </div>
+  <div class="bar-actions">
+    <button class="btn btn-ghost" id="shareBtn" type="button" aria-label="Share this storm">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>
+      <span>Share</span>
+    </button>
+    <a class="btn btn-ghost hide-sm" id="acctLink" href="/login">Sign in</a>
+  </div>
+</header>
+
+<div class="stage">
+  <aside class="panel" id="panel" data-sheet="peek" aria-label="Storm details">
+    <button class="grab" id="grab" type="button" aria-label="Show more storm details" aria-controls="panel"><span></span></button>
+
+    <!-- Always visible: on a phone this row sits at the bottom of the screen, in thumb reach. -->
+    <div class="peek">
+      <div class="play">
+        <button class="play-btn" id="playBtn" type="button" aria-label="Play storm">
+          <svg id="playIcon" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" fill="currentColor"/></svg>
+        </button>
+        <div class="play-track">
+          <input type="range" id="frameSlider" min="0" max="23" value="23" disabled aria-label="Storm time">
+          <div class="play-label" id="frameLabel">Full storm day</div>
+        </div>
+      </div>
+      <div class="peek-sum" id="peekSum"></div>
+    </div>
+
+    <div class="scroll" id="panelScroll">
+      <section class="sec" id="checkSec">
+        <h2>Check an address</h2>
+        <form class="addr" id="addrForm" autocomplete="on">
+          <label for="addrInput" class="sr">Property address</label>
+          <input id="addrInput" name="address" type="text" inputmode="search" placeholder="Street, city, state ZIP" autocomplete="street-address" required>
+          <button class="btn btn-accent" type="submit">Check</button>
+        </form>
+        <button class="linkbtn" id="gpsBtn" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+          Use my location
+        </button>
+        <div id="result" class="result" hidden></div>
+      </section>
+
+      <section class="sec" id="mySec" hidden>
+        <div class="sec-head">
+          <h2>My properties in this storm</h2>
+          <span class="private" title="Only you can see this list. It is never included in a shared link.">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Private
+          </span>
+        </div>
+        <div id="myBody" class="muted">Checking your saved properties…</div>
+      </section>
+
+      <section class="sec" id="layersSec">
+        <h2>Map layers</h2>
+        <div class="layer">
+          <label class="sw"><input type="checkbox" id="lyrHail" checked><span class="track"></span><span class="ltitle">Hail estimates</span></label>
+          <div class="lsrc" id="srcHail"></div>
+          <div class="opacity">
+            <label for="opacity">Swath opacity</label>
+            <input type="range" id="opacity" min="15" max="100" value="70">
+            <output id="opacityOut" for="opacity">70%</output>
+          </div>
+        </div>
+        <div class="layer">
+          <label class="sw"><input type="checkbox" id="lyrRadar"><span class="track"></span><span class="ltitle">Radar</span></label>
+          <div class="lsrc" id="srcRadar"></div>
+        </div>
+        <div class="layer">
+          <label class="sw"><input type="checkbox" id="lyrReports" checked><span class="track"></span><span class="ltitle">Ground reports</span></label>
+          <div class="lsrc" id="srcReports"></div>
+        </div>
+        <div class="legend-full">
+          <div class="legend-title">Estimated hail size (inches)</div>
+          <div id="legendFull" class="lg"></div>
+        </div>
+      </section>
+
+      <section class="sec small" id="aboutSec">
+        <h2>About this data</h2>
+        <p>Hail sizes are radar estimates from NOAA's Multi-Radar Multi-Sensor system. They show where large hail was likely, not damage at a given roof. Ground reports are preliminary spotter, public and law-enforcement reports compiled by NOAA's Storm Prediction Center.</p>
+        <p><a href="/hail-maps" id="dayLink">All storms on this date</a> · <a href="/alerts">Free hail alerts</a></p>
+      </section>
+    </div>
+  </aside>
+  <button class="collapse" id="collapseBtn" type="button" aria-label="Hide panel" aria-controls="panel">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+  </button>
+
+  <div id="map" role="application" aria-label="Storm map"></div>
+  <div class="maplegend" id="mapLegend" aria-hidden="true"></div>
+  <div class="toast" id="toast" role="status" hidden></div>
+</div>
+
+<script>window.STORM = /*BOOT*/null;</script>
+<script src="/js/storm-map.js"></script>
+</body>
+</html>

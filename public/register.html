@@ -72,6 +72,17 @@
 </div>
 
 <script>
+  // After sign-in/up, go back where the visitor came from (same-site paths only).
+  function nextUrl(fallback) {
+    var n = new URLSearchParams(location.search).get('next') || '';
+    return /^\/(?![\/\\])[^\s]*$/.test(n) ? n : fallback;
+  }
+  (function keepNext() {
+    var n = new URLSearchParams(location.search).get('next');
+    if (!n) return;
+    document.querySelectorAll('a[href="/login"], a[href="/register"]').forEach(function (a) { a.href = a.getAttribute('href') + '?next=' + encodeURIComponent(n); });
+  })();
+
   document.getElementById('registerForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('regBtn');
@@ -96,7 +107,7 @@
       const data = await res.json();
       if (data.success) {
         if (window.scpTrack) window.scpTrack('signup');
-        setTimeout(function () { window.location = data.redirect; }, window.scpTrack ? 400 : 0);
+        setTimeout(function () { window.location = nextUrl(data.redirect); }, window.scpTrack ? 400 : 0);
         return;
       } else {
         errEl.textContent = data.error;

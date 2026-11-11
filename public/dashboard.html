@@ -343,12 +343,13 @@ let map, allLayers = [], ringLayers = {}, currentLat, currentLon, activeRadius =
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
   const res = await fetch('/api/me');
-  if (!res.ok) return window.location = '/login';
+  const here = location.pathname + location.search;
+  if (!res.ok) return window.location = '/login' + (location.search ? '?next=' + encodeURIComponent(here) : '');
   const { user, recentLookups } = await res.json();
 
-  // Redirect to onboarding if states not set yet
+  // Redirect to onboarding if states not set yet (and come back to the same report after).
   if (!user.onboardingComplete && user.tier !== 'admin') {
-    window.location = '/onboarding';
+    window.location = '/onboarding' + (location.search ? '?next=' + encodeURIComponent(here) : '');
     return;
   }
   
@@ -592,6 +593,23 @@ function renderResults(data) {
   requestAnimationFrame(() => map?.invalidateSize(true));
 
   document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+  if (pendingStormDate) setTimeout(focusStormDate, 400);
+}
+
+// Opened from a storm map ("Check this property" / "Open storm report"):
+// select that storm date in the report and show its swath at the property.
+let pendingStormDate = (() => { const d = new URLSearchParams(location.search).get('date'); return /^\d{4}-\d{2}-\d{2}$/.test(d || '') ? d : null; })();
+function focusStormDate() {
+  const date = pendingStormDate; pendingStormDate = null;
+  if (!date || !lastReport) return;
+  const sel = document.getElementById('dateFilter');
+  if (![...sel.options].some(o => o.value === date)) sel.add(new Option(fmtDate(date), date), 1);
+  filterMapToDate(date);
+  const sd = (lastReport.stormDates || []).find(s => s.date === date);
+  const g = sd && sd.groundReports;
+  const radar = sd && sd.radar && sd.radar.atPropertyIn >= 0.5 ? `radar estimated <strong>${sd.radar.atPropertyIn.toFixed(2)}"</strong> at the property` : 'radar did not estimate 0.5"+ hail at the property';
+  const nearby = g && g.hailCount ? `; nearest ground hail report ${g.nearestHailMi} mi away (up to ${g.largestHailIn.toFixed(2)}")` : '';
+  showAlert(`Storm of <strong>${fmtDate(date)}</strong>: ${radar}${nearby}. <a href="/storm/${date}?lat=${lastReport.lat.toFixed(4)}&lon=${lastReport.lon.toFixed(4)}&z=13">Back to the storm map</a>`, 'info');
 }
 
 // ── Map ───────────────────────────────────────────────────────────────────────
