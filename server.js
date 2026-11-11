@@ -309,6 +309,9 @@ app.get('/api/admin/test-smtp', requireAuth, requireAdmin, async (req, res) => {
 // Promo routes
 require('./promo-routes')(app, { requireAuth, requireAdmin, userOps });
 
+// Read-only data-pipeline status for the external monitor (off unless MONITOR_TOKEN is set)
+require('./monitor-routes')(app);
+
 // Watch List routes
 const watchlistRoutes = require('./watchlist-routes');
 watchlistRoutes(app, { requireAuth, watchlistOps });
