@@ -53,7 +53,7 @@
   <div class="tabs">
     <div class="tab active" onclick="switchTab('users')">Users</div>
     <div class="tab" onclick="switchTab('lookups')">Recent Lookups</div>
-    <div class="tab" onclick="switchTab('alerts')">Storm Alerts</div>
+    <div class="tab" onclick="switchTab('alerts')">Customer Alerts</div>
     <div class="tab" onclick="switchTab('reviews')">Review Orders</div>
     <div class="tab" onclick="switchTab('data')">Data Pipeline</div>
     <div class="tab" onclick="switchTab('recaps')">Storm Recaps</div>
@@ -95,8 +95,8 @@
     <div class="card" style="padding:0;overflow:hidden;margin-top:0">
       <div style="overflow-x:auto">
         <table>
-          <thead><tr><th>Detected</th><th>Area</th><th>Event</th><th>Hail Size</th><th>Severity</th></tr></thead>
-          <tbody id="alertsBody"><tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">No storm alerts recorded yet</td></tr></tbody>
+          <thead><tr><th>Sent</th><th>Customer</th><th>Alert</th><th>Hail</th><th>Sent by</th></tr></thead>
+          <tbody id="alertsBody"><tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">No customer alerts sent yet</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -341,10 +341,10 @@ async function init() {
     alertsBody.innerHTML = data.recentAlerts.map(a => `
       <tr>
         <td>${new Date(a.detectedAt || a.detected_at).toLocaleString()}</td>
-        <td>${a.area}</td>
-        <td>${a.eventType || a.event_type}</td>
+        <td>${escA(a.area)}</td>
+        <td>${escA(a.eventType || a.event_type)}</td>
         <td>${(a.hailSize ?? a.hail_size) ? (a.hailSize ?? a.hail_size) + '"' : 'Unknown'}</td>
-        <td>${a.severity}</td>
+        <td>${escA(a.severity)}</td>
       </tr>`).join('');
   }
 
