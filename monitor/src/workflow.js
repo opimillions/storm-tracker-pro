@@ -202,9 +202,15 @@ async function runWorkflow({ browserFactory } = {}) {
       const street = String(report.address || addr).split(',')[0].trim(); // the address StormCheck matched, as customers see it
       const missing = [];
       if (!new RegExp(street.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(text)) missing.push(`the address "${street}"`);
-      if (!text.includes(mdY(ks.date))) missing.push(`the storm date ${mdY(ks.date)}`);
+      // The report lists dates of loss plus at most 60 storm dates (newest first). Check the
+      // known storm when the report promises to include it; otherwise check the newest date of loss.
+      const sdAll = report.stormDates || [];
+      const listed = new Set([...(report.dateOfLoss || []).map(d => d.date), ...sdAll.filter(d => d.radar || (d.groundReports && d.groundReports.hailCount)).slice(0, 60).map(d => d.date)]);
+      const checkDate = listed.has(ks.date) ? ks.date : ((report.dateOfLoss || [])[0] || {}).date;
+      if (checkDate && !text.includes(mdY(checkDate))) missing.push(`the storm date ${mdY(checkDate)}`);
+      const capNote = listed.has(ks.date) ? '' : ` The report's storm-date table stops at 60 rows, so ${mdY(ks.date)} isn't listed; checked ${checkDate ? mdY(checkDate) : 'no date'} instead.`;
       if (missing.length) throw new Error(`the PDF opened (${pdf.pages} page${pdf.pages === 1 ? '' : 's'}) but is missing ${missing.join(' and ')}`);
-      mark('wf.pdf', true, `PDF opened: ${pdf.pages} page(s), ${Math.round(buf.length / 1024)} KB, has the address and ${mdY(ks.date)}.`, { measure: { pages: pdf.pages, kb: Math.round(buf.length / 1024) } });
+      mark('wf.pdf', true, `PDF opened: ${pdf.pages} page(s), ${Math.round(buf.length / 1024)} KB, has the address and ${checkDate ? mdY(checkDate) : 'no dated storms'}.${capNote}`, { measure: { pages: pdf.pages, kb: Math.round(buf.length / 1024) } });
       await popup.close();
     } catch (e) { mark('wf.pdf', false, `PDF report failed: ${e.message}`, { link: lookupLink }); }
     return res;
