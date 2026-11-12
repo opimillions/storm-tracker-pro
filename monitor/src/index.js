@@ -13,7 +13,7 @@ const config = require('./config');
 const { Engine } = require('./engine');
 const feeds = require('./feeds');
 const app = require('./app-client');
-const { STEPS, runWorkflow } = require('./workflow');
+const { STEPS, runWorkflow, cachedAddress } = require('./workflow');
 const alertTest = require('./alert-test');
 const coverage = require('./coverage');
 const { notifier, channels } = require('./notify');
@@ -78,7 +78,7 @@ function status() {
       lastFeedCycle: s.lastFeedCycle || null, lastWorkflow: s.lastWorkflow || null, lastAlertTest: s.lastAlertTest || null,
       intervals: config.intervals, app: config.appUrl, alertChannels: channels(),
       expectedEveryMin: config.intervals.feedsMin,
-      knownStorm: config.knownStorm,
+      knownStorm: { ...config.knownStorm, address: config.knownStorm.address || (cachedAddress() || {}).address || 'picked on the next test run' },
     },
     checks: checks.map(c => ({ ...c, measure: c.measure })),
     incidents: s.incidents.slice().reverse(),

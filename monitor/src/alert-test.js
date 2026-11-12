@@ -7,7 +7,7 @@ const config = require('./config');
 const app = require('./app-client');
 
 const CHECK = { id: 'wf.alert', name: 'Saved-property alert email', feature: 'Portfolio hail alerts' };
-const TEST_PROPERTY = { name: 'Monitor test property', address: () => config.knownStorm.address };
+const TEST_PROPERTY = { name: 'Monitor test property', address: () => config.knownStorm.address || '100 E Southlake Blvd, Southlake, TX 76092' };
 
 async function ensureProperty() {
   const list = await app.customer('/api/watchlist');

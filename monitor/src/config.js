@@ -17,7 +17,10 @@ module.exports = {
 
   // Known historical storm used for the customer workflow test.
   knownStorm: {
-    address: env('KNOWN_STORM_ADDRESS', '100 E Southlake Blvd, Southlake, TX 76092'),
+    // With no KNOWN_STORM_ADDRESS, the monitor picks an address inside the hail core near `center`.
+    address: env('KNOWN_STORM_ADDRESS'),
+    addressFixed: !!env('KNOWN_STORM_ADDRESS'),
+    center: { lat: num('KNOWN_STORM_LAT', 32.942), lon: num('KNOWN_STORM_LON', -97.134) },
     date: env('KNOWN_STORM_DATE', '2024-03-14'),
     minInches: num('KNOWN_STORM_MIN_IN', 1.0),
   },
