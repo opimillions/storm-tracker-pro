@@ -131,3 +131,14 @@ test('engine: a failure that passes on retry never counts toward an incident', a
   assert.strictEqual(e.state.checks['feed.flaky'].note, 'Passed on retry');
   assert.strictEqual(e.state.incidents.filter(i => i.checkId === 'feed.flaky').length, 0);
 });
+
+test('storm-matching run check: missed alert run fails, restart and recent import pass', () => {
+  const { evalRun } = require('../src/portfolio-match');
+  const base = { startedAt: '2026-11-10T03:00:00Z', mesh: { coverage: { last: '2026-11-10' }, recent: [{ date: '2026-11-10', ingestedAt: '2026-11-11T13:25:00Z' }] } };
+  assert.strictEqual(evalRun({ pipe: { ...base, portfolioRuns: { '2026-11-10': { radarRunAt: '2026-11-11T13:26:00Z', checked: 40, properties: 40, hits: 2, emails: 1 } } } }).ok, true);
+  const missed = evalRun({ pipe: { ...base, portfolioRuns: {} }, now: T('2026-11-11T16:00:00Z') });
+  assert.strictEqual(missed.ok, false); assert.match(missed.problem, /alert run never happened/);
+  assert.strictEqual(evalRun({ pipe: { ...base, startedAt: '2026-11-11T15:00:00Z', portfolioRuns: {} } }).ok, true);
+  assert.strictEqual(evalRun({ pipe: { ...base, portfolioRuns: {} }, now: T('2026-11-11T13:40:00Z') }).ok, true);
+  assert.match(evalRun({ pipe: { ...base, portfolioRuns: { '2026-11-10': { error: 'db locked' } } } }).problem, /failed: db locked/);
+});
