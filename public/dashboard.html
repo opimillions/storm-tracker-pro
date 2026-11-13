@@ -130,6 +130,7 @@
       .page-wrap { padding: 16px 12px; }
     }
   </style>
+<script src="/js/dates.js"></script>
 </head>
 <body>
 
@@ -168,9 +169,9 @@
       <input type="text" id="addressInput" placeholder="Enter property address (e.g. 100 E Southlake Blvd, Southlake TX 76092)" />
       <select id="yearsSelect">
         <option value="1">1 Year</option>
-        <option value="2">2 Years</option>
+        <option value="2" selected>2 Years</option>
         <option value="3">3 Years</option>
-        <option value="5" selected>5 Years</option>
+        <option value="5">5 Years</option>
         <option value="7">7 Years</option>
         <option value="10">10 Years</option>
         <option value="20">20 Years</option>
@@ -368,7 +369,7 @@ async function init() {
   // History
   if (recentLookups.length > 0) {
     const rows = recentLookups.map(l => {
-      const d = new Date(l.createdAt || l.created_at).toLocaleDateString('en-US');
+      const d = mdy(l.createdAt || l.created_at);
       const eventsFound = l.eventsFound ?? l.events_found ?? 0;
       const impactScore = l.impactScore ?? l.impact_score ?? 0;
       return `<tr class="history-row" tabindex="0" role="button" data-i="${recentLookups.indexOf(l)}" title="Run this report again"><td>${d}</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.address)}</td><td>${eventsFound}</td><td>${impactScore}/100</td><td class="go">View ›</td></tr>`;
@@ -681,7 +682,7 @@ function buildMap(lat, lon, events) {
     if (eLat == null || eLon == null) return;
     const dp = e.date.split('-');
     const circle = L.circleMarker([eLat,eLon],{color:'#071223',fillColor:color,fillOpacity:0.85,radius:Math.max(5, Math.min(12, e.size_in*5)),weight:1})
-      .bindPopup(`<b>${dp[1]}/${dp[2]}/${dp[0]}</b><br>Size: <b>${e.size_in}" (${e.size_desc})</b><br>Distance: ${e.distance_miles} mi<br>${e.at_property?'<span style="color:#c0392b;font-weight:bold">⚠️ At Property</span>':e.location}`)
+      .bindPopup(`<b>${dp[1]}-${dp[2]}-${dp[0]}</b><br>Size: <b>${e.size_in}" (${e.size_desc})</b><br>Distance: ${e.distance_miles} mi<br>${e.at_property?'<span style="color:#c0392b;font-weight:bold">⚠️ At Property</span>':e.location}`)
       .addTo(map);
     allLayers.push({layer:circle,date:e.date,dist:e.distance_miles||0,size:e.size_in});
   });
@@ -752,7 +753,7 @@ function applyFilters() {
     }
   });
   const rl = activeRadius===30?'30 mi':activeRadius+' mi';
-  const dl = activeDateFilter==='all'?'':(() => {const p=activeDateFilter.split('-');return' on '+p[1]+'/'+p[2]+'/'+p[0];})();
+  const dl = activeDateFilter==='all'?'':(() => {const p=activeDateFilter.split('-');return' on '+p[1]+'-'+p[2]+'-'+p[0];})();
   document.getElementById('mapStatus').textContent = count+' event(s) within '+rl+dl;
   if(activeDateFilter!=='all'&&bounds.length>0){
     const lats=bounds.map(b=>b.lat),lons=bounds.map(b=>b.lng);
@@ -772,7 +773,7 @@ function resetMapFilters() {
 function fmtDate(iso) {
   if (!iso) return 'N/A';
   const [y,m,d] = iso.split('-');
-  return `${m}/${d}/${y}`;
+  return `${m}-${d}-${y}`;
 }
 
 function showAlert(msg, type='info') {
@@ -1054,7 +1055,7 @@ function printReport() {
   header.innerHTML = `
     <div style="font-size:1.4em;font-weight:900;color:#071223">StormCheck Pro</div>
     <div style="font-size:0.85em;color:#888">Powered by First Call Public Adjusters &nbsp;|&nbsp; (817) 618-9884 &nbsp;|&nbsp; thepublicadjustertx.com</div>
-    <div style="font-size:0.8em;color:#aaa;margin-top:4px">Report generated: ${new Date().toLocaleString()}</div>
+    <div style="font-size:0.8em;color:#aaa;margin-top:4px">Report generated: ${mdyTime(new Date())}</div>
   `;
   document.querySelector('.page-wrap').prepend(header);
 

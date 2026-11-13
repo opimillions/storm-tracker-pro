@@ -41,6 +41,7 @@
   }
   @media (max-width: 640px) { .doc { padding: 20px 16px; margin: 0; } .summary { grid-template-columns: repeat(2, 1fr); } }
 </style>
+<script src="/js/dates.js"></script>
 </head>
 <body>
 <div class="toolbar">
@@ -51,7 +52,7 @@
 
 <script>
 function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function fmtDate(iso) { if (!iso) return '—'; const [y, m, d] = iso.slice(0, 10).split('-'); return `${m}/${d}/${y}`; }
+function fmtDate(iso) { if (!iso) return '—'; const [y, m, d] = iso.slice(0, 10).split('-'); return `${m}-${d}-${y}`; }
 const inch = v => (v || 0).toFixed(2) + '"';
 const confCls = c => 'conf conf-' + (c === 'Ground report' ? 'Ground' : c);
 
@@ -86,7 +87,7 @@ async function init() {
   </header>
   <h1>${title}</h1>
   <div><strong>${esc(r.address)}</strong></div>
-  <div class="meta">Period covered: ${fmtDate(r.since)} to ${fmtDate(new Date().toISOString())} (${years} years) · Generated ${new Date().toLocaleString()}</div>
+  <div class="meta">Period covered: ${fmtDate(r.since)} to ${fmtDate(new Date().toISOString())} (${years} years) · Generated ${mdyTime(new Date())}</div>
   <div class="summary">
     <div><b>${r.score}/100</b><span>Impact score</span></div>
     <div><b>${inch(r.stats.largestAtPropertyIn)}</b><span>Largest hail at property</span></div>

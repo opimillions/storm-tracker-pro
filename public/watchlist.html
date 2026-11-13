@@ -96,7 +96,7 @@
 
 <script>
 function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function fmtD(iso) { const [y,m,d] = iso.split('-'); return `${m}/${d}/${y}`; }
+function fmtD(iso) { const [y,m,d] = iso.split('-'); return `${m}-${d}-${y}`; }
 let lastContacts = [], lastSummary = {};
 async function loadContacts() {
   const [res, sres] = await Promise.all([fetch('/api/watchlist'), fetch('/api/watchlist/summary')]);

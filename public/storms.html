@@ -281,7 +281,7 @@ function renderList() {
 
   const html = Object.keys(byDate).sort((a,b) => new Date(b)-new Date(a)).map(date => {
     const dp = date.split('-');
-    const dateLabel = `${dp[1]}/${dp[2]}/${dp[0]}`;
+    const dateLabel = `${dp[1]}-${dp[2]}-${dp[0]}`;
     const events = byDate[date];
     const maxHail = Math.max(...events.filter(e=>e.size_in).map(e=>e.size_in), 0);
     const hasTornado = events.some(e=>e.type==='tornado');

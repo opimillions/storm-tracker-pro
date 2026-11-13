@@ -76,7 +76,7 @@
 <script>
 const params = new URLSearchParams(location.search);
 let map, swath;
-function fmtDate(iso) { const [y,m,d] = iso.split('-'); return `${m}/${d}/${y}`; }
+function fmtDate(iso) { const [y,m,d] = iso.split('-'); return `${m}-${d}-${y}`; }
 function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function bboxQ() {
   const b = map.getBounds(), c = map.getCenter(), max = 16;
