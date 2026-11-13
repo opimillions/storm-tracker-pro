@@ -47,6 +47,7 @@ test.before(async () => {
     const index = [], data = [];
     for (let a = 0; a < 6; a++) for (let b = 0; b < 6; b++) { index.push(idx(32.92 + a * 0.01, -97.16 + b * 0.01)); data.push(44.45); }
     mesh.ingestGrid('2025-05-28', { ni, nj: 3500, la1, lo1, di: 0.01, dj: 0.01, scanMode: 0, index, data });
+    require('./lib/storm-days').summarize('2025-05-28');
   `], { cwd: ROOT, env: { ...process.env, DATA_DIR: DATA } });
 
   const port = await freePort();
@@ -71,6 +72,14 @@ test.before(async () => {
   throw new Error('server did not start:\n' + out);
 });
 test.after(() => { if (proc) proc.kill(); });
+
+test('homepage storm feed includes a map center for thumbnails', async () => {
+  const r = await client().get('/api/public/recent-storms');
+  assert.strictEqual(r.status, 200);
+  const day = r.json.storms.find(s => s.date === '2025-05-28');
+  assert.ok(day, 'seeded storm day is listed');
+  assert.ok(day.center && Math.abs(day.center.lat - 32.94) < 0.2 && Math.abs(day.center.lon + 97.14) < 0.2, JSON.stringify(day.center));
+});
 
 test('security headers are sent', async () => {
   const r = await client().get('/login');

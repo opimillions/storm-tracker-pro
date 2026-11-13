@@ -9,7 +9,7 @@
   <meta property="og:type" content="website">
   <meta property="og:title" content="StormCheck Pro: Know every storm that's hit a property">
   <meta property="og:description" content="Hail, wind and tornado history for any U.S. address from NOAA radar and National Weather Service records.">
-  <meta name="theme-color" content="#172235">
+  <meta name="theme-color" content="#071223">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
@@ -22,7 +22,7 @@
 <body>
 
 <header class="site-head"><div class="wrap">
-  <a href="/" class="logo"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#F2A93B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 14H7a4.5 4.5 0 1 1 1.1-8.86A6 6 0 0 1 19.5 9a2.5 2.5 0 0 1-2 5z"></path><circle cx="8" cy="19" r="1.3"></circle><circle cx="12.5" cy="20.5" r="1.3"></circle><circle cx="16.5" cy="18.5" r="1.3"></circle></svg><span>StormCheck Pro</span></a>
+  <a href="/" class="logo"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 14H7a4.5 4.5 0 1 1 1.1-8.86A6 6 0 0 1 19.5 9a2.5 2.5 0 0 1-2 5z"></path><circle cx="8" cy="19" r="1.3"></circle><circle cx="12.5" cy="20.5" r="1.3"></circle><circle cx="16.5" cy="18.5" r="1.3"></circle></svg><span>StormCheck Pro</span></a>
   <nav class="site-nav" aria-label="Main">
     <a href="#features">Features</a><a href="#integrations">Integrations</a><a href="/hail-maps">Hail maps</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a>
     <a href="/login" style="color:#fff">Sign in</a>
@@ -32,86 +32,210 @@
 
 <main>
 <!-- HERO -->
-<section class="dark hero" id="top"><div class="wrap">
+<section class="dark hero lp-hero" id="top"><div class="wrap">
   <div class="hero-copy">
-    <p class="eyebrow">For roofers, adjusters, agents &amp; real estate pros</p>
-    <h1>Know every storm that's hit a property.</h1>
-    <p class="lede">Hail, wind and tornado history for any address in the U.S. See the radar-estimated hail size at the property itself, which dates are verified by ground reports, and the most likely date of loss, in seconds.</p>
+    <p class="eyebrow">For roofers, public adjusters &amp; contractors</p>
+    <h1>Know every storm that's hit a <em>property.</em></h1>
+    <p class="lede">Radar-estimated hail size at the roof itself, dates verified by ground reports, and the most likely date of loss, for any U.S. address, in seconds.</p>
     <form class="addr-form" id="heroForm">
       <label for="heroAddr">Property address</label>
       <input id="heroAddr" type="text" placeholder="Enter a property address" autocomplete="street-address" required>
       <button class="btn btn-accent" type="submit">Run free report</button>
     </form>
-    <p class="fine">Nationwide coverage · 1 free report · No credit card · <a href="/sample-report" style="color:#F2C77A">See a sample report</a></p>
+    <ul class="checks"><li>1 free report</li><li>No credit card</li><li>Every U.S. address</li><li><a href="/sample-report" style="color:#67E8F9;font-weight:600">See a sample report</a></li></ul>
   </div>
 
-  <div class="preview" aria-label="Example of a property storm report">
-    <p class="kicker">Most likely dates of loss</p>
-    <p style="margin:4px 0 16px;font-family:Archivo,sans-serif;font-weight:700;font-size:20px">Your property address</p>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <div style="display:grid;grid-template-columns:30px 1fr auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:12px">
-        <span style="width:30px;height:30px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800">1</span>
-        <span><strong>Storm date</strong> <span class="badge badge-verified">Verified</span><br><span style="color:var(--muted-2);font-size:14px">Radar at the property + ground reports nearby</span></span>
-        <span class="badge" style="background:#F4F6F9;color:var(--ink)">Golf ball</span>
-      </div>
-      <div style="display:grid;grid-template-columns:30px 1fr auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:12px">
-        <span style="width:30px;height:30px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800">2</span>
-        <span><strong>Storm date</strong> <span class="badge badge-radar">Radar</span><br><span style="color:var(--muted-2);font-size:14px">Radar estimate at the property</span></span>
-        <span class="badge" style="background:#F4F6F9;color:var(--ink)">Quarter</span>
-      </div>
-      <div style="display:grid;grid-template-columns:30px 1fr auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:12px">
-        <span style="width:30px;height:30px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800">3</span>
-        <span><strong>Storm date</strong> <span class="badge badge-ground">Ground report</span><br><span style="color:var(--muted-2);font-size:14px">Spotter report within a mile</span></span>
-        <span class="badge" style="background:#F4F6F9;color:var(--ink)">Penny</span>
-      </div>
+  <figure class="report" style="margin:0" aria-label="Example storm report">
+    <div class="report-head">
+      <div><small>Storm report</small><b>Sample property · near Wichita Falls, TX</b></div>
+      <span class="pill">Radar estimate</span>
     </div>
-    <p style="margin:16px 0 0"><a href="/sample-report">See a real sample report →</a></p>
-  </div>
+    <div class="report-map">
+      <picture>
+        <source srcset="/img/hail-map-wichita-falls.webp" type="image/webp">
+        <img src="/img/hail-map-wichita-falls.jpg" width="1120" height="600" alt="StormCheck Pro radar hail swath west of Wichita Falls, Texas, on November 2, 2026, with the largest hail in red">
+      </picture>
+      <div class="map-pin" aria-hidden="true"><span>Sample property</span><svg width="26" height="32" viewBox="0 0 26 32"><path d="M13 31C6 22 1 17 1 12a12 12 0 0 1 24 0c0 5-5 10-12 19z" fill="#22D3EE" stroke="#050D1A" stroke-width="2"></path><circle cx="13" cy="12" r="4.5" fill="#050D1A"></circle></svg></div>
+      <div class="map-chip peak"><small>Peak hail at property</small><b>1.97″</b> <span style="color:#F87171;font-weight:700;font-size:13px">Major</span></div>
+      <div class="map-chip key" aria-hidden="true"><span><i style="background:#3B0764"></i>3″+</span><span><i style="background:#6D28D9"></i>2.5″</span><span><i style="background:#9D174D"></i>2″</span><span><i style="background:#DC2626"></i>1.5″</span><span><i style="background:#F59E0B"></i>1″</span><span><i style="background:#FDE68A"></i>0.5″</span></div>
+    </div>
+    <div class="report-dates">
+      <small>Most likely dates of loss</small>
+      <div class="ldate"><span class="n">1</span><span>11-02-2026<em>Radar estimate at the property</em></span><b>1.97″</b><i style="background:#B91C1C"></i></div>
+      <div class="ldate"><span class="n">2</span><span>10-26-2026<em>Radar estimate at the property</em></span><b>1.25″</b><i style="background:#EA580C"></i></div>
+      <div class="ldate"><span class="n">3</span><span>06-09-2025<em>Spotter report within a mile</em></span><b>1.00″</b><i style="background:#F59E0B"></i></div>
+    </div>
+    <figcaption style="padding:0 20px 14px;font-size:12px;color:#7F93AD">Sample report. Map © OpenStreetMap contributors; hail from NOAA MRMS radar.</figcaption>
+  </figure>
 </div></section>
 
 <!-- TRUST STRIP -->
 <section class="white" aria-label="Data and coverage" style="padding:28px 0"><div class="wrap grid-tight" style="align-items:center">
-  <div class="feature" style="align-items:center"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1D4E89" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 12 4 8"></path><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle></svg></div><div><strong>NOAA radar hail estimates</strong><p style="font-size:15px">1 km grid, covering the last 5 years</p></div></div>
-  <div class="feature" style="align-items:center"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1D4E89" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"></ellipse><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"></path><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"></path></svg></div><div><strong>Official NWS storm records</strong><p style="font-size:15px">Decades of history with narratives</p></div></div>
-  <div class="feature" style="align-items:center"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1D4E89" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18"></path></svg></div><div><strong>Nationwide coverage</strong><p style="font-size:15px">Any address in the United States</p></div></div>
-</div></section>
-
-<!-- RECENT STORMS -->
-<section id="recent"><div class="wrap">
-  <div style="display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap;margin-bottom:24px">
-    <div><h2 style="margin-bottom:6px">Recent hail storms</h2><p style="margin:0;color:var(--muted)">Mapped from NOAA radar every day.</p></div>
-    <a href="/hail-maps" class="btn btn-line">All hail maps</a>
-  </div>
-  <div id="feed" class="grid-tight"><p style="color:var(--muted)">Loading recent storms…</p></div>
+  <div class="feature" style="align-items:center"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0E7490" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 12 4 8"></path><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle></svg></div><div><strong>NOAA radar hail estimates</strong><p style="font-size:15px">1 km grid, covering the last 5 years</p></div></div>
+  <div class="feature" style="align-items:center"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0E7490" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"></ellipse><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"></path><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"></path></svg></div><div><strong>Official NWS storm records</strong><p style="font-size:15px">Decades of history with narratives</p></div></div>
+  <div class="feature" style="align-items:center"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0E7490" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18"></path></svg></div><div><strong>Nationwide coverage</strong><p style="font-size:15px">Any address in the United States</p></div></div>
 </div></section>
 
 <!-- WHO IT'S FOR -->
+<section id="who"><div class="wrap">
+  <p class="kick">Who it's for</p>
+  <h2>Built for the people who show up after the storm.</h2>
+  <p class="lede">Whether you're knocking doors, documenting a claim or writing a policy, the question is the same: what actually hit this roof, and when?</p>
+  <div class="tabs" role="tablist" aria-label="Choose your role" hidden>
+    <button class="tab" role="tab" id="tab-roof" aria-controls="who-roof" aria-selected="true">Roofing contractors</button>
+    <button class="tab" role="tab" id="tab-pa" aria-controls="who-pa" aria-selected="false" tabindex="-1">Public adjusters</button>
+    <button class="tab" role="tab" id="tab-other" aria-controls="who-other" aria-selected="false" tabindex="-1">Agents, realtors &amp; investors</button>
+  </div>
+
+  <div class="panel-dark" id="who-roof" role="tabpanel" aria-labelledby="tab-roof">
+    <div class="panel-main">
+      <p class="kick">For roofing contractors</p>
+      <h3>Knock the doors that actually got hit.</h3>
+      <p>Stop guessing from a news map. See exactly which streets took damaging hail, turn the swath into a route, and walk up to the door with proof on your phone.</p>
+      <ul class="benefits">
+        <li><div><b>See the swath before you load the truck</b><span>Radar hail size on a 1 km grid shows which neighborhoods took 1.5″ and which only saw pea-size.</span></div></li>
+        <li><div><b>Turn a storm into a route</b><span>Pull every ZIP code and city inside the swath at the size you choose, ready for door-knocking or an EDDM mailer.</span></div></li>
+        <li><div><b>Win the driveway conversation</b><span>Show the homeowner the date, the size and the map. A report with your company name makes you the pro on the street.</span></div></li>
+        <li><div><b>Be first call for past customers</b><span>Load your customer list and get one email when any of those homes is hit.</span></div></li>
+      </ul>
+      <a href="/register?role=roofer" class="btn btn-accent">Map your last storm free →</a>
+    </div>
+    <div class="panel-side">
+      <p class="side-label">How it fits your day</p>
+      <ol class="flow">
+        <li><div><b>Storm rolls through</b><span>Hail alerts for your territory</span></div></li>
+        <li><div><b>Swath on the map</b><span>Mapped from NOAA radar by morning</span></div></li>
+        <li><div><b>Lead list exported</b><span>ZIP codes and cities inside the swath</span></div></li>
+        <li><div><b>Report at the door</b><span>With your company name on it</span></div></li>
+        <li><div><b>Job lands in your CRM</b><span>JobNimbus, AccuLynx and more</span></div></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="panel-dark" id="who-pa" role="tabpanel" aria-labelledby="tab-pa">
+    <div class="panel-main">
+      <p class="kick">For public adjusters</p>
+      <h3>Pin down the date of loss before the carrier does.</h3>
+      <p>Every storm that touched the address, ranked by likely impact, with radar and ground reports side by side. Attach a clean, sourced storm history to the file in minutes.</p>
+      <ul class="benefits">
+        <li><div><b>Most likely date of loss, ranked</b><span>Every hail, wind and tornado date at the property, ordered by likely impact on this roof.</span></div></li>
+        <li><div><b>Verified means two sources agree</b><span>A date is marked Verified when radar at the property and nearby ground reports line up.</span></div></li>
+        <li><div><b>A report everyone can read</b><span>Dated, sourced NOAA and NWS data in plain language for your client, the contractor and the carrier.</span></div></li>
+        <li><div><b>Backup for disputed claims</b><span>Order a meteorologist-reviewed report from any property report when a claim needs more than radar.</span></div></li>
+      </ul>
+      <a href="/register?role=adjuster" class="btn btn-accent">Check a claim address free →</a>
+    </div>
+    <div class="panel-side">
+      <p class="side-label">How it fits your day</p>
+      <ol class="flow">
+        <li><div><b>New client calls</b><span>Enter the property address</span></div></li>
+        <li><div><b>See every storm</b><span>Hail, wind and tornado history</span></div></li>
+        <li><div><b>Pick the date of loss</b><span>Ranked and verified dates</span></div></li>
+        <li><div><b>Attach the report</b><span>Sourced history for the claim file</span></div></li>
+        <li><div><b>Track it in your CRM</b><span>ClaimWizard and others through Zapier or Make</span></div></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="panel-dark" id="who-other" role="tabpanel" aria-labelledby="tab-other">
+    <div class="panel-main">
+      <p class="kick">For agents, realtors &amp; investors</p>
+      <h3>Know a roof's storm history before you sign.</h3>
+      <p>Check storm exposure before you quote, list or buy. One address or a whole portfolio.</p>
+      <ul class="benefits">
+        <li><div><b>Insurance agents</b><span>See a property's storm exposure before you quote, and get a heads-up when warnings cover homes you insure.</span></div></li>
+        <li><div><b>Realtors</b><span>Hand buyers and sellers a one-page Storm Disclosure report before the inspection surfaces it for you.</span></div></li>
+        <li><div><b>Investors</b><span>Add storm history to due diligence and know what the roof has been through before you make an offer.</span></div></li>
+        <li><div><b>Property managers</b><span>Monitor every building and get one email listing which were hit, so inspections get scheduled fast.</span></div></li>
+      </ul>
+      <a href="/register" class="btn btn-accent">Run a property free →</a>
+    </div>
+    <div class="panel-side">
+      <p class="side-label">How it works</p>
+      <ol class="flow">
+        <li><div><b>Enter an address</b><span>Any U.S. property</span></div></li>
+        <li><div><b>See what hit it</b><span>Hail, wind and tornado history</span></div></li>
+        <li><div><b>Share the report</b><span>One page anyone can read</span></div></li>
+      </ol>
+    </div>
+  </div>
+</div></section>
+
+<!-- RECENT STORMS -->
+<section id="recent" style="padding-top:24px"><div class="wrap">
+  <div style="display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap;margin-bottom:24px">
+    <div><p class="kick">Live feed</p><h2 style="margin-bottom:6px">Recent hail storms</h2><p style="margin:0;color:var(--muted)">Mapped from NOAA radar every day.</p></div>
+    <a href="/hail-maps" class="btn btn-line">All hail maps</a>
+  </div>
+  <div id="feed" class="grid-tight" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))"><p style="color:var(--muted)">Loading recent storms…</p></div>
+</div></section>
+
+<!-- HAIL SIZE SCALE -->
 <section class="white"><div class="wrap">
-  <h2>Built for everyone who works with property.</h2>
-  <p class="lede">Whether you're knocking doors, filing a claim, writing a policy or buying a building, StormCheck Pro answers the same question: what storms actually hit this property?</p>
-  <div class="grid">
-    <div class="card"><h3>Roofing contractors</h3><p>After a storm, pull the ZIP codes inside the hail swath and walk up to the door already knowing what fell and when.</p></div>
-    <div class="card"><h3>Public adjusters</h3><p>Find the most likely date of loss, see which dates radar and ground reports both confirm, and attach a clean storm history to the claim.</p></div>
-    <div class="card"><h3>Insurance agents</h3><p>Check a property's storm exposure before you quote, and get a heads-up when warnings cover the homes you insure.</p></div>
-    <div class="card"><h3>Realtors</h3><p>Hand buyers and sellers a one-page Storm Disclosure report before the inspection surfaces it for you.</p></div>
-    <div class="card"><h3>Property managers</h3><p>Monitor every building in your portfolio and get one email listing which were hit, so inspections get scheduled fast.</p></div>
-    <div class="card"><h3>Real estate investors</h3><p>Add storm history to due diligence and know what the roof has been through before you make an offer.</p></div>
+  <p class="kick">Hail size scale</p>
+  <h2>What hail size means for a roof</h2>
+  <p class="lede">Drawn to relative size. Every report and storm map uses the same plain-language scale, so homeowners, buyers and clients get it at a glance.</p>
+  <div class="balls">
+    <div><div class="ball-wrap"><span class="ball" style="width:36px;height:36px"></span></div><h3><i style="background:#FBBF24"></i>Minor</h3><p class="sz">0.75–0.99″ · Penny</p><p>Cosmetic damage to soft metals and screens. Roof damage possible on older roofs.</p></div>
+    <div><div class="ball-wrap"><span class="ball" style="width:48px;height:48px"></span></div><h3><i style="background:#F59E0B"></i>Moderate</h3><p class="sz">1.00–1.24″ · Quarter</p><p>Damage likely on aging asphalt shingles; dents to gutters, vents and screens.</p></div>
+    <div><div class="ball-wrap"><span class="ball" style="width:60px;height:60px"></span></div><h3><i style="background:#EA580C"></i>Severe</h3><p class="sz">1.25–1.74″ · Half dollar</p><p>Shingle bruising and granule loss likely, especially on older roofs.</p></div>
+    <div><div class="ball-wrap"><span class="ball" style="width:84px;height:84px"></span></div><h3><i style="background:#B91C1C"></i>Major</h3><p class="sz">1.75–2.49″ · Golf ball</p><p>Widespread shingle damage, dented siding, gutters and vehicles.</p></div>
+    <div><div class="ball-wrap"><span class="ball" style="width:120px;height:120px"></span></div><h3><i style="background:#6D28D9"></i>Catastrophic</h3><p class="sz">2.50″+ · Tennis ball</p><p>Roof punctures, broken windows. Full roof replacement is common.</p></div>
+  </div>
+  <p style="color:var(--muted-2);font-size:15px;margin-top:24px">Typical outcomes. Roof age, material and wind all change what a given storm does.</p>
+</div></section>
+
+<!-- THE MATH -->
+<section><div class="wrap roi">
+  <div>
+    <p class="kick">The math</p>
+    <h2>Stop paying by the address.</h2>
+    <p class="lede" style="margin-bottom:20px">Pay-per-report services charge $40 or more every time you look up a roof. After a big storm, that adds up fast. StormCheck Pro is one flat price with unlimited reports.</p>
+    <strong>How many addresses do you check in a month?</strong>
+    <div class="chooser" id="roiChooser">
+      <button type="button" data-n="10" aria-pressed="false">10</button>
+      <button type="button" data-n="25" aria-pressed="true">25</button>
+      <button type="button" data-n="50" aria-pressed="false">50</button>
+      <button type="button" data-n="100" aria-pressed="false">100</button>
+    </div>
+    <div class="roi-out" aria-live="polite">
+      <div><small>Pay per report</small><b id="roiPer">$1,000</b><span>a month at $40 each</span></div>
+      <div><small>StormCheck Pro</small><b>$79</b><span>a month, unlimited</span></div>
+      <div class="keep"><small>You keep</small><b id="roiSave">$921</b><span id="roiYear">$11,052 a year on Pro</span></div>
+    </div>
+  </div>
+  <div>
+    <div class="table-wrap">
+      <table class="data compare">
+        <thead><tr><th scope="col"><span class="sr">Feature</span></th><th scope="col">Pay-per-report services</th><th scope="col">StormCheck Pro</th></tr></thead>
+        <tbody>
+          <tr><td>Price</td><td>$40+ per address</td><td>Flat monthly, unlimited</td></tr>
+          <tr><td>Hail size</td><td>Varies</td><td>At the property, 1 km radar grid</td></tr>
+          <tr><td>Date of loss</td><td>Varies</td><td>Ranked, with Verified dates</td></tr>
+          <tr><td>Lead lists</td><td>Rarely included</td><td>Every ZIP and city in the swath</td></tr>
+          <tr><td>Storm playback</td><td>Varies</td><td>Hour by hour</td></tr>
+          <tr><td>Alerts</td><td>Varies</td><td>Territory and portfolio</td></tr>
+          <tr><td>CRM sync</td><td>Rarely included</td><td>JobNimbus, AccuLynx, Zapier, Make</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </div></section>
 
 <!-- FEATURES -->
-<section id="features"><div class="wrap">
-  <h2 style="margin-bottom:40px">What's in StormCheck Pro</h2>
+<section class="white" id="features"><div class="wrap">
+  <p class="kick">What's inside</p>
+  <h2 style="margin-bottom:40px">From one address to a whole territory.</h2>
   <div class="grid" style="gap:36px 32px">
-    <div class="feature"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1D4E89" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"></path><circle cx="12" cy="10" r="3"></circle></svg></div><div><h3>Hail size at the property</h3><p>Radar-estimated hail at the address itself, not just "a report 3 miles away," with 1, 3 and 10-mile context.</p></div></div>
-    <div class="feature"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1D4E89" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg></div><div><h3>Verified storm dates</h3><p>A date is Verified when radar at the property and ground reports nearby agree. Stronger than either alone.</p></div></div>
-    <div class="feature"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1D4E89" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"></path><path d="M3 6h.01M3 12h.01M3 18h.01"></path></svg></div><div><h3>Date-of-loss finder</h3><p>Every storm date ranked by likely impact on this roof, with wind and tornado activity included.</p></div></div>
-    <div class="feature"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1D4E89" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"></path><path d="M9 4v14M15 6v14"></path></svg></div><div><h3>Hail swath maps &amp; playback</h3><p>See exactly where hail fell, adjust the layer's transparency, and play a storm back hour by hour.</p></div></div>
-    <div class="feature"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1D4E89" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h18v18H3z"></path><path d="M3 9h18M9 21V9"></path></svg></div><div><h3>Swath-based lead lists</h3><p>Every ZIP code and city inside the swath at the size you choose, exported for EDDM, plus the boundary for your canvassing app.</p></div></div>
-    <div class="feature"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1D4E89" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21V8l9-5 9 5v13"></path><path d="M9 21v-6h6v6"></path></svg></div><div><h3>Portfolio monitoring</h3><p>Upload hundreds of addresses. When any one is hit, you get one email listing them all.</p></div></div>
-    <div class="feature"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1D4E89" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg></div><div><h3>Alerts before and after</h3><p>Territory alerts when radar shows hail in your area, plus a heads-up when NWS hail warnings cover your properties.</p></div></div>
-    <div class="feature"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1D4E89" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><path d="M14 3v6h6"></path><path d="M8 14h8M8 18h5"></path></svg></div><div><h3>Branded reports</h3><p>Full reports for claims, a one-page Storm Disclosure for listings, and meteorologist-reviewed reports for disputes.</p></div></div>
-    <div class="feature"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1D4E89" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"></path></svg></div><div><h3>Teams &amp; white-label</h3><p>Add your crew and put your company name, logo and colors on every report.</p></div></div>
+    <div class="feature"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0E7490" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"></path><circle cx="12" cy="10" r="3"></circle></svg></div><div><h3>Hail size at the property</h3><p>Radar-estimated hail at the address itself, not just "a report 3 miles away," with 1, 3 and 10-mile context.</p></div></div>
+    <div class="feature"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0E7490" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg></div><div><h3>Verified storm dates</h3><p>A date is Verified when radar at the property and ground reports nearby agree. Stronger than either alone.</p></div></div>
+    <div class="feature"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0E7490" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"></path><path d="M3 6h.01M3 12h.01M3 18h.01"></path></svg></div><div><h3>Date-of-loss finder</h3><p>Every storm date ranked by likely impact on this roof, with wind and tornado activity included.</p></div></div>
+    <div class="feature"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0E7490" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"></path><path d="M9 4v14M15 6v14"></path></svg></div><div><h3>Hail swath maps &amp; playback</h3><p>See exactly where hail fell, adjust the layer's transparency, and play a storm back hour by hour.</p></div></div>
+    <div class="feature"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0E7490" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h18v18H3z"></path><path d="M3 9h18M9 21V9"></path></svg></div><div><h3>Swath-based lead lists</h3><p>Every ZIP code and city inside the swath at the size you choose, exported for EDDM, plus the boundary for your canvassing app.</p></div></div>
+    <div class="feature"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0E7490" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21V8l9-5 9 5v13"></path><path d="M9 21v-6h6v6"></path></svg></div><div><h3>Portfolio monitoring</h3><p>Upload hundreds of addresses. When any one is hit, you get one email listing them all.</p></div></div>
+    <div class="feature"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0E7490" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg></div><div><h3>Alerts before and after</h3><p>Territory alerts when radar shows hail in your area, plus a heads-up when NWS hail warnings cover your properties.</p></div></div>
+    <div class="feature"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0E7490" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><path d="M14 3v6h6"></path><path d="M8 14h8M8 18h5"></path></svg></div><div><h3>Branded reports</h3><p>Full reports for claims, a one-page Storm Disclosure for listings, and meteorologist-reviewed reports for disputes.</p></div></div>
+    <div class="feature"><div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0E7490" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"></path></svg></div><div><h3>Teams &amp; white-label</h3><p>Add your crew and put your company name, logo and colors on every report.</p></div></div>
   </div>
 </div></section>
 
@@ -132,28 +256,17 @@
   </div>
 </div></section>
 
-<!-- SEVERITY SCALE -->
-<section class="white"><div class="wrap narrow">
-  <h2>What hail size means for a roof</h2>
-  <p class="lede">Every report and storm map uses the same plain-language scale, so homeowners, buyers and clients understand it at a glance.</p>
-  <div class="scale">
-    <div class="scale-row"><div class="lvl"><span class="dot" style="background:#ca8a04"></span>0.75–0.99"</div><p><strong>Minor.</strong> Cosmetic damage to soft metals and screens. Roof damage possible on older roofs.</p></div>
-    <div class="scale-row"><div class="lvl"><span class="dot" style="background:#d97706"></span>1.00–1.24"</div><p><strong>Moderate.</strong> Damage likely on aging asphalt shingles; dents to gutters, vents and screens.</p></div>
-    <div class="scale-row"><div class="lvl"><span class="dot" style="background:#ea580c"></span>1.25–1.74"</div><p><strong>Severe.</strong> Shingle bruising and granule loss likely, especially on older roofs.</p></div>
-    <div class="scale-row"><div class="lvl"><span class="dot" style="background:#b91c1c"></span>1.75–2.49"</div><p><strong>Major.</strong> Widespread shingle damage, dented siding, gutters and vehicles.</p></div>
-    <div class="scale-row"><div class="lvl"><span class="dot" style="background:#7f1d1d"></span>2.50"+</div><p><strong>Catastrophic.</strong> Roof punctures, broken windows. Full roof replacement is common.</p></div>
-  </div>
-  <p style="color:var(--muted-2);font-size:15px;margin-top:12px">Typical outcomes. Roof age, material and wind all change what a given storm does.</p>
-</div></section>
-
-<!-- HOW IT WORKS -->
+<!-- FOUNDER -->
 <section><div class="wrap">
-  <h2 style="margin-bottom:40px">From address to report in seconds</h2>
-  <ol class="steps">
-    <li><p class="num">01</p><h3>Enter an address</h3><p style="margin:0;color:var(--muted)">Any residential or commercial property in the U.S.</p></li>
-    <li><p class="num">02</p><h3>See what hit it</h3><p style="margin:0;color:var(--muted)">Radar hail at the property, ground reports, verified dates and the swath on a map.</p></li>
-    <li><p class="num">03</p><h3>Share or act</h3><p style="margin:0;color:var(--muted)">Print a branded report, pull a lead list for the area, or add the property to your portfolio.</p></li>
-  </ol>
+  <div class="panel-dark founder">
+    <div class="mark" aria-hidden="true"><svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 14H7a4.5 4.5 0 1 1 1.1-8.86A6 6 0 0 1 19.5 9a2.5 2.5 0 0 1-2 5z"></path><circle cx="8" cy="19" r="1.3"></circle><circle cx="12.5" cy="20.5" r="1.3"></circle><circle cx="16.5" cy="18.5" r="1.3"></circle></svg></div>
+    <div>
+      <p class="kick">Why we built it</p>
+      <h3>Built by a public adjuster, not a weather company.</h3>
+      <p style="margin:0;font-size:17px">StormCheck Pro was built by Ryan Lancon at <a href="https://thepublicadjustertx.com" style="color:#67E8F9">First Call Public Adjusters</a> in Southlake, TX. It's the tool he wanted on his own claims: what hit the roof, when, and how big, in a report a homeowner, a contractor and a carrier can all read.</p>
+      <ul class="creds"><li>Licensed public adjuster · TX, OK, CO</li><li>Haag Certified Inspector</li><li>IICRC certified</li></ul>
+    </div>
+  </div>
 </div></section>
 
 <!-- PRICING -->
@@ -192,23 +305,44 @@
 
   <div class="card" style="margin-top:32px;background:var(--navy-2);border-color:var(--line-dark);color:#fff;display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between">
     <div style="flex:1 1 380px;min-width:0">
-      <p style="margin:0 0 6px;font-size:13px;font-weight:700;letter-spacing:.08em;color:#F2C77A">COMING SOON · PA PRO BUNDLE</p>
+      <p style="margin:0 0 6px;font-size:13px;font-weight:700;letter-spacing:.08em;color:#67E8F9">COMING SOON · PA PRO BUNDLE</p>
       <h3 style="margin:0 0 6px;font-size:22px">StormCheck Pro + RoofTrace Pro + ClaimScope AI for $179/mo</h3>
       <p style="color:#C7D0DC">Storm history, roof measurements and AI claim review in one subscription.</p>
     </div>
     <form id="waitForm" style="flex:1 1 340px;min-width:0;display:flex;flex-wrap:wrap;gap:10px" class="dark">
       <label for="waitEmail" class="sr">Email address</label>
-      <input id="waitEmail" type="email" required placeholder="you@company.com" style="flex:1 1 200px;min-width:0;min-height:48px;padding:0 14px;border-radius:10px;border:1px solid #4A5B76;background:var(--navy);color:#fff;font-size:16px;font-family:inherit">
+      <input id="waitEmail" type="email" required placeholder="you@company.com" style="flex:1 1 200px;min-width:0;min-height:48px;padding:0 14px;border-radius:10px;border:1px solid #2A4A73;background:var(--navy);color:#fff;font-size:16px;font-family:inherit">
       <button class="btn btn-accent" type="submit">Notify me</button>
       <p id="waitMsg" role="status" style="margin:0;width:100%;color:#C7D0DC"></p>
     </form>
   </div>
 </div></section>
 
+<!-- FAQ -->
+<section class="white" id="faq"><div class="wrap narrow">
+  <p class="kick">Straight answers</p>
+  <h2>What contractors and adjusters ask us first</h2>
+  <div style="border-top:1px solid #D5DCE6">
+    <details><summary>Will a carrier accept a radar report?</summary><p>Radar doesn't prove damage, and no report can promise what a carrier will do. What you get is a dated, sourced storm history from NOAA radar and National Weather Service records to support the inspection and the claim file. When a claim is disputed, you can order a meteorologist-reviewed report from any property report.</p></details>
+    <details><summary>I already pay for a hail service. Why switch?</summary><p>Most charge by the address. StormCheck Pro is unlimited on every plan, and it adds swath lead lists, storm playback, portfolio alerts and CRM sync on top of the report.</p></details>
+    <details><summary>How accurate is the hail size?</summary><p>Sizes come from NOAA MRMS radar on a 1 km grid, estimated at the property itself instead of the nearest report miles away. Roof age, material and wind still matter, so treat it as where to look, then inspect.</p></details>
+    <details><summary>Where does the storm data come from?</summary><p>Three NOAA sources: MRMS radar estimates of maximum hail size on a 1 km grid, the National Weather Service's official Storm Events Database, and Storm Prediction Center spotter reports for the most recent months.</p></details>
+    <details><summary>What does "Verified" mean?</summary><p>Radar estimated hail of 0.75" or larger at the property, and at least one ground hail report was filed within 3 miles on the same day. Two independent sources agreeing is much stronger evidence than either alone.</p></details>
+    <details><summary>How far back does the history go?</summary><p>Every report covers the last 5 years of storms: radar hail estimates, official National Weather Service records and spotter reports.</p></details>
+    <details><summary>Will my crew actually use it?</summary><p>It works in the CRM you already run. JobNimbus and AccuLynx connect directly: your customers or jobs load in automatically, and when a property is hit we add a note to that customer or job. ClaimWizard, HubSpot, SPOTIO and other CRMs connect through Zapier or Make. The Team plan covers up to 5 people.</p></details>
+    <details><summary>Where does it work?</summary><p>Everywhere in the United States. Radar hail estimates cover the lower 48 states; storm records cover all states.</p></details>
+    <details><summary>What do I get for free?</summary><p>One full property report with the map, storm dates, verification and impact score. No credit card. Free hail alerts by ZIP code are free forever.</p></details>
+    <details><summary>Can I use it before buying or listing a property?</summary><p>Yes. The Storm Disclosure report is a one-page storm history built for listings, buyers and due diligence.</p></details>
+    <details><summary>Can I put my logo on reports?</summary><p>Pro adds your company name, Team adds your logo, and Enterprise is fully white-labeled with your colors.</p></details>
+    <details><summary>Is there a phone app?</summary><p>Yes. Add StormCheck Pro to your iPhone or Android home screen and it opens full-screen like an app, with no app store download. <a href="/install">See how</a>.</p></details>
+    <details><summary>Can I cancel anytime?</summary><p>Yes. Plans are month to month with no contract.</p></details>
+  </div>
+</div></section>
+
 <!-- FREE ALERTS -->
 <section><div class="wrap narrow">
-  <h2>Not ready for a plan? Get free hail alerts.</h2>
-  <p class="lede">One email when NOAA radar shows hail near your ZIP code. No account needed.</p>
+  <h2>Not ready yet? Get free hail alerts.</h2>
+  <p class="lede">One email when NOAA radar shows hail near your ZIP code, so you hear about it before your competitors do. No account needed.</p>
   <form id="alertForm" style="display:flex;flex-direction:column;gap:12px">
     <div class="form-row">
       <div class="field" style="flex:2 1 240px"><label for="aEmail">Email</label><input id="aEmail" name="email" type="email" required autocomplete="email" placeholder="you@company.com"></div>
@@ -221,28 +355,14 @@
   </form>
 </div></section>
 
-<!-- FAQ -->
-<section class="white" id="faq"><div class="wrap narrow">
-  <h2>Questions</h2>
-  <div style="border-top:1px solid #D5DCE6">
-    <details><summary>Where does the storm data come from?</summary><p>Three NOAA sources: MRMS radar estimates of maximum hail size on a 1 km grid, the National Weather Service's official Storm Events Database, and Storm Prediction Center spotter reports for the most recent months.</p></details>
-    <details><summary>What does "Verified" mean?</summary><p>Radar estimated hail of 0.75" or larger at the property, and at least one ground hail report was filed within 3 miles on the same day. Two independent sources agreeing is much stronger evidence than either alone.</p></details>
-    <details><summary>How far back does the history go?</summary><p>Every report covers the last 5 years of storms: radar hail estimates, official National Weather Service records and spotter reports.</p></details>
-    <details><summary>Does it work with my CRM?</summary><p>Yes. JobNimbus and AccuLynx connect directly: your customers or jobs load into StormCheck Pro automatically, and when a property is hit we add a note to that customer or job. ClaimWizard, HubSpot, SPOTIO and other CRMs connect through Zapier or Make.</p></details>
-    <details><summary>Where does it work?</summary><p>Everywhere in the United States. Radar hail estimates cover the lower 48 states; storm records cover all states.</p></details>
-    <details><summary>What do I get for free?</summary><p>One full property report with the map, storm dates, verification and impact score. No credit card. Free hail alerts by ZIP code are free forever.</p></details>
-    <details><summary>Can I use it before buying or listing a property?</summary><p>Yes. The Storm Disclosure report is a one-page storm history built for listings, buyers and due diligence.</p></details>
-    <details><summary>Can I put my logo on reports?</summary><p>Pro adds your company name, Team adds your logo, and Enterprise is fully white-labeled with your colors.</p></details>
-    <details><summary>Is there a phone app?</summary><p>Yes. Add StormCheck Pro to your iPhone or Android home screen and it opens full-screen like an app, with no app store download. <a href="/install">See how</a>.</p></details>
-    <details><summary>Can I cancel anytime?</summary><p>Yes. Plans are month to month with no contract.</p></details>
-  </div>
-</div></section>
-
 <!-- FINAL CTA -->
-<section style="padding-top:0;padding-bottom:88px;background:var(--bg)"><div class="wrap">
-  <div style="background:var(--navy);color:#fff;border-radius:20px;padding:48px 32px;display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between;margin-top:80px">
-    <div style="flex:1 1 420px;min-width:0"><h2 style="margin:0 0 8px">Check your first address free.</h2><p style="margin:0;color:#C7D0DC;font-size:18px">See what hit it, when, and how big. Takes seconds.</p></div>
-    <a href="/register" class="btn btn-accent">Run your free report</a>
+<section style="padding-top:0;padding-bottom:88px"><div class="wrap">
+  <div class="cta-band">
+    <div style="flex:1 1 420px;min-width:0"><h2 style="margin:0 0 8px">Your first report is on us.</h2><p style="margin:0;color:#A9B9CF;font-size:18px">Full hail, wind and tornado history for any U.S. address in seconds. No credit card, no contract.</p></div>
+    <div class="btns">
+      <a href="/register?role=roofer" class="btn btn-accent">I'm a roofer: map my last storm →</a>
+      <a href="/register?role=adjuster" class="btn btn-ghost">I'm an adjuster: check a claim address →</a>
+    </div>
   </div>
 </div></section>
 </main>
@@ -274,16 +394,59 @@
 
   var SEV = { Trace: '#65a30d', Minor: '#ca8a04', Moderate: '#d97706', Severe: '#ea580c', Major: '#b91c1c', Catastrophic: '#7f1d1d' };
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
-  fetch('/api/public/recent-storms?limit=8').then(function (r) { return r.json(); }).then(function (d) {
+  fetch('/api/public/recent-storms?limit=6').then(function (r) { return r.json(); }).then(function (d) {
     var el = document.getElementById('feed');
     if (!d.storms || !d.storms.length) { el.innerHTML = '<p style="color:var(--muted)">No significant hail in the last few days. <a href="/hail-maps">Browse past storms</a>.</p>'; return; }
     el.innerHTML = d.storms.map(function (s) {
       var dt = new Date(s.date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-      return '<a class="storm-card" href="/hail-maps/' + s.date + '"><div class="date">' + dt + '</div><div class="size">' + s.maxIn.toFixed(2) + '"</div>' +
+      var img = '';
+      if (s.center) {
+        var la = s.center.lat, lo = s.center.lon, r2 = function (v) { return Math.round(v * 100) / 100; };
+        var b = [r2(lo - 1.1), r2(la - 0.62), r2(lo + 1.1), r2(la + 0.62)].join(',');
+        img = '<img class="thumb" loading="lazy" width="600" height="340" src="/storm-images/' + s.date + '.png?b=' + b + '" alt="Hail swath map for ' + esc(dt) + '" onerror="this.parentNode.classList.remove(\'has-map\');this.remove()">';
+      }
+      return '<a class="storm-card' + (img ? ' has-map' : '') + '" href="/hail-maps/' + s.date + '">' + img + '<div class="body"><div class="date">' + dt + '</div><div class="size">' + s.maxIn.toFixed(2) + '"</div>' +
         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><span class="sev" style="background:' + (SEV[s.severity] || '#475569') + '">' + esc(s.severity) + '</span><span style="color:var(--muted-2);font-size:14px">' + s.cityCount + ' cities hit</span></div>' +
-        '<div style="color:var(--muted);font-size:15px">' + esc((s.topCities || []).join(' · ')) + '</div></a>';
+        '<div style="color:var(--muted);font-size:15px">' + esc((s.topCities || []).join(' · ')) + '</div></div></a>';
     }).join('');
   }).catch(function () {});
+
+  // Who it's for: tabs. Without JS every panel stays visible.
+  var tabs = [].slice.call(document.querySelectorAll('#who [role=tab]'));
+  function showTab(t, focus) {
+    tabs.forEach(function (x) {
+      var on = x === t;
+      x.setAttribute('aria-selected', on ? 'true' : 'false');
+      x.tabIndex = on ? 0 : -1;
+      document.getElementById(x.getAttribute('aria-controls')).hidden = !on;
+    });
+    if (focus) t.focus();
+  }
+  if (tabs.length) {
+    tabs[0].parentNode.hidden = false;
+    tabs.forEach(function (t, i) {
+      t.addEventListener('click', function () { showTab(t); });
+      t.addEventListener('keydown', function (e) {
+        var k = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+        if (k) { e.preventDefault(); showTab(tabs[(i + k + tabs.length) % tabs.length], true); }
+      });
+    });
+    var role = new URLSearchParams(location.search).get('for');
+    showTab(role === 'adjuster' ? tabs[1] : role === 'agent' ? tabs[2] : tabs[0]);
+  }
+
+  // The math: pay-per-report vs Pro.
+  var money = function (v) { return '$' + v.toLocaleString('en-US'); };
+  var roiBtns = [].slice.call(document.querySelectorAll('#roiChooser button'));
+  roiBtns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      var n = +b.dataset.n, per = n * 40, save = per - 79;
+      roiBtns.forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+      document.getElementById('roiPer').textContent = money(per);
+      document.getElementById('roiSave').textContent = money(save);
+      document.getElementById('roiYear').textContent = money(save * 12) + ' a year on Pro';
+    });
+  });
 
   function wire(formId, msgId, url, body) {
     var f = document.getElementById(formId), m = document.getElementById(msgId);
