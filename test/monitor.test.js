@@ -8,6 +8,16 @@ const express = require('express');
 const http = require('http');
 const spc = require('../lib/spc-store');
 const mesh = require('../lib/mesh-store');
+// A 3x3 patch of hail around a point: real swaths are wider than one cell
+// (single cells are dropped as artifacts by the thin-line filter).
+const patch = (lat, lon, mm) => {
+  const ni = 7000, la1 = 54.995, lo1 = -129.995, index = [], data = [];
+  for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
+    index.push(Math.round((la1 - lat - a * 0.01) / 0.01) * ni + Math.round((lon + b * 0.01 - lo1) / 0.01));
+    data.push(mm);
+  }
+  return { index, data };
+};
 const dataJobs = require('../lib/data-jobs');
 const monitorRoutes = require('../monitor-routes');
 
@@ -40,7 +50,7 @@ test('pipeline endpoint reports imported SPC days, radar days and job runs', asy
   const today = spc.today();
   spc.saveDay(today, { hail: [{ lat: 33, lon: -97, mag: 1.5 }], wind: [], tornado: [] });
   const ni = 7000, la1 = 54.995, lo1 = -129.995;
-  mesh.ingestGrid('2024-03-14', { ni, nj: 3500, la1, lo1, di: 0.01, dj: 0.01, scanMode: 0, index: [Math.round((la1 - 32.94) / 0.01) * ni + Math.round((-97.13 - lo1) / 0.01)], data: [44.45] });
+  mesh.ingestGrid('2024-03-14', { ni, nj: 3500, la1, lo1, di: 0.01, dj: 0.01, scanMode: 0, ...patch(32.94, -97.13, 44.45) });
   await dataJobs._track('spc', async () => ({ done: 3, failed: 0 }));
   await dataJobs._track('warnings', async () => ({ ok: false, error: 'timeout of 15000ms exceeded' }));
   await assert.rejects(dataJobs._track('mesh', async () => { throw new Error('boom'); }));
@@ -52,7 +62,7 @@ test('pipeline endpoint reports imported SPC days, radar days and job runs', asy
     assert.strictEqual(body.spc.days[today].hail, 1);
     assert.ok(body.spc.days[today].fetchedAt);
     assert.strictEqual(body.mesh.coverage.last, '2024-03-14');
-    assert.strictEqual(body.mesh.recent[0].cells, 1);
+    assert.strictEqual(body.mesh.recent[0].cells, 9);
     assert.strictEqual(body.mesh.recent[0].tiles, undefined);
     assert.ok(body.runs.spc.lastSuccess);
     assert.strictEqual(body.runs.warnings.lastError, 'timeout of 15000ms exceeded');
@@ -65,7 +75,7 @@ test('pipeline endpoint reports imported SPC days, radar days and job runs', asy
 test('portfolio-match dry run flags a hit property and not a calm day; sends nothing', async () => {
   process.env.MONITOR_TOKEN = 'k'.repeat(40);
   const ni = 7000, la1 = 54.995, lo1 = -129.995;
-  mesh.ingestGrid('2024-03-15', { ni, nj: 3500, la1, lo1, di: 0.01, dj: 0.01, scanMode: 0, index: [Math.round((la1 - 32.94) / 0.01) * ni + Math.round((-97.13 - lo1) / 0.01)], data: [44.45] });
+  mesh.ingestGrid('2024-03-15', { ni, nj: 3500, la1, lo1, di: 0.01, dj: 0.01, scanMode: 0, ...patch(32.94, -97.13, 44.45) });
   const s = await serve();
   const q = (path) => new Promise((res, rej) => http.get({ port: s.address().port, path, headers: { 'x-monitor-token': 'k'.repeat(40) } }, r => { let b = ''; r.on('data', c => (b += c)); r.on('end', () => res({ status: r.statusCode, body: JSON.parse(b) })); }).on('error', rej));
   try {

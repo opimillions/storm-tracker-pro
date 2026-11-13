@@ -901,6 +901,23 @@ setTimeout(() => {
   } catch (e) { console.error('[mesh] repair failed:', e.message); }
 }, 15000);
 
+// One-time rebuild of storm summaries after the thin-line filter (mesh-store)
+// started dropping one-cell-thin artifact lines, so feeds and storm pages
+// stop listing them. Runs in the background, newest days first.
+setTimeout(() => {
+  const fs = require('fs');
+  const { dataPath, ensureDir } = require('./lib/paths');
+  const marker = require('path').join(ensureDir(dataPath('storm-days')), 'thinline-v1.json');
+  if (fs.existsSync(marker)) return;
+  const started = Date.now();
+  require('./lib/storm-days').resummarizeAll()
+    .then(n => {
+      fs.writeFileSync(marker, JSON.stringify({ at: new Date().toISOString(), days: n, ms: Date.now() - started }));
+      console.log(`[storm-days] rebuilt ${n} summaries with the thin-line filter`);
+    })
+    .catch(e => console.error('[storm-days] rebuild failed:', e.message));
+}, 30000);
+
 require('./lib/integrations').start({
   ...db,
   locateMissing: userId => watchlistRoutes._geocodeMissing(watchlistOps, userId).catch(e => console.error('[integrations] locate:', e.message)),
