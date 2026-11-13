@@ -20,7 +20,7 @@ const fmtShort = d => new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { m
 const inch = v => `${Number(v || 0).toFixed(2)}"`;
 const sevColor = level => (SCALE.find(s => s.level === level) || SCALE[SCALE.length - 1]).color;
 
-const LOGO = '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#F2A93B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 14H7a4.5 4.5 0 1 1 1.1-8.86A6 6 0 0 1 19.5 9a2.5 2.5 0 0 1-2 5z"></path><circle cx="8" cy="19" r="1.3"></circle><circle cx="12.5" cy="20.5" r="1.3"></circle><circle cx="16.5" cy="18.5" r="1.3"></circle></svg>';
+const LOGO = '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 14H7a4.5 4.5 0 1 1 1.1-8.86A6 6 0 0 1 19.5 9a2.5 2.5 0 0 1-2 5z"></path><circle cx="8" cy="19" r="1.3"></circle><circle cx="12.5" cy="20.5" r="1.3"></circle><circle cx="16.5" cy="18.5" r="1.3"></circle></svg>';
 
 function header() {
   return `<header class="site-head"><div class="wrap">
@@ -161,8 +161,22 @@ module.exports = function publicPages(app, { db }) {
   app.get('/api/public/recent-storms', (req, res) => {
     const state = req.query.state ? String(req.query.state).toUpperCase() : null;
     res.set('Cache-Control', 'public, max-age=600');
-    res.json({ storms: stormDays.recent({ limit: Math.min(+req.query.limit || 8, 30), minIn: 1, state }) });
+    const storms = stormDays.recent({ limit: Math.min(+req.query.limit || 8, 30), minIn: 1, state })
+      .map(s => { const center = stormCenter(s.date); return center ? { ...s, center } : s; });
+    res.json({ storms });
   });
+
+  // Hardest-hit city of a storm day, so the homepage can show a swath map
+  // thumbnail (/storm-images/:date.png) centered on it. Summaries don't change
+  // once built, so the answer is memoized.
+  const centers = new Map();
+  function stormCenter(date) {
+    if (!centers.has(date)) {
+      const c = ((stormDays.get(date) || {}).cities || [])[0];
+      centers.set(date, c && Number.isFinite(c.lat) && Number.isFinite(c.lon) ? { lat: c.lat, lon: c.lon } : null);
+    }
+    return centers.get(date);
+  }
 
   app.get('/api/public/swath', (req, res) => {
     if (!isDate(req.query.date)) return res.status(400).json({ error: 'date required' });

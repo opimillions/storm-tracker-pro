@@ -9,9 +9,11 @@
   var ENDPOINT = PUBLIC ? '/api/public/assistant/chat' : '/api/assistant/chat';
   var STORE = PUBLIC ? 'scpChatPublic' : 'scpChat';
 
+  // The public website uses the cyan brand accent; the app keeps amber.
+  var ACCENT = PUBLIC ? '#22D3EE' : '#F2A93B', ACCENT_INK = PUBLIC ? '#04121F' : '#172235';
   var css = document.createElement('style');
   css.textContent =
-    '.scp-fab{position:fixed;right:20px;bottom:20px;z-index:1100;width:58px;height:58px;border-radius:50%;border:0;background:#F2A93B;color:#172235;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer;display:flex;align-items:center;justify-content:center}' +
+    '.scp-fab{position:fixed;right:20px;bottom:20px;z-index:1100;width:58px;height:58px;border-radius:50%;border:0;background:' + ACCENT + ';color:' + ACCENT_INK + ';box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer;display:flex;align-items:center;justify-content:center}' +
     '.scp-fab:hover{background:#e59a28}' +
     '.scp-chat{position:fixed;right:20px;bottom:90px;z-index:1100;width:380px;max-width:calc(100vw - 32px);height:520px;max-height:calc(100vh - 120px);background:#fff;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.3);display:none;flex-direction:column;overflow:hidden;font-family:inherit}' +
     '.scp-chat.open{display:flex}' +
@@ -38,7 +40,7 @@
     '.scp-modal .items{padding:8px 24px}' +
     '.scp-modal .it{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #f1f5f9}' +
     '.scp-modal .it:last-child{border-bottom:0}' +
-    '.scp-modal .it .n{flex:0 0 26px;height:26px;border-radius:50%;background:#F2A93B;color:#172235;font-weight:800;font-size:.8em;display:flex;align-items:center;justify-content:center}' +
+    '.scp-modal .it .n{flex:0 0 26px;height:26px;border-radius:50%;background:' + ACCENT + ';color:' + ACCENT_INK + ';font-weight:800;font-size:.8em;display:flex;align-items:center;justify-content:center}' +
     '.scp-modal .it b{color:#172235}.scp-modal .it p{color:#475569;font-size:.88em;margin:3px 0 0;line-height:1.45}' +
     '.scp-modal .it a{font-size:.82em;font-weight:700;color:#1d4e89}' +
     '.scp-modal .acts{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;padding:14px 24px 22px}' +
