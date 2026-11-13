@@ -591,7 +591,7 @@ app.get('/api/reverse-geocode', requireAuth, async (req, res) => {
 });
 
 app.post('/api/lookup', requireAuth, requireActiveSubscription, async (req, res) => {
-  const { address, years = 5 } = req.body;
+  const { address, years = 2 } = req.body;
   if (!address) return res.status(400).json({ error: 'Address is required' });
 
   // Portfolio properties are already located: use their coordinates directly.

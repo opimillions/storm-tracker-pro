@@ -19,6 +19,7 @@
     .modal h3 { margin-bottom: 20px; }
     .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
   </style>
+<script src="/js/dates.js"></script>
 </head>
 <body>
 
@@ -184,7 +185,7 @@ async function loadReviews() {
   const { reviews } = await r.json();
   const statuses = ['requested', 'awaiting_payment', 'paid', 'in_review', 'completed', 'cancelled'];
   document.getElementById('reviewsBody').innerHTML = reviews.length ? reviews.map(o => `<tr>
-    <td>${new Date(o.createdAt).toLocaleDateString()}</td>
+    <td>${mdy(o.createdAt)}</td>
     <td>${escA(o.name)}<br><small>${escA(o.email)}</small></td>
     <td>${escA(o.address)}</td><td>${escA(o.dateOfLoss)}</td>
     <td style="max-width:220px;font-size:0.85em">${escA(o.notes)}</td>
@@ -340,7 +341,7 @@ async function init() {
   if (data.recentAlerts.length > 0) {
     alertsBody.innerHTML = data.recentAlerts.map(a => `
       <tr>
-        <td>${new Date(a.detectedAt || a.detected_at).toLocaleString()}</td>
+        <td>${mdyTime(a.detectedAt || a.detected_at)}</td>
         <td>${escA(a.area)}</td>
         <td>${escA(a.eventType || a.event_type)}</td>
         <td>${(a.hailSize ?? a.hail_size) ? (a.hailSize ?? a.hail_size) + '"' : 'Unknown'}</td>
@@ -353,7 +354,7 @@ async function init() {
   if (data.recentLookups.length > 0) {
     lookupsBody.innerHTML = data.recentLookups.map(l => `
       <tr>
-        <td>${new Date(l.createdAt || l.created_at).toLocaleDateString()}</td>
+        <td>${mdy(l.createdAt || l.created_at)}</td>
         <td>${l.name} <span style="color:var(--muted);font-size:0.82em">${l.email}</span></td>
         <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.address}</td>
         <td>${l.eventsFound ?? l.events_found ?? 0}</td>
@@ -379,7 +380,7 @@ function renderUsers() {
     const limit = (u.lookupLimit !== undefined ? u.lookupLimit : u.lookup_limit) ?? 1;
     const status = u.subscriptionStatus || u.subscription_status || 'inactive';
     const created = u.createdAt || u.created_at || '';
-    const dateStr = created && created !== 'undefined' && created !== 'null' ? new Date(created).toLocaleDateString('en-US', {month:'2-digit',day:'2-digit',year:'2-digit'}) : '-';
+    const dateStr = created && created !== 'undefined' && created !== 'null' ? mdy(created) : '-';
     const tier = u.tier || 'trial';
     const isAdmin = u.role === 'admin';
     const tiers = ['trial','starter','pro','team','enterprise','partner','client','suspended'];
@@ -395,7 +396,7 @@ function renderUsers() {
         <select class="tier-select" onchange="changeTier('${id}', this.value)" ${isAdmin?'disabled':''}>
           ${tiers.map(t=>`<option value="${t}" ${t===tier?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}
         </select>
-        ${!isAdmin&&tier==='trial'?`<div>${u.promoSentAt ? `<div style="font-size:0.72em;color:#16a34a;font-weight:600;margin-bottom:3px;padding:3px 6px;background:#f0fdf4;border-radius:4px">&#10003; Sent ${new Date(u.promoSentAt).toLocaleDateString('en-US',{month:'2-digit',day:'2-digit'})}</div>` : ''}<button class="btn btn-sm" style="background:#0891b2;color:white;margin-bottom:4px;width:100%" onclick="sendPromoEmail('${id}','${u.email}','${id}', this)">Send STORM50</button></div>`:''}
+        ${!isAdmin&&tier==='trial'?`<div>${u.promoSentAt ? `<div style="font-size:0.72em;color:#16a34a;font-weight:600;margin-bottom:3px;padding:3px 6px;background:#f0fdf4;border-radius:4px">&#10003; Sent ${mdy(u.promoSentAt)}</div>` : ''}<button class="btn btn-sm" style="background:#0891b2;color:white;margin-bottom:4px;width:100%" onclick="sendPromoEmail('${id}','${u.email}','${id}', this)">Send STORM50</button></div>`:''}
         ${!isAdmin?`<button class="btn btn-sm btn-danger" style="margin-left:6px" onclick="deleteUser('${id}','${u.email}')">Delete</button>`:''}
       </td>
     </tr>`;

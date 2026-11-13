@@ -34,7 +34,7 @@
         '<div style="color:#5b6a80;font-size:0.88em;margin-bottom:10px">' + Object.entries(counts).map(function (e) { return esc(d.statuses[e[0]] || e[0]) + ': ' + e[1]; }).join(' · ') + '</div>' +
         '<div style="overflow-x:auto"><table><thead><tr><th>Sent</th><th>Homeowner</th><th>Property</th><th>From</th><th>To</th><th>Status</th></tr></thead><tbody>' +
           (d.referrals.length ? d.referrals.map(function (r) {
-            return '<tr><td>' + esc(new Date(r.createdAt).toLocaleDateString()) + '</td>' +
+            return '<tr><td>' + esc(mdy(r.createdAt)) + '</td>' +
               '<td><strong>' + esc(r.homeownerName) + '</strong><div style="font-size:0.8em;color:#5b6a80">' + esc(r.homeownerPhone || '') + ' ' + esc(r.homeownerEmail || '') + '</div></td>' +
               '<td>' + esc(r.address) + '<div style="font-size:0.8em;color:#5b6a80">' + esc(d.reasons[r.reason] || '') + (r.carrier ? ' · ' + esc(r.carrier) : '') + '</div></td>' +
               '<td>' + esc(r.contractorCompany || r.contractorName) + '<div style="font-size:0.8em;color:#5b6a80">' + esc(r.contractorEmail) + '</div></td>' +

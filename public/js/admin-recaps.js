@@ -24,7 +24,7 @@
     var root = document.getElementById('recapsRoot');
     try { state = await api('/api/admin/recaps'); } catch (e) { root.textContent = e.message; return; }
     var s = state.settings, c = state.counts;
-    var days = state.recentDays.map(function (d) { return '<option value="' + d.date + '">' + d.date + (d.maxIn ? ' (max ' + d.maxIn.toFixed(2) + '")' : '') + '</option>'; }).join('');
+    var days = state.recentDays.map(function (d) { return '<option value="' + d.date + '">' + mdyDay(d.date) + (d.maxIn ? ' (max ' + d.maxIn.toFixed(2) + '")' : '') + '</option>'; }).join('');
     root.innerHTML =
       '<div style="' + box + '">' + h('Storm recap emails') +
         sub('After a storm, prospects whose area was hit get a short recap: a hail swath map, the hardest-hit cities, the largest hail and the radar severe hail probability, with a link to start a free trial. Free alert subscribers already get the same recap for their ZIP code. Unsubscribes are permanent and every email includes your mailing address, as U.S. law (CAN-SPAM) requires.') +
@@ -74,7 +74,7 @@
 
       '<div style="' + box + '">' + h('Recent sends') +
         (state.runs.length ? '<table><thead><tr><th>When</th><th>Storm day</th><th>Sent</th><th>In hit area</th><th>Skipped (sent recently)</th><th>Failed</th><th>How</th></tr></thead><tbody>' + state.runs.map(function (r) {
-          return '<tr><td>' + esc(new Date(r.at).toLocaleString()) + '</td><td>' + esc(r.date) + '</td><td>' + r.sent + '</td><td>' + r.inArea + '</td><td>' + r.skippedRecent + '</td><td>' + r.failed + '</td><td>' + (r.manual ? 'Manual' : 'Automatic') + '</td></tr>';
+          return '<tr><td>' + esc(mdyTime(r.at)) + '</td><td>' + esc(mdyDay(r.date)) + '</td><td>' + r.sent + '</td><td>' + r.inArea + '</td><td>' + r.skippedRecent + '</td><td>' + r.failed + '</td><td>' + (r.manual ? 'Manual' : 'Automatic') + '</td></tr>';
         }).join('') + '</tbody></table>' : sub('Nothing sent yet.')) +
       '</div>';
 

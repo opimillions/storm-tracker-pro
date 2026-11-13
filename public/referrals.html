@@ -35,6 +35,7 @@
     .ritem { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
     .muted { color: var(--muted); font-size: .9em; }
   </style>
+<script src="/js/dates.js"></script>
 </head>
 <body>
 <nav id="appNav" class="app-nav"></nav>
@@ -161,7 +162,7 @@
     if (!d.referrals.length) { box.innerHTML = '<div class="muted">No referrals yet.</div>'; return; }
     box.innerHTML = d.referrals.map(function (x) {
       return '<div class="ritem"><div><strong>' + esc(x.homeownerName) + '</strong> · ' + esc(x.address) +
-        '<div class="muted">' + (x.category === 'appraiser' ? 'Appraiser' : 'Public adjuster') + ': ' + esc(x.proName) + ' · sent ' + esc(new Date(x.createdAt).toLocaleDateString()) + '</div>' +
+        '<div class="muted">' + (x.category === 'appraiser' ? 'Appraiser' : 'Public adjuster') + ': ' + esc(x.proName) + ' · sent ' + esc(mdy(x.createdAt)) + '</div>' +
         (x.lastNote ? '<div style="margin-top:4px;font-size:.92em">"' + esc(x.lastNote) + '"</div>' : '') + '</div>' +
         '<div><span class="st ' + esc(x.status) + '">' + esc(x.statusLabel) + '</span></div></div>';
     }).join('');
