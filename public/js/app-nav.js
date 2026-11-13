@@ -18,14 +18,14 @@
 
   var css = document.createElement('style');
   css.textContent =
-    '.app-nav{background:#172235;color:#fff;position:sticky;top:0;z-index:1000;box-shadow:0 2px 8px rgba(0,0,0,.25);display:flex;align-items:center;gap:16px;padding:0 16px;min-height:60px;flex-wrap:wrap}' +
+    '.app-nav{background:#071223;color:#fff;position:sticky;top:0;z-index:1000;box-shadow:0 2px 8px rgba(0,0,0,.25);display:flex;align-items:center;gap:16px;padding:0 16px;min-height:60px;flex-wrap:wrap}' +
     '.app-nav .brand{font-weight:800;font-size:1.15em;color:#fff;text-decoration:none;white-space:nowrap}' +
-    '.app-nav .brand span{color:#F2A93B}' +
+    '.app-nav .brand span{color:#22D3EE}' +
     '.app-nav .tabs{display:flex;align-items:center;gap:2px;margin-left:auto;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;max-width:100%}' +
     '.app-nav .tabs::-webkit-scrollbar{display:none}' +
     '.app-nav .tabs a{color:rgba(255,255,255,.82);text-decoration:none;font-size:.92em;font-weight:600;padding:10px 12px;border-radius:8px;white-space:nowrap;min-height:44px;display:inline-flex;align-items:center}' +
     '.app-nav .tabs a:hover{color:#fff;background:rgba(255,255,255,.08)}' +
-    '.app-nav .tabs a.active{color:#172235;background:#F2A93B}' +
+    '.app-nav .tabs a.active{color:#071223;background:#22D3EE}' +
     '.app-nav .tabs a.signout{border:1.5px solid rgba(255,255,255,.35);margin-left:6px}' +
     '@media (max-width:900px){.app-nav{padding:8px 12px 0;gap:4px}.app-nav .tabs{margin-left:0;width:100%;padding-bottom:6px}}';
   document.head.appendChild(css);

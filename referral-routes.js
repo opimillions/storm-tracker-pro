@@ -131,7 +131,7 @@ module.exports = function referralRoutes(app, { db, requireAuth, requireAdmin, g
           ${row('Notes', esc(r.notes))}
           ${row('Contractor', `${esc(u.name || '')} · <a href="mailto:${esc(u.email)}">${esc(u.email)}</a>`)}
         </table>
-        <p><a href="${link}" style="background:#172235;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold">Update the status</a>
+        <p><a href="${link}" style="background:#071223;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold">Update the status</a>
         ${report ? `&nbsp; <a href="${report}">Storm history for this property</a>` : ''}</p>
         <p style="color:#5b6a80;font-size:13px">The contractor sees the status you set. Keep this link private.</p>`),
     });
@@ -160,7 +160,7 @@ module.exports = function referralRoutes(app, { db, requireAuth, requireAdmin, g
           </select></label>
         <label style="font-weight:700">Note for the contractor (optional)
           <textarea name="note" rows="3" maxlength="500" style="display:block;width:100%;margin-top:4px;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit"></textarea></label>
-        <button style="min-height:48px;border:0;border-radius:8px;background:#172235;color:#fff;font-weight:700;font-size:16px;cursor:pointer">Save status</button>
+        <button style="min-height:48px;border:0;border-radius:8px;background:#071223;color:#fff;font-weight:700;font-size:16px;cursor:pointer">Save status</button>
         <p id="m" role="status"></p>
       </form>
       <p style="color:#5b6a80;font-size:14px">History: ${(r.history || []).map(h => `${esc(STATUSES[h.status] || h.status)} (${esc(h.at.slice(0, 10))})`).join(' → ')}</p>
@@ -243,8 +243,8 @@ module.exports = function referralRoutes(app, { db, requireAuth, requireAdmin, g
 function statusPage(title, body) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
 <title>${esc(title)} | StormCheck Pro</title></head>
-<body style="margin:0;background:#f4f6f9;font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#172235;font-size:16px;line-height:1.5">
-<div style="background:#172235;color:#fff;padding:16px 20px;font-weight:800">Storm<span style="color:#F2A93B">Check</span> Pro · Referral</div>
+<body style="margin:0;background:#f4f6f9;font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#071223;font-size:16px;line-height:1.5">
+<div style="background:#071223;color:#fff;padding:16px 20px;font-weight:800">Storm<span style="color:#22D3EE">Check</span> Pro · Referral</div>
 <main style="max-width:640px;margin:20px auto;padding:0 16px"><div style="background:#fff;border-radius:12px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06)">
 <h1 style="font-size:22px;margin:0 0 10px">${esc(title)}</h1>${body}</div></main></body></html>`;
 }

@@ -85,7 +85,7 @@
       btn.disabled = true; btn.textContent = 'Turning on…';
       try {
         await enable();
-        el.innerHTML = '<div style="font-weight:700">Hail alerts are on for this device.</div><a href="/alert-settings" style="color:#F2A93B;font-weight:700">Alert settings</a>';
+        el.innerHTML = '<div style="font-weight:700">Hail alerts are on for this device.</div><a href="/alert-settings" style="color:#22D3EE;font-weight:700">Alert settings</a>';
       } catch (e) {
         btn.disabled = false; btn.textContent = 'Turn on alerts';
         if (window.showAlert) window.showAlert(e.message, 'error'); else alert(e.message);

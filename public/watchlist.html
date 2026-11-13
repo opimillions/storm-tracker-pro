@@ -1,16 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#172235"><link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta charset="UTF-8"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#071223"><link rel="apple-touch-icon" href="/icons/icon-192.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Contact Watch List — StormCheck Pro</title>
   <link rel="stylesheet" href="/style.css">
   <style>
-    .wl-header { background: linear-gradient(135deg, #1a1a2e, #1e3a5f); color: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .wl-header { background: linear-gradient(135deg, #071223, #0C1C33); color: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
     .wl-header h1 { font-size: 1.4em; margin-bottom: 6px; }
     .wl-header p { opacity: 0.8; font-size: 0.88em; }
     .upload-box { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; border: 2px dashed var(--border); text-align: center; }
-    .upload-box.dragging { border-color: var(--red); background: #fef2f2; }
+    .upload-box.dragging { border-color: var(--accent); background: #E0F7FB; }
     .upload-box .icon { font-size: 2.5em; margin-bottom: 10px; }
     .upload-box h3 { color: var(--navy); margin-bottom: 8px; }
     .upload-box p { color: var(--muted); font-size: 0.88em; margin-bottom: 16px; }
@@ -39,7 +39,7 @@
   <div class="wl-header">
     <h1>Portfolio monitoring</h1>
     <p>Add the properties you manage, insure, own or serve. We check every address against NOAA radar every day and against storm reports every 15 minutes, and email you when one is hit. Team and Enterprise plans also get a heads-up when a hail warning covers your properties.</p>
-    <p style="margin-top:10px"><a href="/integrations" style="color:#F2C77A;font-weight:700">Using JobNimbus, AccuLynx or ClaimWizard? Connect your CRM to load your customers automatically →</a></p>
+    <p style="margin-top:10px"><a href="/integrations" style="color:#67E8F9;font-weight:700">Using JobNimbus, AccuLynx or ClaimWizard? Connect your CRM to load your customers automatically →</a></p>
   </div>
 
   <!-- Stats -->
@@ -120,7 +120,7 @@ async function loadContacts() {
     const s = byId[c._id] || {};
     return `
     <div class="contact-card ${s.hitDays3yr ? 'hit' : ''}">
-      <h4>${esc(c.name)}${c.source && c.source !== 'stormcheck' ? ` <span style="font-size:0.7em;font-weight:700;background:#e6eef8;color:#1d4e89;padding:2px 8px;border-radius:10px;vertical-align:middle">${({ jobnimbus: 'JobNimbus', acculynx: 'AccuLynx', webhook: 'CRM' })[c.source] || esc(c.source)}${c.crmStatus ? ' · ' + esc(c.crmStatus) : ''}</span>` : ''}</h4>
+      <h4>${esc(c.name)}${c.source && c.source !== 'stormcheck' ? ` <span style="font-size:0.7em;font-weight:700;background:#e6eef8;color:#0E7490;padding:2px 8px;border-radius:10px;vertical-align:middle">${({ jobnimbus: 'JobNimbus', acculynx: 'AccuLynx', webhook: 'CRM' })[c.source] || esc(c.source)}${c.crmStatus ? ' · ' + esc(c.crmStatus) : ''}</span>` : ''}</h4>
       <div class="addr">${esc(c.formattedAddress || c.address)}</div>
       <div class="contact-info">
         ${c.phone ? esc(c.phone) : ''}
