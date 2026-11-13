@@ -23,6 +23,7 @@ module.exports = {
     center: { lat: num('KNOWN_STORM_LAT', 32.942), lon: num('KNOWN_STORM_LON', -97.134) },
     date: env('KNOWN_STORM_DATE', '2024-03-14'),
     minInches: num('KNOWN_STORM_MIN_IN', 1.0),
+    calmDate: env('KNOWN_CALM_DATE', '2024-01-10'), // a day with no hail near the test address
   },
 
   // Test inbox that receives the controlled saved-property alert (IMAP).

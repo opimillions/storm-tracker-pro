@@ -15,6 +15,7 @@ const feeds = require('./feeds');
 const app = require('./app-client');
 const { STEPS, runWorkflow, cachedAddress } = require('./workflow');
 const alertTest = require('./alert-test');
+const portfolioMatch = require('./portfolio-match');
 const coverage = require('./coverage');
 const { notifier, channels } = require('./notify');
 
@@ -32,6 +33,7 @@ async function feedCycle() {
     engine.beat('feeds');
   }
   engine.log('feeds: ' + feeds.DEFS.map(d => `${d.id.slice(5)}=${(engine.state.checks[d.id] || {}).status}`).join(' '));
+  { const { actions } = await engine.run(portfolioMatch.CHECK, portfolioMatch.runMatchCheck); await engine.notify(actions); }
   engine.state.lastFeedCycle = engine.now();
   engine.state.cycles = (engine.state.cycles || 0) + 1;
   engine.beat('idle');
@@ -70,8 +72,8 @@ async function alertCycle() {
 
 function status() {
   const s = engine.state;
-  const order = [...feeds.DEFS.map(d => d.id), ...STEPS.map(x => x.id), alertTest.CHECK.id];
-  const checks = order.map(id => s.checks[id] || { id, status: 'pending', name: [...feeds.DEFS, ...STEPS, alertTest.CHECK].find(d => d.id === id).name });
+  const order = [...feeds.DEFS.map(d => d.id), ...STEPS.map(x => x.id), portfolioMatch.CHECK.id, alertTest.CHECK.id];
+  const checks = order.map(id => s.checks[id] || { id, status: 'pending', name: [...feeds.DEFS, ...STEPS, portfolioMatch.CHECK, alertTest.CHECK].find(d => d.id === id).name });
   return {
     monitor: {
       version: VERSION, startedAt: s.startedAt, heartbeat: s.heartbeat, phase: s.phase, cycles: s.cycles || 0,
@@ -129,7 +131,7 @@ if (require.main === module) {
   if (!config.statusToken) console.warn('[monitor] STATUS_TOKEN not set: /api/status is closed');
   engine.state.startedAt = engine.now();
   // Close incidents for checks that no longer exist (e.g. feed.iem: the 5-city watch-point monitor was retired).
-  const known = new Set([...feeds.DEFS.map(d => d.id), ...STEPS.map(x => x.id), alertTest.CHECK.id]);
+  const known = new Set([...feeds.DEFS.map(d => d.id), ...STEPS.map(x => x.id), portfolioMatch.CHECK.id, alertTest.CHECK.id]);
   for (const inc of engine.state.incidents) if (!inc.closedAt && !known.has(inc.checkId)) {
     inc.closedAt = engine.now(); inc.recovery = 'Check retired: the feature it watched was removed from StormCheck Pro.';
     delete engine.state.checks[inc.checkId];

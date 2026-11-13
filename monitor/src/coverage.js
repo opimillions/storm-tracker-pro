@@ -9,7 +9,7 @@ module.exports = [
   { feature: 'Hail map swath', checks: ['wf.swath', 'feed.mesh'] },
   { feature: 'Radar playback (Pro+)', checks: ['wf.playback', 'feed.frames'] },
   { feature: 'PDF report', checks: ['wf.pdf'] },
-  { feature: 'Saved-property (portfolio) alerts', checks: ['wf.alert', 'feed.mesh', 'feed.spc'], note: 'Delivery path tested; storm-matching path not yet' },
+  { feature: 'Saved-property (portfolio) alerts', checks: ['wf.match', 'wf.alert', 'feed.mesh', 'feed.spc'] },
   { feature: 'Storm list (recent reports)', checks: ['feed.spc'] },
   { feature: 'NWS warning heads-up emails (Team+)', checks: ['feed.nws'] },
   { feature: 'Radar hail probability in reports', checks: ['feed.hailsig'] },

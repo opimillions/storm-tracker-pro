@@ -74,10 +74,25 @@ function pipeline() {
     ncei: { coverage: ncei.coverage(), years: Object.fromEntries(recentYears.map(y => [y, years[y]])) },
     hailsig: { coverage: hailsig.coverage(), days: sigDays },
     frames: framesCache(),
+    portfolioRuns: dataJobs.getPortfolioRuns(),
   };
 }
 
+const alerts = require('./lib/alerts');
+const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
+
 module.exports = function monitorRoutes(app) {
+  // Dry run of the saved-property alert rule at one point. Sends nothing, stores nothing.
+  app.get('/api/monitor/portfolio-match', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (!process.env.MONITOR_TOKEN) return res.status(404).json({ error: 'Not found' });
+    if (!tokenOk(req)) return res.status(401).json({ error: 'Monitor token required' });
+    const lat = parseFloat(req.query.lat), lon = parseFloat(req.query.lon), min = parseFloat(req.query.min || '1');
+    if (!isDate(req.query.date) || !Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(min)) return res.status(400).json({ error: 'date, lat, lon and min required' });
+    try { res.json({ date: req.query.date, lat, lon, min, ...alerts.matchPoint(req.query.date, lat, lon, min) }); }
+    catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
   app.get('/api/monitor/pipeline', (req, res) => {
     res.set('Cache-Control', 'no-store');
     if (!process.env.MONITOR_TOKEN) return res.status(404).json({ error: 'Not found' });

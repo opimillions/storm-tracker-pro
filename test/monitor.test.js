@@ -61,3 +61,32 @@ test('pipeline endpoint reports imported SPC days, radar days and job runs', asy
     assert.strictEqual(body.jobsEnabled, false);
   } finally { s.close(); }
 });
+
+test('portfolio-match dry run flags a hit property and not a calm day; sends nothing', async () => {
+  process.env.MONITOR_TOKEN = 'k'.repeat(40);
+  const ni = 7000, la1 = 54.995, lo1 = -129.995;
+  mesh.ingestGrid('2024-03-15', { ni, nj: 3500, la1, lo1, di: 0.01, dj: 0.01, scanMode: 0, index: [Math.round((la1 - 32.94) / 0.01) * ni + Math.round((-97.13 - lo1) / 0.01)], data: [44.45] });
+  const s = await serve();
+  const q = (path) => new Promise((res, rej) => http.get({ port: s.address().port, path, headers: { 'x-monitor-token': 'k'.repeat(40) } }, r => { let b = ''; r.on('data', c => (b += c)); r.on('end', () => res({ status: r.statusCode, body: JSON.parse(b) })); }).on('error', rej));
+  try {
+    const hit = await q('/api/monitor/portfolio-match?date=2024-03-15&lat=32.94&lon=-97.13&min=1');
+    assert.strictEqual(hit.status, 200); assert.strictEqual(hit.body.hit, true); assert.strictEqual(hit.body.radarIn, 1.75);
+    const calm = await q('/api/monitor/portfolio-match?date=2024-01-10&lat=32.94&lon=-97.13&min=1');
+    assert.strictEqual(calm.body.hit, false);
+    assert.strictEqual((await q('/api/monitor/portfolio-match?date=bad&lat=1&lon=1')).status, 400);
+  } finally { s.close(); }
+});
+
+test('checkPortfolio uses the shared rule and the run is recorded for the monitor', async () => {
+  const sentTo = [];
+  const db = {
+    watchlistOps: { getAllWithCoords: async () => [{ _id: 'p1', userId: 'u1', name: 'Hit', lat: 32.94, lon: -97.13 }, { _id: 'p2', userId: 'u1', name: 'Miss', lat: 40, lon: -100 }], markAlerted: async () => {}, updateContact: async () => {} },
+    userOps: { findById: async () => ({ email: 'x@example.com' }) },
+    alertSettingsOps: { get: async () => ({ minHailSize: 1, alertEmail: false }) },
+  };
+  dataJobs._setCtx({ db });
+  const r = await dataJobs._runPortfolio('2024-03-15', 'radar');
+  assert.strictEqual(r.checked, 2); assert.strictEqual(r.hits, 1); assert.strictEqual(r.emails, 0);
+  const run = dataJobs.getPortfolioRuns()['2024-03-15'];
+  assert.strictEqual(run.hits, 1); assert.ok(run.radarRunAt); assert.strictEqual(run.error, null);
+});
