@@ -204,6 +204,13 @@ module.exports = function platformRoutes(app, { requireAuth, requireAdmin, requi
     catch (e) { res.status(502).json({ error: e.message }); }
   });
 
+  // Rewrite radar tiles keeping only valid records, then rebuild affected summaries.
+  app.post('/api/admin/data/repair-mesh', requireAuth, requireAdmin, (req, res) => {
+    const r = mesh.repairTiles();
+    for (const d of r.days) { try { stormDays.summarize(d); } catch { /* skip */ } }
+    res.json(r);
+  });
+
   app.post('/api/admin/data/sync-ncei', requireAuth, requireAdmin, (req, res) => {
     dataJobs.syncNcei();
     res.json({ started: true });
