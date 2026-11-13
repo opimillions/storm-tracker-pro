@@ -188,28 +188,17 @@
 <!-- THE MATH -->
 <section><div class="wrap roi">
   <div>
-    <p class="kick">The math</p>
-    <h2>Stop paying by the address.</h2>
-    <p class="lede" style="margin-bottom:20px">Pay-per-report services charge $40 or more every time you look up a roof. After a big storm, that adds up fast. StormCheck Pro is one flat price with unlimited reports.</p>
-    <strong>How many addresses do you check in a month?</strong>
-    <div class="chooser" id="roiChooser">
-      <button type="button" data-n="10" aria-pressed="false">10</button>
-      <button type="button" data-n="25" aria-pressed="true">25</button>
-      <button type="button" data-n="50" aria-pressed="false">50</button>
-      <button type="button" data-n="100" aria-pressed="false">100</button>
-    </div>
-    <div class="roi-out" aria-live="polite">
-      <div><small>Pay per report</small><b id="roiPer">$1,000</b><span>a month at $40 each</span></div>
-      <div><small>StormCheck Pro</small><b>$79</b><span>a month, unlimited</span></div>
-      <div class="keep"><small>You keep</small><b id="roiSave">$921</b><span id="roiYear">$11,052 a year on Pro</span></div>
-    </div>
+    <p class="kick">Unlimited</p>
+    <h2>One flat price. Every address.</h2>
+    <p class="lede" style="margin-bottom:20px">After a big storm you might check hundreds of roofs. Every StormCheck Pro plan includes unlimited reports, so you never ration a lookup or stop to count what it costs.</p>
+    <a href="#pricing" class="btn btn-navy">See plans</a>
   </div>
   <div>
     <div class="table-wrap">
       <table class="data compare">
         <thead><tr><th scope="col"><span class="sr">Feature</span></th><th scope="col">Pay-per-report services</th><th scope="col">StormCheck Pro</th></tr></thead>
         <tbody>
-          <tr><td>Price</td><td>$40+ per address</td><td>Flat monthly, unlimited</td></tr>
+          <tr><td>Reports</td><td>Charged per address</td><td>Unlimited on every plan</td></tr>
           <tr><td>Hail size</td><td>Varies</td><td>At the property, 1 km radar grid</td></tr>
           <tr><td>Date of loss</td><td>Varies</td><td>Ranked, with Verified dates</td></tr>
           <tr><td>Lead lists</td><td>Rarely included</td><td>Every ZIP and city in the swath</td></tr>
@@ -264,7 +253,6 @@
       <p class="kick">Why we built it</p>
       <h3>Built by a public adjuster, not a weather company.</h3>
       <p style="margin:0;font-size:17px">StormCheck Pro was built by Ryan Lancon at <a href="https://thepublicadjustertx.com" style="color:#67E8F9">First Call Public Adjusters</a> in Southlake, TX. It's the tool he wanted on his own claims: what hit the roof, when, and how big, in a report a homeowner, a contractor and a carrier can all read.</p>
-      <ul class="creds"><li>Licensed public adjuster · TX, OK, CO</li><li>Haag Certified Inspector</li><li>IICRC certified</li></ul>
     </div>
   </div>
 </div></section>
@@ -272,7 +260,7 @@
 <!-- PRICING -->
 <section class="dark" id="pricing"><div class="wrap">
   <h2 style="text-align:center">Unlimited reports. Simple plans.</h2>
-  <p class="lede" style="margin-left:auto;margin-right:auto;text-align:center">Other services charge $40 or more per address report. Every StormCheck Pro plan includes unlimited reports. Start with one free.</p>
+  <p class="lede" style="margin-left:auto;margin-right:auto;text-align:center">Every StormCheck Pro plan includes unlimited reports. Start with one free.</p>
   <p style="text-align:center;margin:-6px 0 18px"><span style="display:inline-block;background:#dcfce7;color:#166534;font-weight:700;padding:6px 14px;border-radius:999px;font-size:14px">Pay yearly and get 2 months free</span></p>
   <div class="plans">
     <div class="plan">
@@ -434,19 +422,6 @@
     var role = new URLSearchParams(location.search).get('for');
     showTab(role === 'adjuster' ? tabs[1] : role === 'agent' ? tabs[2] : tabs[0]);
   }
-
-  // The math: pay-per-report vs Pro.
-  var money = function (v) { return '$' + v.toLocaleString('en-US'); };
-  var roiBtns = [].slice.call(document.querySelectorAll('#roiChooser button'));
-  roiBtns.forEach(function (b) {
-    b.addEventListener('click', function () {
-      var n = +b.dataset.n, per = n * 40, save = per - 79;
-      roiBtns.forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
-      document.getElementById('roiPer').textContent = money(per);
-      document.getElementById('roiSave').textContent = money(save);
-      document.getElementById('roiYear').textContent = money(save * 12) + ' a year on Pro';
-    });
-  });
 
   function wire(formId, msgId, url, body) {
     var f = document.getElementById(formId), m = document.getElementById(msgId);
