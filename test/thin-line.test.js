@@ -26,16 +26,19 @@ for (let a = 0; a < 6; a++) for (let b = 0; b < 20; b++) swath.push([32.905 + a 
 const line = [];
 for (let b = 0; b < 10; b++) line.push([42.745, -73.825 + b * 0.01, b < 3 ? 0.97 : 1.24]);
 const lone = [[40.005, -90.005, 5.9]];
+// A real-looking 3.5" blob in Ontario, Canada: on the radar grid, but not a U.S. storm.
+const canada = [];
+for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) canada.push([46.735 + a * 0.01, -78.135 + b * 0.01, 3.5]);
 
 test.before(() => {
-  mesh.ingestGrid('2026-10-31', grid([...swath, ...line, ...lone]));
+  mesh.ingestGrid('2026-10-31', grid([...swath, ...line, ...lone, ...canada]));
 });
 
 test('maps keep the swath and drop the thin line and the lone pixel', () => {
   const all = mesh.cellsForDay('2026-10-31', -130, 20, -60, 55);
-  assert.strictEqual(all.length, swath.length, 'every swath cell kept, nothing else');
-  assert.ok(all.every(c => c[0] < 3300), 'only Texas cells remain');
-  assert.strictEqual(mesh._rawCellsForDay('2026-10-31', -130, 20, -60, 55).length, swath.length + line.length + lone.length, 'raw data is untouched');
+  assert.strictEqual(all.length, swath.length + canada.length, 'swath and the Canada blob kept, line and pixel dropped');
+  assert.ok(!all.some(c => c[0] >= 4270 && c[0] <= 4280), 'no Latham cells');
+  assert.strictEqual(mesh._rawCellsForDay('2026-10-31', -130, 20, -60, 55).length, swath.length + line.length + lone.length + canada.length, 'raw data is untouched');
 });
 
 test('cells on the edge of a small map box keep their neighbours', () => {
@@ -60,7 +63,7 @@ test('property lookups ignore the artifact and still see real hail', () => {
   assert.strictEqual(at(32.93, -97.15), 1.75);
 });
 
-test('storm summary uses the filtered maximum, not the raw 5.9" pixel', () => {
+test('storm summary max counts U.S. places only: not the raw 5.9" pixel or the 3.5" Canada blob', () => {
   const s = stormDays.summarize('2026-10-31');
   assert.strictEqual(s.maxIn, 1.75);
   assert.ok(!s.cities.some(c => c.state === 'NY'), 'Latham is not listed');
