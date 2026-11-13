@@ -162,20 +162,21 @@ module.exports = function publicPages(app, { db }) {
     const state = req.query.state ? String(req.query.state).toUpperCase() : null;
     res.set('Cache-Control', 'public, max-age=600');
     const storms = stormDays.recent({ limit: Math.min(+req.query.limit || 8, 30), minIn: 1, state })
-      .map(s => { const center = stormCenter(s.date); return center ? { ...s, center } : s; });
+      .map(s => { const center = stormCenter(s.date, (s.topCities || [])[0]); return center ? { ...s, center } : s; });
     res.json({ storms });
   });
 
   // Hardest-hit city of a storm day, so the homepage can show a swath map
-  // thumbnail (/storm-images/:date.png) centered on it. Summaries don't change
-  // once built, so the answer is memoized.
+  // thumbnail (/storm-images/:date.png) centered on it. Memoized per date and
+  // top city, so a rebuilt summary gets a fresh answer.
   const centers = new Map();
-  function stormCenter(date) {
-    if (!centers.has(date)) {
+  function stormCenter(date, topCity) {
+    const key = `${date}|${topCity || ''}`;
+    if (!centers.has(key)) {
       const c = ((stormDays.get(date) || {}).cities || [])[0];
-      centers.set(date, c && Number.isFinite(c.lat) && Number.isFinite(c.lon) ? { lat: c.lat, lon: c.lon } : null);
+      centers.set(key, c && Number.isFinite(c.lat) && Number.isFinite(c.lon) ? { lat: c.lat, lon: c.lon } : null);
     }
-    return centers.get(date);
+    return centers.get(key);
   }
 
   app.get('/api/public/swath', (req, res) => {

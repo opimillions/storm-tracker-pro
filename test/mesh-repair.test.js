@@ -29,7 +29,7 @@ test('a cut-short write no longer turns later records into "32 inch" hail', () =
   mesh._resetCache();
 
   for (const d of ['2026-09-18', '2026-09-19']) {
-    const cells = mesh.cellsForDay(d, -98, 28, -97, 29);
+    const cells = mesh._rawCellsForDay(d, -98, 28, -97, 29);
     assert.ok(cells.every(c => c[2] <= 6), `${d}: no impossible sizes (${JSON.stringify(cells)})`);
     assert.deepStrictEqual(cells.map(c => c[2]).sort(), [1, 1.75, 2.5], `${d}: all real cells recovered`);
   }
@@ -41,12 +41,12 @@ test('repairTiles rewrites the damaged tile cleanly', () => {
   assert.ok(r.bytesRemoved >= 2);
   assert.strictEqual(fs.statSync(TILE()).size % 6, 0);
   mesh._resetCache();
-  assert.strictEqual(mesh.cellsForDay('2026-09-19', -98, 28, -97, 29).length, 3);
+  assert.strictEqual(mesh._rawCellsForDay('2026-09-19', -98, 28, -97, 29).length, 3);
   assert.deepStrictEqual(mesh.repairTiles().fixed, [], 'second run finds nothing');
 });
 
 test('radar values above 6 inches are not stored', () => {
   mesh.ingestGrid('2026-09-20', grid([[28.705, -97.505, 9.04], [28.705, -97.405, 1.5]]));
-  const cells = mesh.cellsForDay('2026-09-20', -98, 28, -97, 29);
+  const cells = mesh._rawCellsForDay('2026-09-20', -98, 28, -97, 29);
   assert.deepStrictEqual(cells.map(c => c[2]), [1.5]);
 });
