@@ -26,7 +26,7 @@
     .dol-size { font-size: 1.4em; font-weight: 900; color: var(--navy); text-align: right; }
     .conf { display: inline-block; font-size: 0.75em; font-weight: 700; padding: 2px 9px; border-radius: 10px; margin-left: 6px; }
     .conf-Verified { background: #e7f5ec; color: #166534; }
-    .conf-Radar { background: #e6eef8; color: #1d4e89; }
+    .conf-Radar { background: #e6eef8; color: #0E7490; }
     .conf-Ground { background: #fff4e0; color: #8a4b00; }
     .conf-Nearby { background: #f1f5f9; color: #64748b; }
     .src-note { font-size: 0.8em; color: var(--muted); margin-top: 12px; line-height: 1.5; }
@@ -40,7 +40,7 @@
     .lookup-box h2 { font-size: 1.2em; margin-bottom: 16px; color: var(--navy); }
     .search-row { display: flex; gap: 10px; }
     .search-row input { flex: 1; padding: 13px 16px; border: 2px solid var(--border); border-radius: 8px; font-size: 1em; }
-    .search-row input:focus { outline: none; border-color: var(--red); }
+    .search-row input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34, 211, 238, .2); }
     .search-row select { padding: 13px 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 0.9em; }
     .lookup-limit { font-size: 0.82em; color: var(--muted); margin-top: 8px; }
     .lookup-limit .used { color: var(--red); font-weight: 700; }
@@ -70,8 +70,8 @@
     .history-empty { color: var(--muted); font-size: 0.9em; text-align: center; padding: 20px; }
     .history-row { cursor: pointer; }
     .history-row:hover td, .history-row:focus td { background: #f1f5f9; }
-    .history-row:focus { outline: 2px solid #F2A93B; outline-offset: -2px; }
-    .history-row .go { color: #1D4E89; font-weight: 700; white-space: nowrap; }
+    .history-row:focus { outline: 2px solid #22D3EE; outline-offset: -2px; }
+    .history-row .go { color: #0E7490; font-weight: 700; white-space: nowrap; }
 
     /* Upgrade banner */
     .upgrade-banner { background: linear-gradient(135deg, var(--navy), #2c3e50); color: white; border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
@@ -79,11 +79,11 @@
     .upgrade-banner p { font-size: 0.88em; opacity: 0.8; }
 
     .loading-overlay { text-align: center; padding: 60px 20px; }
-    .loading-overlay .spinner { width: 40px; height: 40px; border-width: 4px; border-color: rgba(0,0,0,0.1); border-top-color: var(--red); }
+    .loading-overlay .spinner { width: 40px; height: 40px; border-width: 4px; border-color: rgba(0,0,0,0.1); border-top-color: var(--accent); }
 
     /* Mobile nav hamburger */
     .hamburger { display:none; background:none; border:none; color:white; font-size:1.5em; cursor:pointer; padding:4px 8px; }
-    .mobile-menu { display:none; position:fixed; top:60px; left:0; right:0; background:var(--navy); z-index:200; flex-direction:column; padding:12px 0; border-bottom:2px solid var(--red); box-shadow:0 4px 12px rgba(0,0,0,0.3); }
+    .mobile-menu { display:none; position:fixed; top:60px; left:0; right:0; background:var(--navy); z-index:200; flex-direction:column; padding:12px 0; border-bottom:2px solid var(--accent); box-shadow:0 4px 12px rgba(0,0,0,0.3); }
     .mobile-menu.open { display:flex; }
     .mobile-menu a { padding:16px 24px; color:rgba(255,255,255,0.9); text-decoration:none; font-size:1em; border-bottom:1px solid rgba(255,255,255,0.08); display:block; font-weight:500; }
     .mobile-menu a:hover { background:rgba(255,255,255,0.05); }
@@ -102,7 +102,7 @@
     .brief-card { background:white; border-radius:10px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.07); }
     .brief-card .bc-val { font-size:1.6em; font-weight:900; color:var(--navy); }
     .brief-card .bc-lbl { font-size:0.78em; color:var(--muted); margin-top:2px; }
-    .brief-card.accent { border-left:4px solid var(--red); }
+    .brief-card.accent { border-left:4px solid var(--accent); }
     .recent-lookups-mini { background:white; border-radius:10px; padding:16px; margin-bottom:12px; }
     .recent-lookups-mini h4 { font-size:0.88em; color:var(--navy); margin-bottom:10px; font-weight:700; }
     .rl-item { display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid var(--border); cursor:pointer; }
@@ -661,7 +661,7 @@ function buildMap(lat, lon, events) {
 
   // Property marker
   L.marker([lat, lon], {
-    icon: L.divIcon({ html: '<div style="background:#1a1a2e;border:3px solid gold;width:16px;height:16px;border-radius:50%;box-shadow:0 0 6px rgba(0,0,0,0.4)"></div>', iconSize:[16,16], iconAnchor:[8,8] })
+    icon: L.divIcon({ html: '<div style="background:#071223;border:3px solid #22D3EE;width:16px;height:16px;border-radius:50%;box-shadow:0 0 6px rgba(0,0,0,0.4)"></div>', iconSize:[16,16], iconAnchor:[8,8] })
   }).bindPopup('<b>📍 Subject Property</b>').addTo(map);
 
   // Radius rings
@@ -680,7 +680,7 @@ function buildMap(lat, lon, events) {
     const eLat = e.eLat, eLon = e.eLon;
     if (eLat == null || eLon == null) return;
     const dp = e.date.split('-');
-    const circle = L.circleMarker([eLat,eLon],{color:'#172235',fillColor:color,fillOpacity:0.85,radius:Math.max(5, Math.min(12, e.size_in*5)),weight:1})
+    const circle = L.circleMarker([eLat,eLon],{color:'#071223',fillColor:color,fillOpacity:0.85,radius:Math.max(5, Math.min(12, e.size_in*5)),weight:1})
       .bindPopup(`<b>${dp[1]}/${dp[2]}/${dp[0]}</b><br>Size: <b>${e.size_in}" (${e.size_desc})</b><br>Distance: ${e.distance_miles} mi<br>${e.at_property?'<span style="color:#c0392b;font-weight:bold">⚠️ At Property</span>':e.location}`)
       .addTo(map);
     allLayers.push({layer:circle,date:e.date,dist:e.distance_miles||0,size:e.size_in});
@@ -828,7 +828,7 @@ async function loadHomeBrief() {
       return (Date.now() - d.getTime()) < 7 * 24 * 60 * 60 * 1000;
     }).length;
     briefEl.innerHTML = `
-      <div class="brief-card accent" style="cursor:pointer" onclick="window.location='/hailmap'"><div class="bc-val">${Math.max(sevenDayAlerts, recentSPCCount || 0) || 0}</div><div class="bc-lbl">Storm days (1+ hail) last 7 days</div>${Math.max(sevenDayAlerts, recentSPCCount||0) > 0 ? `<div style="margin-top:6px"><a href="/hailmap" style="font-size:0.75em;color:var(--red);font-weight:700">View Hail Map</a></div>` : ""}</div>
+      <div class="brief-card accent" style="cursor:pointer" onclick="window.location='/hailmap'"><div class="bc-val">${Math.max(sevenDayAlerts, recentSPCCount || 0) || 0}</div><div class="bc-lbl">Storm days (1+ hail) last 7 days</div>${Math.max(sevenDayAlerts, recentSPCCount||0) > 0 ? `<div style="margin-top:6px"><a href="/hailmap" style="font-size:0.75em;color:var(--link);font-weight:700">View Hail Map</a></div>` : ""}</div>
       <div class="brief-card"><div class="bc-val">${(recentLookups||[]).length}</div><div class="bc-lbl">Recent lookups</div></div>
       <div class="brief-card"><div class="bc-val" style="font-size:1.2em">${watchArea || 'Nationwide'}</div><div class="bc-lbl">Watch area</div></div>
     `;
@@ -1050,9 +1050,9 @@ function printReport() {
   // Add a print header
   const header = document.createElement('div');
   header.className = 'print-header';
-  header.style.cssText = 'display:none;text-align:center;padding:16px 0 24px;border-bottom:2px solid #1a1a2e;margin-bottom:20px';
+  header.style.cssText = 'display:none;text-align:center;padding:16px 0 24px;border-bottom:2px solid #071223;margin-bottom:20px';
   header.innerHTML = `
-    <div style="font-size:1.4em;font-weight:900;color:#1a1a2e">StormCheck Pro</div>
+    <div style="font-size:1.4em;font-weight:900;color:#071223">StormCheck Pro</div>
     <div style="font-size:0.85em;color:#888">Powered by First Call Public Adjusters &nbsp;|&nbsp; (817) 618-9884 &nbsp;|&nbsp; thepublicadjustertx.com</div>
     <div style="font-size:0.8em;color:#aaa;margin-top:4px">Report generated: ${new Date().toLocaleString()}</div>
   `;

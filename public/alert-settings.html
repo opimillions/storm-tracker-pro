@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#172235"><link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta charset="UTF-8"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#071223"><link rel="apple-touch-icon" href="/icons/icon-192.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Alert Settings — StormCheck Pro</title>
   <link rel="stylesheet" href="/style.css">
@@ -158,7 +158,7 @@ function renderRegions() {
     </div>`).join('');
   // Draw on map
   savedRegions.forEach(r => {
-    L.circle([r.lat, r.lon], { color:'#c0392b', fillColor:'#c0392b', fillOpacity:0.15, radius: r.radius * 1609.34 })
+    L.circle([r.lat, r.lon], { color:'#0E7490', fillColor:'#22D3EE', fillOpacity:0.15, radius: r.radius * 1609.34 })
       .bindTooltip(r.name, { permanent: true, direction: 'center' })
       .addTo(drawnRegions);
   });

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#172235">
+  <meta name="theme-color" content="#071223">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="/manifest.json">
   <title>Hail Swath Map — StormCheck Pro</title>
@@ -26,7 +26,7 @@
     .days { overflow-y: auto; flex: 1 1 auto; min-height: 60px; }
     .day { display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left; padding: 11px 16px; border: 0; border-bottom: 1px solid #f1f5f9; background: white; cursor: pointer; font-size: 0.92em; min-height: 44px; }
     .day:hover { background: #f8fafc; }
-    .day.active { background: #172235; color: white; }
+    .day.active { background: #071223; color: white; }
     .day .sz { font-weight: 800; }
     .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .row label { font-size: 0.85em; color: #444; }
@@ -145,7 +145,7 @@ async function loadDays() {
     document.getElementById('daysStatus').textContent = j.days.length
       ? `${j.days.length} day${j.days.length > 1 ? 's' : ''} · radar history ${cov.first ? fmtDate(cov.first) : ''} to ${cov.last ? fmtDate(cov.last) : ''}`
       : (cov.count ? 'No hail of that size in this view. Zoom out or lower the size.' : 'Radar history is still loading. Check back shortly.');
-    document.getElementById('days').innerHTML = j.days.map(d => `<button class="day ${d.date === currentDate ? 'active' : ''}" onclick="selectDay('${d.date}')"><span>${fmtDate(d.date)}</span><span class="sz" style="color:${d.date === currentDate ? '#F2A93B' : hailColor(d.maxIn)}">${d.maxIn.toFixed(2)}"</span></button>`).join('');
+    document.getElementById('days').innerHTML = j.days.map(d => `<button class="day ${d.date === currentDate ? 'active' : ''}" onclick="selectDay('${d.date}')"><span>${fmtDate(d.date)}</span><span class="sz" style="color:${d.date === currentDate ? '#22D3EE' : hailColor(d.maxIn)}">${d.maxIn.toFixed(2)}"</span></button>`).join('');
   } catch (e) { document.getElementById('daysStatus').textContent = e.message || 'Could not load days.'; }
 }
 
@@ -170,8 +170,8 @@ async function loadSwath(date, fit) {
   const rep = j.reports;
   document.getElementById('dayStat').innerHTML = `Largest in view: <strong>${j.maxIn.toFixed(2)}"</strong> · ${rep.hail.length} hail, ${rep.wind.length} wind, ${rep.tornado.length} tornado reports`;
   reportsLayer.clearLayers();
-  rep.hail.forEach(h => L.circleMarker([h.lat, h.lon], { radius: 4, color: '#172235', weight: 1, fillColor: '#ffffff', fillOpacity: 1 }).bindPopup(`<b>${(h.size || 0).toFixed(2)}" hail</b><br>${esc(h.loc)}, ${esc(h.state)}<br><small>${esc(h.n || '')}</small>`).addTo(reportsLayer));
-  rep.wind.forEach(w => L.circleMarker([w.lat, w.lon], { radius: 4, color: '#1d4e89', weight: 1, fillColor: '#93c5fd', fillOpacity: 1 }).bindPopup(`<b>Wind ${w.mph || ''} mph</b><br>${esc(w.loc)}, ${esc(w.state)}`).addTo(reportsLayer));
+  rep.hail.forEach(h => L.circleMarker([h.lat, h.lon], { radius: 4, color: '#071223', weight: 1, fillColor: '#ffffff', fillOpacity: 1 }).bindPopup(`<b>${(h.size || 0).toFixed(2)}" hail</b><br>${esc(h.loc)}, ${esc(h.state)}<br><small>${esc(h.n || '')}</small>`).addTo(reportsLayer));
+  rep.wind.forEach(w => L.circleMarker([w.lat, w.lon], { radius: 4, color: '#0E7490', weight: 1, fillColor: '#93c5fd', fillOpacity: 1 }).bindPopup(`<b>Wind ${w.mph || ''} mph</b><br>${esc(w.loc)}, ${esc(w.state)}`).addTo(reportsLayer));
   rep.tornado.forEach(t => L.circleMarker([t.lat, t.lon], { radius: 6, color: '#581c87', weight: 2, fillColor: '#c084fc', fillOpacity: 1 }).bindPopup(`<b>Tornado ${esc(t.ef || '')}</b><br>${esc(t.loc)}, ${esc(t.state)}`).addTo(reportsLayer));
   if (fit && j.cells.length) { const b = cellsBounds(j.cells.filter(c => c[2] >= 1).length ? j.cells.filter(c => c[2] >= 1) : j.cells); if (b) map.fitBounds(b, { maxZoom: 10, padding: [20, 20] }); }
 }

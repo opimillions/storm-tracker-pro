@@ -9,43 +9,43 @@
   var ENDPOINT = PUBLIC ? '/api/public/assistant/chat' : '/api/assistant/chat';
   var STORE = PUBLIC ? 'scpChatPublic' : 'scpChat';
 
-  // The public website uses the cyan brand accent; the app keeps amber.
-  var ACCENT = PUBLIC ? '#22D3EE' : '#F2A93B', ACCENT_INK = PUBLIC ? '#04121F' : '#172235';
+  // Brand accent (cyan), same on the public site and in the app.
+  var ACCENT = '#22D3EE', ACCENT_INK = '#04121F';
   var css = document.createElement('style');
   css.textContent =
     '.scp-fab{position:fixed;right:20px;bottom:20px;z-index:1100;width:58px;height:58px;border-radius:50%;border:0;background:' + ACCENT + ';color:' + ACCENT_INK + ';box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer;display:flex;align-items:center;justify-content:center}' +
-    '.scp-fab:hover{background:#e59a28}' +
+    '.scp-fab:hover{background:#06B6D4}' +
     '.scp-chat{position:fixed;right:20px;bottom:90px;z-index:1100;width:380px;max-width:calc(100vw - 32px);height:520px;max-height:calc(100vh - 120px);background:#fff;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.3);display:none;flex-direction:column;overflow:hidden;font-family:inherit}' +
     '.scp-chat.open{display:flex}' +
-    '.scp-chat header{background:#172235;color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px}' +
+    '.scp-chat header{background:#071223;color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px}' +
     '.scp-chat header b{font-size:1em}.scp-chat header small{display:block;opacity:.75;font-size:.78em;margin-top:2px}' +
     '.scp-chat header button{background:none;border:0;color:#fff;font-size:1.5em;cursor:pointer;width:40px;height:40px;line-height:1}' +
     '.scp-log{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:#f8fafc}' +
     '.scp-msg{max-width:88%;padding:10px 12px;border-radius:12px;font-size:.9em;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}' +
-    '.scp-msg.user{align-self:flex-end;background:#172235;color:#fff;border-bottom-right-radius:4px}' +
+    '.scp-msg.user{align-self:flex-end;background:#071223;color:#fff;border-bottom-right-radius:4px}' +
     '.scp-msg.bot{align-self:flex-start;background:#fff;border:1px solid #e2e8f0;color:#1e293b;border-bottom-left-radius:4px}' +
-    '.scp-msg.bot a{color:#1d4e89;font-weight:600}' +
+    '.scp-msg.bot a{color:#0E7490;font-weight:600}' +
     '.scp-sugg{display:flex;flex-wrap:wrap;gap:6px}' +
-    '.scp-sugg button{background:#fff;border:1px solid #cbd5e1;border-radius:999px;padding:7px 11px;font-size:.8em;cursor:pointer;color:#172235}' +
-    '.scp-sugg button:hover{border-color:#172235}' +
+    '.scp-sugg button{background:#fff;border:1px solid #cbd5e1;border-radius:999px;padding:7px 11px;font-size:.8em;cursor:pointer;color:#071223}' +
+    '.scp-sugg button:hover{border-color:#071223}' +
     '.scp-form{display:flex;gap:8px;padding:10px;border-top:1px solid #e2e8f0;background:#fff}' +
     '.scp-form textarea{flex:1;resize:none;border:1.5px solid #cbd5e1;border-radius:10px;padding:10px;font-family:inherit;font-size:.92em;height:44px;max-height:120px}' +
-    '.scp-form button{background:#172235;color:#fff;border:0;border-radius:10px;padding:0 16px;font-weight:700;cursor:pointer;min-height:44px}' +
+    '.scp-form button{background:#071223;color:#fff;border:0;border-radius:10px;padding:0 16px;font-weight:700;cursor:pointer;min-height:44px}' +
     '.scp-form button:disabled{opacity:.5}' +
     '.scp-typing{align-self:flex-start;color:#64748b;font-size:.85em}' +
     '.scp-modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:1200;display:flex;align-items:center;justify-content:center;padding:16px}' +
     '.scp-modal{background:#fff;border-radius:16px;max-width:560px;width:100%;max-height:calc(100vh - 32px);overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.35)}' +
-    '.scp-modal .top{background:linear-gradient(135deg,#172235,#1e3a5f);color:#fff;padding:22px 24px;border-radius:16px 16px 0 0}' +
+    '.scp-modal .top{background:linear-gradient(135deg,#071223,#1e3a5f);color:#fff;padding:22px 24px;border-radius:16px 16px 0 0}' +
     '.scp-modal .top h2{font-size:1.35em;margin:0 0 4px}.scp-modal .top p{opacity:.85;font-size:.92em;margin:0}' +
     '.scp-modal .items{padding:8px 24px}' +
     '.scp-modal .it{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #f1f5f9}' +
     '.scp-modal .it:last-child{border-bottom:0}' +
     '.scp-modal .it .n{flex:0 0 26px;height:26px;border-radius:50%;background:' + ACCENT + ';color:' + ACCENT_INK + ';font-weight:800;font-size:.8em;display:flex;align-items:center;justify-content:center}' +
-    '.scp-modal .it b{color:#172235}.scp-modal .it p{color:#475569;font-size:.88em;margin:3px 0 0;line-height:1.45}' +
-    '.scp-modal .it a{font-size:.82em;font-weight:700;color:#1d4e89}' +
+    '.scp-modal .it b{color:#071223}.scp-modal .it p{color:#475569;font-size:.88em;margin:3px 0 0;line-height:1.45}' +
+    '.scp-modal .it a{font-size:.82em;font-weight:700;color:#0E7490}' +
     '.scp-modal .acts{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;padding:14px 24px 22px}' +
     '.scp-modal .acts a,.scp-modal .acts button{min-height:44px;padding:0 18px;border-radius:10px;font-weight:700;font-size:.95em;display:inline-flex;align-items:center;cursor:pointer;text-decoration:none}' +
-    '.scp-modal .acts a{border:1.5px solid #172235;color:#172235}.scp-modal .acts button{background:#172235;color:#fff;border:0}' +
+    '.scp-modal .acts a{border:1.5px solid #071223;color:#071223}.scp-modal .acts button{background:#071223;color:#fff;border:0}' +
     '@media print{.scp-fab,.scp-chat{display:none!important}}';
   document.head.appendChild(css);
 

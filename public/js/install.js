@@ -31,10 +31,10 @@
 
   var css = document.createElement('style');
   css.textContent =
-    '#scpInstallBar{position:fixed;left:12px;right:12px;bottom:12px;z-index:1150;background:#172235;color:#fff;border-radius:14px;padding:14px 14px 14px 16px;box-shadow:0 12px 32px rgba(0,0,0,.3);display:flex;gap:12px;align-items:center;font-size:15px;line-height:1.4}' +
+    '#scpInstallBar{position:fixed;left:12px;right:12px;bottom:12px;z-index:1150;background:#071223;color:#fff;border-radius:14px;padding:14px 14px 14px 16px;box-shadow:0 12px 32px rgba(0,0,0,.3);display:flex;gap:12px;align-items:center;font-size:15px;line-height:1.4}' +
     '#scpInstallBar b{display:block;font-size:15px}#scpInstallBar span{color:#C7D0DC;font-size:13.5px}' +
     '#scpInstallBar button{border:0;border-radius:10px;min-height:44px;font-weight:700;cursor:pointer;font-family:inherit}' +
-    '#scpInstallBar .go{background:#F2A93B;color:#172235;padding:0 16px;white-space:nowrap}' +
+    '#scpInstallBar .go{background:#22D3EE;color:#071223;padding:0 16px;white-space:nowrap}' +
     '#scpInstallBar .x{background:transparent;color:#fff;font-size:22px;min-width:44px}' +
     '.scp-installbar .scp-fab{bottom:118px}.scp-installbar .scp-chat{bottom:188px}' +
     '@media (min-width:901px){#scpInstallBar{display:none}}';

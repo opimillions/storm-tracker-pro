@@ -5,13 +5,13 @@
   var css = document.createElement('style');
   css.textContent =
     '.wx-bar{background:#0f1a2b;color:#e6ecf5;font-size:.88em;display:flex;align-items:center;min-height:38px;border-bottom:1px solid rgba(255,255,255,.08);overflow:hidden;position:relative}' +
-    '.wx-bar .wx-place{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:0 12px;height:38px;background:#172235;font-weight:700;white-space:nowrap;z-index:1;box-shadow:6px 0 10px #0f1a2b}' +
+    '.wx-bar .wx-place{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:0 12px;height:38px;background:#071223;font-weight:700;white-space:nowrap;z-index:1;box-shadow:6px 0 10px #0f1a2b}' +
     '.wx-bar .wx-place button{background:none;border:1px solid rgba(255,255,255,.3);color:#cfd8e6;border-radius:6px;font-size:.8em;padding:4px 8px;min-height:28px;cursor:pointer}' +
     '.wx-bar .wx-track{flex:1;overflow:hidden;white-space:nowrap;mask-image:linear-gradient(90deg,transparent,#000 24px,#000 calc(100% - 24px),transparent)}' +
     '.wx-bar .wx-run{display:inline-block;padding-left:100%;animation:wx-scroll var(--wx-dur,60s) linear infinite}' +
     '.wx-bar:hover .wx-run,.wx-bar.paused .wx-run{animation-play-state:paused}' +
     '.wx-bar .wx-item{display:inline-block;margin-right:28px}' +
-    '.wx-bar .wx-day{color:#F2A93B;font-weight:700;margin-right:6px}' +
+    '.wx-bar .wx-day{color:#22D3EE;font-weight:700;margin-right:6px}' +
     '.wx-bar .wx-hi{color:#fff;font-weight:700}' +
     '.wx-bar .wx-lo{color:#9fb0c8}' +
     '.wx-bar .wx-rain{color:#7cc4ff}' +
