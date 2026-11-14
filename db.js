@@ -71,7 +71,8 @@ function tierFeatures(tier) {
 // ── User Operations ───────────────────────────────────────────────────────────
 const userOps = {
   async create(data) {
-    const hash = bcrypt.hashSync(data.password, 12);
+    // Async hashing lets other visitors' requests run while this one hashes.
+    const hash = await bcrypt.hash(String(data.password), 12);
     const trialEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
     return users.insert({
       email: data.email.toLowerCase(),
@@ -102,8 +103,9 @@ const userOps = {
     return users.findOne({ _id: id });
   },
 
-  verifyPassword(user, password) {
-    return bcrypt.compareSync(password, user.passwordHash);
+  async verifyPassword(user, password) {
+    if (!user || !user.passwordHash || typeof password !== 'string') return false;
+    return bcrypt.compare(password, user.passwordHash);
   },
 
   async updateLastLogin(id) {
@@ -263,11 +265,15 @@ async function seedAdmin() {
     });
     console.log(`Admin account created: ${adminEmail}`);
   } else {
-    // Always sync admin password from env var on startup
-    const bcrypt = require('bcryptjs');
-    const hash = bcrypt.hashSync(adminPassword, 12);
-    await users.update({ email: adminEmail }, { $set: { passwordHash: hash, role: 'admin', tier: 'admin', lookupLimit: -1 } });
-    console.log(`Admin password synced from env: ${adminEmail}`);
+    // Keep the admin role, but don't overwrite a password changed in the app
+    // (a reset would otherwise be undone on every restart). Set
+    // ADMIN_PASSWORD_SYNC=on for one deploy to force the env password back in.
+    const set = { role: 'admin', tier: 'admin', lookupLimit: -1 };
+    if (String(process.env.ADMIN_PASSWORD_SYNC || '').toLowerCase() === 'on') {
+      set.passwordHash = await require('bcryptjs').hash(adminPassword, 12);
+      console.log(`Admin password synced from env: ${adminEmail}`);
+    }
+    await users.update({ email: adminEmail }, { $set: set });
   }
 }
 

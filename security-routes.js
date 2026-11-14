@@ -83,7 +83,7 @@ module.exports = function securityRoutes(app, { db, requireAuth, requireAdmin })
   app.post('/api/account/2fa/disable', requireAuth, async (req, res) => {
     const u = await userOps.findById(req.user._id);
     if (!u.totpEnabled) return res.json({ success: true });
-    if (!userOps.verifyPassword(u, String((req.body || {}).password || ''))) return res.status(400).json({ error: 'Password is not right.' });
+    if (!(await userOps.verifyPassword(u, String((req.body || {}).password || '')))) return res.status(400).json({ error: 'Password is not right.' });
     if (!(await checkSecondFactor(u, (req.body || {}).code))) return res.status(400).json({ error: 'Code is not right.' });
     await userOps.update(u._id, { totpSecret: null, totpPending: null, totpEnabled: false, totpBackup: [], totpLastStep: null });
     res.json({ success: true });
