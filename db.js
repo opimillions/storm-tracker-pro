@@ -265,11 +265,15 @@ async function seedAdmin() {
     });
     console.log(`Admin account created: ${adminEmail}`);
   } else {
-    // Always sync admin password from env var on startup
-    const bcrypt = require('bcryptjs');
-    const hash = bcrypt.hashSync(adminPassword, 12);
-    await users.update({ email: adminEmail }, { $set: { passwordHash: hash, role: 'admin', tier: 'admin', lookupLimit: -1 } });
-    console.log(`Admin password synced from env: ${adminEmail}`);
+    // Keep the admin role, but don't overwrite a password changed in the app
+    // (a reset would otherwise be undone on every restart). Set
+    // ADMIN_PASSWORD_SYNC=on for one deploy to force the env password back in.
+    const set = { role: 'admin', tier: 'admin', lookupLimit: -1 };
+    if (String(process.env.ADMIN_PASSWORD_SYNC || '').toLowerCase() === 'on') {
+      set.passwordHash = await require('bcryptjs').hash(adminPassword, 12);
+      console.log(`Admin password synced from env: ${adminEmail}`);
+    }
+    await users.update({ email: adminEmail }, { $set: set });
   }
 }
 

@@ -40,6 +40,7 @@ const app = express();
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(security.headers());
+app.use(security.apiLimiter());
 
 const PORT = process.env.PORT || 3000;
 

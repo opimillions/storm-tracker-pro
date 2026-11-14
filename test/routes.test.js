@@ -188,7 +188,25 @@ test('admin pages need an admin', async () => {
   assert.strictEqual((await c.get('/api/admin/stats')).status, 403);
   const a = client();
   await a.post('/api/auth/login', { email: 'admin@test.local', password: 'AdminPass123!' });
+  // Admin tools stay locked until two-step sign-in is on.
+  const locked = await a.get('/api/admin/stats');
+  assert.strictEqual(locked.status, 403);
+  assert.strictEqual(locked.json.need2fa, true);
+  const setup = await a.post('/api/account/2fa/setup', {});
+  const sec = require('../lib/security');
+  const code = sec.totpAt(setup.json.key.replace(/\s/g, ''), Math.floor(Date.now() / 30000));
+  assert.strictEqual((await a.post('/api/account/2fa/enable', { code })).status, 200);
   const r = await a.get('/api/admin/stats');
   assert.strictEqual(r.status, 200);
   assert.ok(Array.isArray(r.json.recentAlerts));
+});
+
+test('sign-up rejects emails that could carry code, and pages send a strict CSP', async () => {
+  const c = client();
+  const bad = await c.post('/api/auth/register', { name: 'X', email: 'x"><svg onload=alert(1)>@x.co', password: 'password123' });
+  assert.strictEqual(bad.status, 400);
+  const res = await fetch(base + '/login');
+  const csp = res.headers.get('content-security-policy') || '';
+  assert.match(csp, /default-src 'self'/);
+  assert.match(csp, /connect-src 'self'/);
 });
