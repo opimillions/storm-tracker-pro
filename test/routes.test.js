@@ -55,7 +55,7 @@ test.before(async () => {
   proc = spawn(process.execPath, ['server.js'], {
     cwd: ROOT,
     env: {
-      ...process.env, PORT: String(port), DATA_DIR: DATA, DATA_JOBS: 'off', NODE_ENV: 'test',
+      ...process.env, PORT: String(port), DATA_DIR: DATA, DATA_JOBS: 'off', NODE_ENV: 'test', SIGNUPS_PER_HOUR: '1000',
       ADMIN_EMAIL: 'admin@test.local', ADMIN_PASSWORD: 'AdminPass123!', JWT_SECRET: 'x'.repeat(64),
       STRIPE_SECRET_KEY: 'sk_test_dummy', STRIPE_WEBHOOK_SECRET: WEBHOOK_SECRET,
       RESEND_API_KEY: '', SMTP_HOST: '',

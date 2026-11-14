@@ -71,7 +71,8 @@ function tierFeatures(tier) {
 // ── User Operations ───────────────────────────────────────────────────────────
 const userOps = {
   async create(data) {
-    const hash = bcrypt.hashSync(data.password, 12);
+    // Async hashing lets other visitors' requests run while this one hashes.
+    const hash = await bcrypt.hash(String(data.password), 12);
     const trialEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
     return users.insert({
       email: data.email.toLowerCase(),
@@ -102,8 +103,9 @@ const userOps = {
     return users.findOne({ _id: id });
   },
 
-  verifyPassword(user, password) {
-    return bcrypt.compareSync(password, user.passwordHash);
+  async verifyPassword(user, password) {
+    if (!user || !user.passwordHash || typeof password !== 'string') return false;
+    return bcrypt.compare(password, user.passwordHash);
   },
 
   async updateLastLogin(id) {

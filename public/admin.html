@@ -355,10 +355,10 @@ async function init() {
     lookupsBody.innerHTML = data.recentLookups.map(l => `
       <tr>
         <td>${mdy(l.createdAt || l.created_at)}</td>
-        <td>${l.name} <span style="color:var(--muted);font-size:0.82em">${l.email}</span></td>
-        <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.address}</td>
-        <td>${l.eventsFound ?? l.events_found ?? 0}</td>
-        <td>${l.impactScore ?? l.impact_score ?? 0}/100</td>
+        <td>${escA(l.name)} <span style="color:var(--muted);font-size:0.82em">${escA(l.email)}</span></td>
+        <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escA(l.address)}</td>
+        <td>${escA(l.eventsFound ?? l.events_found ?? 0)}</td>
+        <td>${escA(l.impactScore ?? l.impact_score ?? 0)}/100</td>
       </tr>`).join('');
   }
 
@@ -372,10 +372,13 @@ async function loadUsers() {
   renderUsers();
 }
 
+// Look emails up by id instead of writing them into onclick attributes.
+function emailOf(id) { const u = allUsers.find(x => String(x._id || x.id) === id); return u ? u.email : ''; }
+
 function renderUsers() {
   const tbody = document.getElementById('usersBody');
   tbody.innerHTML = allUsers.map(u => {
-    const id = u._id || u.id || '';
+    const id = String(u._id || u.id || '').replace(/[^A-Za-z0-9_-]/g, '');
     const lookups = u.lookupsThisMonth ?? u.lookups_this_month ?? 0;
     const limit = (u.lookupLimit !== undefined ? u.lookupLimit : u.lookup_limit) ?? 1;
     const status = u.subscriptionStatus || u.subscription_status || 'inactive';
@@ -385,19 +388,19 @@ function renderUsers() {
     const isAdmin = u.role === 'admin';
     const tiers = ['trial','starter','pro','team','enterprise','partner','client','suspended'];
     return `<tr>
-      <td><strong>${u.name||'—'}</strong></td>
-      <td style="font-size:0.85em">${u.email}</td>
-      <td style="font-size:0.85em">${u.company||'-'}</td>
-      <td><span class="badge badge-${tier}">${tier.toUpperCase()}</span></td>
-      <td><span class="badge badge-${status==='active'?'active':'inactive'}">${status}</span></td>
+      <td><strong>${escA(u.name||'—')}</strong></td>
+      <td style="font-size:0.85em">${escA(u.email)}</td>
+      <td style="font-size:0.85em">${escA(u.company||'-')}</td>
+      <td><span class="badge badge-${escA(tier)}">${escA(tier.toUpperCase())}</span></td>
+      <td><span class="badge badge-${status==='active'?'active':'inactive'}">${escA(status)}</span></td>
       <td>${lookups}${limit===-1?'':'/'+limit}</td>
       <td style="font-size:0.82em">${dateStr}</td>
       <td>
         <select class="tier-select" onchange="changeTier('${id}', this.value)" ${isAdmin?'disabled':''}>
           ${tiers.map(t=>`<option value="${t}" ${t===tier?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}
         </select>
-        ${!isAdmin&&tier==='trial'?`<div>${u.promoSentAt ? `<div style="font-size:0.72em;color:#16a34a;font-weight:600;margin-bottom:3px;padding:3px 6px;background:#f0fdf4;border-radius:4px">&#10003; Sent ${mdy(u.promoSentAt)}</div>` : ''}<button class="btn btn-sm" style="background:#0891b2;color:white;margin-bottom:4px;width:100%" onclick="sendPromoEmail('${id}','${u.email}','${id}', this)">Send STORM50</button></div>`:''}
-        ${!isAdmin?`<button class="btn btn-sm btn-danger" style="margin-left:6px" onclick="deleteUser('${id}','${u.email}')">Delete</button>`:''}
+        ${!isAdmin&&tier==='trial'?`<div>${u.promoSentAt ? `<div style="font-size:0.72em;color:#16a34a;font-weight:600;margin-bottom:3px;padding:3px 6px;background:#f0fdf4;border-radius:4px">&#10003; Sent ${mdy(u.promoSentAt)}</div>` : ''}<button class="btn btn-sm" style="background:#0891b2;color:white;margin-bottom:4px;width:100%" onclick="sendPromoEmail('${id}', emailOf('${id}'), '${id}', this)">Send STORM50</button></div>`:''}
+        ${!isAdmin?`<button class="btn btn-sm btn-danger" style="margin-left:6px" onclick="deleteUser('${id}', emailOf('${id}'))">Delete</button>`:''}
       </td>
     </tr>`;
   }).join('');

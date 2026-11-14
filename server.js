@@ -65,7 +65,8 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
           await reviewOps.update(meta.reviewId, { status: 'paid', stripeSessionId: session.id });
           break;
         }
-        const purchasedTier = meta.tier || 'pro';
+        // Only grant a paid plan, never admin/partner/client, whatever the metadata says.
+        const purchasedTier = billing.PAID_TIERS.includes(meta.tier) ? meta.tier : 'pro';
         const email = session.customer_email || (session.customer_details && session.customer_details.email);
         const user = (meta.userId && await userOps.findById(meta.userId)) || (email && await userOps.findByEmail(email));
         if (user) {
@@ -127,13 +128,13 @@ app.get('/register', (req, res) => res.sendFile(path.join(__dirname, 'public', '
 
 // POST login
 app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+  const { email, password } = req.body || {};
+  if (typeof email !== 'string' || typeof password !== 'string' || !email || !password || email.length > 254 || password.length > 200) return res.status(400).json({ error: 'Email and password required' });
   const wait = security.lockedFor(email, req.ip);
   if (wait) return res.status(429).json({ error: `Too many wrong passwords. Try again in ${wait} minute${wait === 1 ? '' : 's'}, or reset your password.` });
   try {
     const user = await userOps.findByEmail(email);
-    if (!user || !userOps.verifyPassword(user, password)) {
+    if (!user || !(await userOps.verifyPassword(user, password))) {
       security.recordFailure(email, req.ip);
       return res.status(401).json({ error: 'Invalid email or password' });
     }
@@ -167,10 +168,23 @@ app.get('/api/track-ref', (req, res) => {
   res.json({ ok: true });
 });
 
+const signupsByIp = new Map();
+const SIGNUPS_PER_HOUR = parseInt(process.env.SIGNUPS_PER_HOUR, 10) || 5;
 app.post('/api/auth/register', async (req, res) => {
-  const { email, password, name, company } = req.body;
+  const b = req.body || {};
+  const email = typeof b.email === 'string' ? b.email.trim() : '';
+  const password = typeof b.password === 'string' ? b.password : '';
+  const name = typeof b.name === 'string' ? b.name.trim().slice(0, 100) : '';
+  const company = typeof b.company === 'string' ? b.company.trim().slice(0, 120) : '';
   if (!email || !password || !name) return res.status(400).json({ error: 'Name, email, and password required' });
-  if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  if (email.length > 254 || !/^[^\s@<>"'`]+@[^\s@<>"'`]+\.[^\s@<>"'`]+$/.test(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
+  if (password.length < 8 || password.length > 200) return res.status(400).json({ error: 'Password must be 8 to 200 characters' });
+  // Sign-ups per IP: 5 an hour stops bot floods and free-report farming.
+  const ip = String(req.ip), now = Date.now();
+  const recentSignups = (signupsByIp.get(ip) || []).filter(t => now - t < 3600000);
+  if (recentSignups.length >= SIGNUPS_PER_HOUR) return res.status(429).json({ error: 'Too many sign-ups from this network. Try again later or call (817) 618-9884.' });
+  recentSignups.push(now); signupsByIp.set(ip, recentSignups);
+  if (signupsByIp.size > 50000) signupsByIp.clear();
   try {
     const existing = await userOps.findByEmail(email);
     if (existing) return res.status(409).json({ error: 'An account with this email already exists' });
@@ -178,8 +192,8 @@ app.post('/api/auth/register', async (req, res) => {
     const inviteCode = (req.body && req.body.invite) || (req.cookies && req.cookies.scp_invite) || null;
     const invite = inviteCode ? await db.inviteOps.usable(inviteCode) : null;
     await userOps.create(invite
-      ? { email, password, name, company, phone: req.body.phone, role: 'subscriber', tier: invite.tier || 'partner', invitedBy: invite.code }
-      : { email, password, name, company, phone: req.body.phone, role: 'subscriber', tier: 'trial', lookupLimit: 1 });
+      ? { email, password, name, company, phone: typeof b.phone === 'string' ? b.phone : null, role: 'subscriber', tier: invite.tier || 'partner', invitedBy: invite.code }
+      : { email, password, name, company, phone: typeof b.phone === 'string' ? b.phone : null, role: 'subscriber', tier: 'trial', lookupLimit: 1 });
     if (invite) { await db.inviteOps.use(invite.code); res.clearCookie('scp_invite'); }
     // Record where the sign-up came from (UTM tags kept by /js/tracking.js).
     const utm = require('./tracking-routes').readUtm(req);
@@ -240,14 +254,15 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 });
 
 app.post('/api/auth/reset-password', async (req, res) => {
-  const { token, password } = req.body;
-  if (!token || !password) return res.status(400).json({ error: 'Token and password required' });
+  const { token, password } = req.body || {};
+  if (typeof token !== 'string' || typeof password !== 'string' || !token || !password) return res.status(400).json({ error: 'Token and password required' });
+  if (password.length > 200) return res.status(400).json({ error: 'Password must be 200 characters or fewer' });
   if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
   try {
     const user = await userOps.findByResetToken(token);
     if (!user) return res.status(400).json({ error: 'Invalid or expired reset link. Please request a new one.' });
     const bcrypt = require('bcryptjs');
-    const hash = bcrypt.hashSync(password, 12);
+    const hash = await bcrypt.hash(password, 12);
     await userOps.clearResetToken(user._id, hash);
     security.clearFailures(user.email);
     res.json({ success: true });
@@ -350,7 +365,12 @@ require('./affiliate-routes')(app, { requireAuth, requireAdmin, affiliateOps, AF
 // Storm activity page
 app.get('/onboarding', requireAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'onboarding.html')));
 app.post('/api/me/states', requireAuth, async (req, res) => {
-  const { states } = req.body;
+  const raw = Array.isArray(req.body && req.body.states) ? req.body.states : [];
+  const US = /^(A[KLRZ]|C[AOT]|D[CE]|FL|GA|HI|I[ADLN]|K[SY]|LA|M[ADEINOST]|N[CDEHJMVY]|O[HKR]|PA|RI|S[CD]|T[NX]|UT|V[AT]|W[AIVY])$/;
+  let states = [...new Set(raw.map(s => String(s).toUpperCase().trim()).filter(s => US.test(s)))];
+  // Plans with a state limit (Starter: 1) can only pick that many.
+  const maxStates = tierFeatures(req.user.tier).maxStates;
+  if (maxStates > 0) states = states.slice(0, maxStates);
   await userOps.update(req.user._id, { watchedStates: states, onboardingComplete: true });
   res.json({ success: true });
 });
@@ -591,14 +611,23 @@ app.get('/api/reverse-geocode', requireAuth, async (req, res) => {
 });
 
 app.post('/api/lookup', requireAuth, requireActiveSubscription, async (req, res) => {
-  const { address, years = 2 } = req.body;
+  const { years = 2 } = req.body || {};
+  const address = typeof req.body.address === 'string' ? req.body.address.trim().slice(0, 200) : '';
   if (!address) return res.status(400).json({ error: 'Address is required' });
 
   // Portfolio properties are already located: use their coordinates directly.
   const lat = parseFloat(req.body.lat), lon = parseFloat(req.body.lon);
-  const geo = Number.isFinite(lat) && Number.isFinite(lon)
+  const hasPoint = Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+  const geo = hasPoint
     ? { lat, lon, formattedAddress: address, state: req.body.state ? String(req.body.state).toUpperCase().slice(0, 2) : null }
     : await geocodeAddress(address);
+  // Starter plans are limited to one state: find the state from the map point ourselves
+  // rather than trusting the state the browser sent.
+  if (geo && hasPoint && req.user.tier === 'starter') {
+    const rev = await reverseGeocode(lat, lon).catch(() => null);
+    geo.state = rev && rev.state ? String(rev.state).toUpperCase().slice(0, 2) : null;
+    if (!geo.state) return res.status(400).json({ error: 'Could not confirm the state for that property. Enter the full address instead.' });
+  }
   if (!geo) {
     const hint = /\d{5}/.test(address) ? '' : ' Include the city, state and ZIP code.';
     return res.status(400).json({ error: 'Address not found.' + hint });
@@ -791,7 +820,9 @@ app.get('/api/admin/lookups', requireAuth, requireAdmin, async (req, res) => {
 app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
   if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ error: 'Stripe not configured yet' });
   const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-  const { tier, promoCode } = req.body;
+  const { promoCode } = req.body || {};
+  // Only real paid plans can be bought; anything else could ride a fallback price.
+  const tier = billing.PAID_TIERS.includes(req.body && req.body.tier) ? req.body.tier : 'pro';
   const interval = req.body.interval === 'year' ? 'year' : 'month';
 
   // Prices come from Railway: STRIPE_PRICE_ID_STARTER, _PRO, _TEAM, _ENTERPRISE (monthly)
