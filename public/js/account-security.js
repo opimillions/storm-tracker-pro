@@ -43,9 +43,12 @@
         panel.innerHTML = '<div style="padding:14px 0;border-bottom:1px solid var(--border);display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">' +
           '<div style="width:200px;height:200px;background:#fff">' + d.qrSvg + '</div>' +
           '<div style="flex:1;min-width:220px"><ol style="margin:0 0 10px 18px;padding:0;line-height:1.6">' +
-            '<li>Open your authenticator app and add an account.</li><li>Scan this QR code, or enter the key: <code style="font-size:0.95em;background:#f1f5f9;padding:2px 6px;border-radius:4px">' + esc(d.key) + '</code></li><li>Enter the 6-digit code it shows.</li></ol>' +
+            '<li><strong>On this phone:</strong> tap <em>Add to authenticator</em> (opens Passwords, Google Authenticator, Authy or 1Password). Or copy the key and paste it into the app.</li><li><strong>On a computer:</strong> scan the QR code with your phone.</li><li>Enter the 6-digit code the app shows.</li></ol>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">' + (d.uri ? '<a class="btn btn-primary btn-sm" href="' + esc(d.uri) + '">Add to authenticator</a>' : '') + '<button type="button" class="btn btn-outline btn-sm" id="secCopyKey">Copy key</button></div>' +
+          '<div style="font-size:0.9em;margin-bottom:10px">Key: <code style="font-size:0.95em;background:#f1f5f9;padding:2px 6px;border-radius:4px;user-select:all;word-break:break-all;display:inline-block;max-width:100%">' + esc(d.key) + '</code></div>' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="secCode" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="123456" style="' + input + ';width:130px"><button class="btn btn-primary btn-sm" id="secEnable">Turn on</button></div></div></div>';
-        document.getElementById('secCode').focus();
+        var ck = document.getElementById('secCopyKey');
+        if (ck) ck.onclick = function () { try { navigator.clipboard.writeText(d.key.replace(/\s/g, '')); ck.textContent = 'Key copied'; } catch (e) {} };
         document.getElementById('secEnable').onclick = async function () {
           try {
             var r = await api('/api/account/2fa/enable', { code: document.getElementById('secCode').value });
@@ -93,7 +96,7 @@
     // Sent here from the admin page: admin tools need two-step sign-in first.
     if (/[?&]need2fa=1/.test(location.search)) {
       body.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      msg('Admin tools need two-step sign-in. Tap Turn on, scan the code with an authenticator app (Google Authenticator, Authy, 1Password), then open Admin again.', false);
+      msg('Admin tools need two-step sign-in. Tap Turn on, then Add to authenticator (on a computer, scan the QR code with your phone). Type the 6-digit code, save your backup codes, then open Admin again.', false);
     }
   });
 })();

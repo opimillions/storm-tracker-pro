@@ -62,7 +62,7 @@ module.exports = function securityRoutes(app, { db, requireAuth, requireAdmin })
     await userOps.update(req.user._id, { totpPending: box.seal(secret) });
     const uri = sec.otpauthUri(secret, req.user.email);
     const svg = await QRCode.toString(uri, { type: 'svg', margin: 1, width: 200, errorCorrectionLevel: 'M' });
-    res.json({ qrSvg: svg, key: secret.replace(/(.{4})/g, '$1 ').trim() });
+    res.json({ qrSvg: svg, key: secret.replace(/(.{4})/g, '$1 ').trim(), uri });
   });
 
   app.post('/api/account/2fa/enable', requireAuth, async (req, res) => {
