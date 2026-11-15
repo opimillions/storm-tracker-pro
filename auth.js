@@ -71,16 +71,16 @@ async function requireAdmin(req, res, next) {
     if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Admin access required' });
     return res.redirect('/dashboard');
   }
-  // Accept admin from token OR re-verify from DB
-  if (req.user.role === 'admin') return next();
-  // Token might be stale - check DB
-  try {
-    const freshUser = await userOps.findById(req.user._id);
-    if (freshUser && freshUser.role === 'admin') {
-      req.user = freshUser;
-      return next();
+  // req.user is loaded fresh from the database by requireAuth.
+  if (req.user.role === 'admin') {
+    // Admin pages need two-step sign-in, so a stolen or guessed password alone
+    // can't reach customer data. ADMIN_REQUIRE_2FA=off turns this off (not advised).
+    if (!req.user.totpEnabled && String(process.env.ADMIN_REQUIRE_2FA || '').toLowerCase() !== 'off') {
+      if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Turn on two-step sign-in (Settings → Account security) to use admin tools.', need2fa: true });
+      return res.redirect('/settings?need2fa=1#security');
     }
-  } catch (e) {}
+    return next();
+  }
   if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Admin access required' });
   return res.redirect('/dashboard');
 }

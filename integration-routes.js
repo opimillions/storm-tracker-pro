@@ -86,6 +86,7 @@ module.exports = function integrationRoutes(app, { requireAuth, tierFeatures, db
     const k = req.params.token;
     const now = Date.now();
     const arr = (hits.get(k) || []).filter(t => now - t < 60000); arr.push(now); hits.set(k, arr);
+    if (hits.size > 20000) hits.clear(); // random-token floods can't grow memory forever
     if (arr.length > 120) return res.status(429).json({ error: 'Too many requests' });
     try { res.json({ success: true, ...(await integrations.inbound(k, req.body)) }); }
     catch (e) { res.status(e.status || 500).json({ error: e.status ? e.message : 'Could not add property' }); }

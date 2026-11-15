@@ -151,7 +151,7 @@ function renderRegions() {
   el.innerHTML = savedRegions.map((r, i) => `
     <div class="region-card">
       <div>
-        <strong>${r.name}</strong>
+        <strong>${String(r.name == null ? '' : r.name).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</strong>
         <div style="font-size:0.82em;color:var(--muted)">${r.radius} mile radius · ${r.lat.toFixed(3)}, ${r.lon.toFixed(3)}</div>
       </div>
       <button class="btn btn-sm btn-danger" onclick="removeRegion(${i})">Remove</button>

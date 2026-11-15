@@ -89,5 +89,11 @@
     var b = document.getElementById('secCopy');
     if (b) b.onclick = function () { try { navigator.clipboard.writeText(codes.join('\n')); b.textContent = 'Copied'; } catch (e) {} };
   }
-  render();
+  render().then(function () {
+    // Sent here from the admin page: admin tools need two-step sign-in first.
+    if (/[?&]need2fa=1/.test(location.search)) {
+      body.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      msg('Admin tools need two-step sign-in. Tap Turn on, scan the code with an authenticator app (Google Authenticator, Authy, 1Password), then open Admin again.', false);
+    }
+  });
 })();
