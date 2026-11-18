@@ -182,6 +182,19 @@ const userOps = {
 };
 
 // ── Lookup Operations ─────────────────────────────────────────────────────────
+// The monitor's test account (MONITOR_SEED_USER) searches every hour. Its lookups are
+// kept for its own history but left out of the admin lists and counts.
+function monitorEmail() {
+  const parts = String(process.env.MONITOR_SEED_USER || '').split(':');
+  return parts.length >= 3 ? parts[1].trim().toLowerCase() : null;
+}
+async function monitorUserIds() {
+  const email = monitorEmail();
+  if (!email) return new Set();
+  const u = await users.findOne({ email });
+  return new Set(u ? [u._id] : []);
+}
+
 const lookupOps = {
   async create(data) {
     return lookups.insert({
@@ -200,7 +213,8 @@ const lookupOps = {
   },
 
   async getRecent(limit = 50) {
-    const recent = await lookups.find({}).sort({ createdAt: -1 }).limit(limit);
+    const hide = [...await monitorUserIds()];
+    const recent = await lookups.find(hide.length ? { userId: { $nin: hide } } : {}).sort({ createdAt: -1 }).limit(limit);
     // Join with user data
     const enriched = await Promise.all(recent.map(async l => {
       const user = await users.findOne({ _id: l.userId });
@@ -211,7 +225,8 @@ const lookupOps = {
 
   async getStats() {
     try {
-      const all = await lookups.find({});
+      const hide = [...await monitorUserIds()];
+      const all = await lookups.find(hide.length ? { userId: { $nin: hide } } : {});
       const today = new Date().toDateString();
       const thisMonth = new Date().toISOString().slice(0, 7);
       return {
