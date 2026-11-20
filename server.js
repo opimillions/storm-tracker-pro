@@ -117,6 +117,25 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+// ── iPhone app (App Store build) ─────────────────────────────────────────────
+// Plans are sold on the website only (Apple rule 3.1.3), so inside the app the
+// marketing home page goes to sign-in, /upgrade shows a plain plan note with
+// no prices or purchase links, and Stripe checkout is refused.
+const inIosApp = req => /StormCheckProApp\//.test(req.get('user-agent') || '');
+app.use((req, res, next) => {
+  if (!inIosApp(req)) return next();
+  if (req.method === 'GET' && (req.path === '/' || req.path === '/index.html')) return res.redirect(req.cookies?.token ? '/dashboard' : '/login');
+  if (req.method === 'GET' && (req.path === '/upgrade' || req.path === '/upgrade.html')) {
+    return res.send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Your plan | StormCheck Pro</title><link rel="stylesheet" href="/style.css"><script src="/js/native-app.js"></script></head>
+<body style="background:#f5f7fb"><div style="max-width:520px;margin:0 auto;padding:40px 20px;font-family:-apple-system,system-ui,sans-serif">
+<h1 style="color:#172235;font-size:1.5em">Your StormCheck Pro plan</h1>
+<p style="color:#475569;line-height:1.5">Plans and billing are managed in your StormCheck Pro account. Features unlock in this app automatically as soon as your account's plan changes.</p>
+<p><a href="/dashboard" class="btn btn-primary">Back to the app</a></p></div></body></html>`);
+  }
+  if (req.path === '/api/stripe/checkout' || req.path === '/api/stripe/portal') return res.status(403).json({ error: 'Plans are managed in your StormCheck Pro account, not in the app.' });
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Auth Routes ───────────────────────────────────────────────────────────────
@@ -285,6 +304,31 @@ app.post('/api/auth/logout-all', requireAuth, async (req, res) => {
   res.json({ success: true });
 });
 
+// Delete my account (required by Apple for any app with sign-up). Asks for the
+// password, cancels any Stripe subscription, then removes the user, their
+// saved contacts and their phone-alert devices.
+app.post('/api/account/delete', requireAuth, async (req, res) => {
+  const password = String((req.body && req.body.password) || '');
+  if (req.user.role === 'admin') return res.status(400).json({ error: 'Admin accounts cannot be deleted here.' });
+  if (!password || !(await userOps.verifyPassword(req.user, password))) return res.status(400).json({ error: 'That password is not right.' });
+  if (req.user.stripeSubscriptionId && process.env.STRIPE_SECRET_KEY) {
+    try {
+      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+      await stripe.subscriptions.cancel(req.user.stripeSubscriptionId);
+    } catch (e) {
+      if (!(e && (e.code === 'resource_missing' || /canceled/i.test(e.message || '')))) {
+        console.error('[account delete] stripe cancel', e && e.message);
+        return res.status(502).json({ error: 'Could not cancel your subscription. Please try again or email support.' });
+      }
+    }
+  }
+  try { await db.pushOps.removeAllForUser(req.user._id); } catch {}
+  try { await watchlistOps.deleteAllForUser(req.user._id); } catch {}
+  await userOps.delete(req.user._id);
+  security.clearSessionCookie(req, res);
+  res.json({ success: true });
+});
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 app.get('/dashboard', requireAuth, (req, res) => {
@@ -346,6 +390,20 @@ app.post('/api/push/subscribe', requireAuth, async (req, res) => {
 });
 app.post('/api/push/unsubscribe', requireAuth, async (req, res) => {
   if (req.body && req.body.endpoint) await db.pushOps.removeForUser(req.user._id, String(req.body.endpoint));
+  res.json({ success: true });
+});
+// Native iPhone app (App Store build): save the APNs device token.
+app.post('/api/push/register-native', requireAuth, async (req, res) => {
+  const token = String((req.body && req.body.token) || '').trim();
+  if (!/^[0-9a-fA-F]{32,200}$/.test(token)) return res.status(400).json({ error: 'Invalid device token.' });
+  const existing = (await db.pushOps.forUser(req.user._id)).some(s => s.apns === token);
+  if (!existing && (await db.pushOps.countForUser(req.user._id)) >= 10) return res.status(400).json({ error: 'Too many devices. Turn alerts off on an old device first.' });
+  await db.pushOps.saveNative(req.user._id, token, req.get('user-agent'));
+  res.json({ success: true });
+});
+app.post('/api/push/unregister-native', requireAuth, async (req, res) => {
+  const token = String((req.body && req.body.token) || '').trim();
+  if (token) await db.pushOps.removeForUser(req.user._id, 'apns:' + token);
   res.json({ success: true });
 });
 app.get('/api/push/vapid-key', (req, res) => res.json({ publicKey: push.publicKey() }));

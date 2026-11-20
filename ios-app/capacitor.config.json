@@ -1,0 +1,19 @@
+{
+  "appId": "com.thepublicadjustertx.stormcheckpro",
+  "appName": "StormCheck Pro",
+  "webDir": "www",
+  "server": {
+    "url": "https://stormcheckpro.thepublicadjustertx.com/dashboard",
+    "errorPath": "index.html",
+    "allowNavigation": ["stormcheckpro.thepublicadjustertx.com"]
+  },
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#172235",
+    "appendUserAgent": "StormCheckProApp/1.0"
+  },
+  "plugins": {
+    "PushNotifications": { "presentationOptions": ["badge", "sound", "alert"] },
+    "SplashScreen": { "launchShowDuration": 800, "backgroundColor": "#172235", "showSpinner": false }
+  }
+}

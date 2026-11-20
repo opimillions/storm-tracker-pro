@@ -696,7 +696,16 @@ const pushOps = {
     if (existing) return pushSubs.update({ _id: existing._id }, { $set: doc });
     return pushSubs.insert({ ...doc, createdAt: doc.updatedAt });
   },
+  /** Native iPhone app: one record per APNs device token. */
+  async saveNative(userId, token, ua) {
+    const endpoint = 'apns:' + token;
+    const doc = { userId, endpoint, apns: token, ua: String(ua || '').slice(0, 200), updatedAt: new Date().toISOString() };
+    const existing = await pushSubs.findOne({ endpoint });
+    if (existing) return pushSubs.update({ _id: existing._id }, { $set: doc });
+    return pushSubs.insert({ ...doc, createdAt: doc.updatedAt });
+  },
   async forUser(userId) { return pushSubs.find({ userId }); },
+  async removeAllForUser(userId) { return pushSubs.remove({ userId }, { multi: true }); },
   async countForUser(userId) { return pushSubs.count({ userId }); },
   async remove(endpoint) { return pushSubs.remove({ endpoint }, { multi: true }); },
   async removeForUser(userId, endpoint) { return pushSubs.remove({ userId, endpoint }, { multi: true }); },

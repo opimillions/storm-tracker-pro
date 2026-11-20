@@ -1,0 +1,19 @@
+{
+  "name": "stormcheck-pro-ios",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Native iPhone shell for StormCheck Pro (loads the live site, adds native push alerts)",
+  "scripts": {
+    "sync": "cap sync ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/ios": "^8.6.2",
+    "@capacitor/push-notifications": "^8.1.3",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.2"
+  }
+}

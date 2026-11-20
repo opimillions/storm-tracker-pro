@@ -39,7 +39,7 @@ function footer() {
   <nav class="states" aria-label="Hail history by state">${states}</nav>
   <div class="row">
     <p style="margin:0">StormCheck Pro is built by <a href="https://thepublicadjustertx.com">First Call Public Adjusters</a> · Southlake, TX · <a href="tel:+18176189884">(817) 618-9884</a></p>
-    <p style="margin:0">Storm data: NOAA National Weather Service · <a href="/sample-report">Sample report</a> · <a href="/hail-maps">Hail maps</a> · <a href="/find-a-pro">Find a public adjuster, appraiser or attorney</a></p>
+    <p style="margin:0">Storm data: NOAA National Weather Service · <a href="/sample-report">Sample report</a> · <a href="/hail-maps">Hail maps</a> · <a href="/find-a-pro">Find a public adjuster, appraiser or attorney</a> · <a href="/privacy">Privacy</a></p>
   </div></div></footer>`;
 }
 
@@ -60,6 +60,7 @@ ${noindex ? '<meta name="robots" content="noindex,follow">' : ''}
 <link rel="stylesheet" href="/site.css">
 <link rel="manifest" href="/manifest.json"><link rel="apple-touch-icon" href="/icons/icon-192.png">
 <script src="/js/tracking.js" async></script>
+<script src="/js/native-app.js"></script>
 ${jsonld ? `<script type="application/ld+json">${JSON.stringify(jsonld).replace(/</g, '\\u003c')}</script>` : ''}
 ${head}
 </head><body>${header()}<main>${body}</main>${footer()}<script src="/js/assistant.js" data-mode="public" defer></script></body></html>`;
@@ -222,6 +223,40 @@ module.exports = function publicPages(app, { db }) {
   });
 
   // ── Free alerts landing ────────────────────────────────────────────────────
+  // ── Privacy policy (linked from the App Store listing) ─────────────────────
+  app.get('/privacy', (req, res) => {
+    res.send(page({
+      title: 'Privacy Policy | StormCheck Pro',
+      description: 'How StormCheck Pro collects, uses and protects your information.',
+      path: '/privacy',
+      body: `<section><div class="wrap narrow">
+        <h1>Privacy Policy</h1>
+        <p class="lede">Last updated November 19, 2026. StormCheck Pro is operated by First Call Public Adjusters in Southlake, Texas. This policy covers the StormCheck Pro website and the StormCheck Pro iPhone app.</p>
+        <h2>What we collect</h2>
+        <ul>
+          <li><strong>Account details:</strong> your name, email address, company details you choose to add (such as your logo, phone number and license numbers) and a securely hashed password.</li>
+          <li><strong>Addresses and properties:</strong> the addresses you look up, the properties and contacts you save, and the territories you choose for alerts.</li>
+          <li><strong>Location:</strong> only when you tap the button to look up where you are standing. It is used for that lookup and is not tracked in the background.</li>
+          <li><strong>Device alerts:</strong> if you turn on phone alerts, a device token so we can send notifications to that device.</li>
+          <li><strong>Payments:</strong> handled by Stripe on our website. We never see or store your full card number.</li>
+          <li><strong>Basic logs:</strong> such as sign-in times and IP addresses, used to keep accounts secure and the service running.</li>
+        </ul>
+        <h2>How we use it</h2>
+        <p>To run your account, produce storm reports and maps, send the alerts and emails you ask for, prevent abuse, and improve the service. We do not sell your personal information. The iPhone app does not track you across other companies' apps or websites.</p>
+        <h2>Who we share it with</h2>
+        <p>Only service providers that help us run StormCheck Pro (for example hosting, email delivery, Apple's push notification service and Stripe for payments), and when required by law. If you connect an integration such as a CRM, we send it the data you choose to send.</p>
+        <h2>Your choices</h2>
+        <ul>
+          <li>Turn alerts off at any time in Alert Settings or your phone's settings.</li>
+          <li>Delete your account at any time under Settings → Delete account. This removes your account, saved contacts and alert devices and cancels any paid plan.</li>
+          <li>Unsubscribe from emails with the link in any email.</li>
+        </ul>
+        <h2>Contact</h2>
+        <p>Questions or requests: <a href="mailto:firstcallpublicadjusters@gmail.com">firstcallpublicadjusters@gmail.com</a> or <a href="tel:+18176189884">(817) 618-9884</a>.</p>
+      </div></section>`,
+    }));
+  });
+
   // ── Install on your phone ──────────────────────────────────────────────────
   app.get('/install', (req, res) => {
     const share = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>';
