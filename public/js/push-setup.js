@@ -60,7 +60,50 @@
     return d.sent;
   }
 
-  window.scpPush = { state: state, enable: enable, disable: disable, test: test, isIOS: isIOS, standalone: standalone };
+  // ── StormCheck Pro iPhone app (App Store build): native APNs alerts ─────
+  var Cap = window.Capacitor;
+  var native = !!(Cap && Cap.isNativePlatform && Cap.isNativePlatform());
+  if (native) {
+    var PN = (Cap.Plugins && Cap.Plugins.PushNotifications) || (Cap.registerPlugin && Cap.registerPlugin('PushNotifications'));
+    var TOKEN_KEY = 'scpApnsToken';
+    var savedToken = function () { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } };
+    var saveNative = async function (token) {
+      var r = await fetch('/api/push/register-native', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token }) });
+      if (!r.ok) { var d = {}; try { d = await r.json(); } catch (e) {} throw new Error(d.error || 'Could not save this device.'); }
+      try { localStorage.setItem(TOKEN_KEY, token); } catch (e) {}
+    };
+    var registerNative = function () {
+      return new Promise(function (resolve, reject) {
+        var done = false, handles = [];
+        var finish = function (fn, v) { if (done) return; done = true; handles.forEach(function (h) { h && h.then && h.then(function (x) { x.remove(); }); }); fn(v); };
+        handles.push(PN.addListener('registration', function (t) { saveNative(t.value).then(function () { finish(resolve, true); }, function (e) { finish(reject, e); }); }));
+        handles.push(PN.addListener('registrationError', function () { finish(reject, new Error('This iPhone could not register for alerts. Try again in a minute.')); }));
+        PN.register();
+        setTimeout(function () { finish(reject, new Error('Timed out turning on alerts. Try again.')); }, 20000);
+      });
+    };
+    state = async function () {
+      var p = await PN.checkPermissions();
+      if (p.receive === 'denied') return 'denied';
+      if (p.receive !== 'granted' || !savedToken()) return 'off';
+      registerNative().catch(function () {}); // refresh the token on the server
+      return 'on';
+    };
+    enable = async function () {
+      var p = await PN.requestPermissions();
+      if (p.receive !== 'granted') throw new Error('Notifications are off for StormCheck Pro. Turn them on in iPhone Settings → Notifications → StormCheck Pro.');
+      await registerNative();
+      return true;
+    };
+    disable = async function () {
+      var t = savedToken();
+      if (t) await fetch('/api/push/unregister-native', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: t }) });
+      try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
+    };
+    supported = true; standalone = true;
+  }
+
+  window.scpPush = { state: state, enable: enable, disable: disable, test: test, isIOS: isIOS, standalone: standalone, native: native };
 
   // ── Lookup page banner ──────────────────────────────────────────────────
   var KEY = 'scpPushBannerHidden';

@@ -21,6 +21,7 @@
     .color-row { display:flex;gap:10px;align-items:center; }
     .color-swatch { width:40px;height:40px;border-radius:8px;border:1px solid var(--border);cursor:pointer; }
   </style>
+<script src="/js/native-app.js"></script>
 </head>
 <body>
 
@@ -125,6 +126,16 @@
       <button class="btn btn-primary" onclick="saveProfile()">Save Branding Settings</button>
     </div>
   </div>
+<div class="card" id="deleteSection" style="margin-top:20px;border:1px solid #fecaca">
+  <div style="font-weight:700;color:#b91c1c">Delete account</div>
+  <div style="font-size:0.85em;color:var(--muted);margin:4px 0 12px">Permanently deletes your StormCheck Pro account, saved contacts and alert devices, and cancels any paid plan. This cannot be undone.</div>
+  <div id="deleteForm" style="display:none">
+    <div class="form-group"><input type="password" id="deletePassword" placeholder="Enter your password to confirm" autocomplete="current-password" style="max-width:320px"></div>
+    <div><button class="btn btn-sm" style="background:#b91c1c;color:#fff" onclick="deleteAccount()">Permanently delete my account</button>
+    <button class="btn btn-outline btn-sm" onclick="document.getElementById('deleteForm').style.display='none';document.getElementById('deleteStart').style.display=''">Cancel</button></div>
+  </div>
+  <button class="btn btn-outline btn-sm" id="deleteStart" style="color:#b91c1c;border-color:#fca5a5" onclick="document.getElementById('deleteForm').style.display='block';this.style.display='none'">Delete my account…</button>
+</div>
 </div>
 
 <script>
@@ -264,6 +275,17 @@ function syncColorHex() {
 
 async function logout() {
   await fetch('/api/auth/logout', { method: 'POST' });
+  window.location = '/login';
+}
+
+async function deleteAccount() {
+  const password = document.getElementById('deletePassword').value;
+  if (!password) return alert('Enter your password to confirm.');
+  if (!confirm('Delete your StormCheck Pro account permanently?')) return;
+  const res = await fetch('/api/account/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) return alert(d.error || 'Could not delete the account.');
+  alert('Your account has been deleted.');
   window.location = '/login';
 }
 

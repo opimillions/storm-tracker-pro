@@ -32,6 +32,9 @@ const PRICES = { starter: 39, pro: 79, team: 149, enterprise: 199 };
 function script(c) {
   return `(function () {
   var C = ${JSON.stringify(c)}, PRICES = ${JSON.stringify(PRICES)};
+  // The App Store app never loads ad / analytics tags (no cross-app tracking,
+  // so Apple's App Tracking Transparency prompt isn't needed).
+  if (/StormCheckProApp\//.test(navigator.userAgent || '')) C = {};
   // Remember the first UTM tags / referrer for 90 days (read at sign-up).
   try {
     var q = new URLSearchParams(location.search), utm = {};
