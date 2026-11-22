@@ -126,6 +126,16 @@ async function cleanup(dir) {
   }
 }
 
+async function status() {
+  const bundle = env('BUNDLE_ID');
+  const apps = await api('GET', `/apps?filter[bundleId]=${encodeURIComponent(bundle)}&limit=1`);
+  const app = (apps.data || [])[0];
+  if (!app) { console.log('No App Store Connect app found for', bundle); return; }
+  const b = await api('GET', `/builds?filter[app]=${app.id}&sort=-uploadedDate&limit=5&fields[builds]=version,uploadedDate,processingState,expired`);
+  for (const x of b.data || []) console.log(`BUILD ${x.attributes.version} uploaded ${x.attributes.uploadedDate} state=${x.attributes.processingState}`);
+  if (!(b.data || []).length) console.log('No builds visible yet (still being received by Apple)');
+}
+
 const [cmd, dir] = process.argv.slice(2);
-(cmd === 'setup' ? setup : cmd === 'cleanup' ? cleanup : () => { throw new Error('usage: setup|cleanup <dir>'); })(dir)
+(cmd === 'setup' ? setup : cmd === 'cleanup' ? cleanup : cmd === 'status' ? status : () => { throw new Error('usage: setup|cleanup|status <dir>'); })(dir)
   .catch(e => { console.error('::error::' + e.message); process.exit(1); });

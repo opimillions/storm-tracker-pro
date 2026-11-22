@@ -16,6 +16,10 @@ on:
         description: 'App version shown in the App Store (e.g. 1.0)'
         required: true
         default: '1.0'
+      mode:
+        description: 'build = build and upload; status = only report Apple processing status'
+        required: false
+        default: 'build'
 
 concurrency: ios-testflight
 
@@ -93,7 +97,16 @@ jobs:
           fi
           echo "Team ID matches the key's team"
 
+      - name: Apple processing status
+        if: inputs.mode == 'status'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          BUNDLE_ID: com.thepublicadjustertx.stormcheckpro
+        run: ASC_KEY_FILE="$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8" node ci/asc-signing.js status
+
       - name: App Store certificate + profile
+        if: inputs.mode != 'status'
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
@@ -122,6 +135,7 @@ jobs:
           done
 
       - name: Archive
+        if: inputs.mode != 'status'
         run: |
           set -o pipefail
           xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
@@ -130,6 +144,7 @@ jobs:
             archive 2>&1 | tail -60
 
       - name: Upload to TestFlight
+        if: inputs.mode != 'status'
         env:
           KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ISSUER: ${{ secrets.ASC_ISSUER_ID }}
