@@ -12,7 +12,7 @@
     ['/alert-settings', 'Alerts'],
     ['/integrations', 'Integrations'],
     ['/settings', 'Settings'],
-    ['/affiliate', 'Affiliate'],
+    ...(/StormCheckProApp\//.test(navigator.userAgent || '') ? [] : [['/affiliate', 'Affiliate']]),
     ['/help', 'Help'],
   ];
 
