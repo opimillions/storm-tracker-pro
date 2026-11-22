@@ -93,34 +93,76 @@ jobs:
           fi
           echo "Team ID matches the key's team"
 
-      - name: Archive
+      - name: App Store certificate + profile
         env:
-          TEAM: ${{ secrets.APPLE_TEAM_ID }}
-          KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          BUNDLE_ID: com.thepublicadjustertx.stormcheckpro
+          PROFILE_NAME: StormCheck Pro CI
+        run: |
+          export ASC_KEY_FILE="$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8"
+          SIGN="$RUNNER_TEMP/sign"
+          node ci/asc-signing.js setup "$SIGN"
+          # Temporary keychain holding the new distribution identity.
+          KC="$RUNNER_TEMP/ci.keychain-db"; KCPW=$(openssl rand -hex 16)
+          security create-keychain -p "$KCPW" "$KC"
+          security set-keychain-settings -lut 3600 "$KC"
+          security unlock-keychain -p "$KCPW" "$KC"
+          openssl x509 -inform DER -in "$SIGN/cert.cer" -out "$SIGN/cert.pem"
+          P12PW=$(openssl rand -hex 16)
+          openssl pkcs12 -export -legacy -inkey "$SIGN/key.pem" -in "$SIGN/cert.pem" -out "$SIGN/id.p12" -passout pass:"$P12PW" 2>/dev/null \
+            || openssl pkcs12 -export -inkey "$SIGN/key.pem" -in "$SIGN/cert.pem" -out "$SIGN/id.p12" -passout pass:"$P12PW"
+          security import "$SIGN/id.p12" -k "$KC" -P "$P12PW" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KCPW" "$KC" >/dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          security find-identity -v -p codesigning "$KC"
+          UUID=$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1])).profileUuid)' "$SIGN/state.json")
+          for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+            mkdir -p "$d"; cp "$SIGN/profile.mobileprovision" "$d/$UUID.mobileprovision"
+          done
+
+      - name: Archive
         run: |
           set -o pipefail
           xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${KEY_ID}.p8" \
-            -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER" \
-            DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic \
             MARKETING_VERSION="${{ inputs.version }}" CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
-            archive | tail -40
+            archive 2>&1 | tail -60
 
       - name: Upload to TestFlight
         env:
           KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ISSUER: ${{ secrets.ASC_ISSUER_ID }}
         run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>teamID</key><string>P526XB7F78</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>provisioningProfiles</key><dict>
+              <key>com.thepublicadjustertx.stormcheckpro</key><string>StormCheck Pro CI</string>
+            </dict>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          PLIST
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" \
-            -exportOptionsPlist ExportOptions.plist -exportPath "$RUNNER_TEMP/export" \
-            -allowProvisioningUpdates \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export" \
             -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${KEY_ID}.p8" \
             -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER"
           echo "Uploaded build ${{ github.run_number }} (version ${{ inputs.version }}). It shows up in TestFlight after Apple finishes processing (usually 5–30 minutes)."
 
-      - name: Remove key
+      - name: Clean up certificate, profile and key
         if: always()
-        run: rm -rf "$RUNNER_TEMP/keys"
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          export ASC_KEY_FILE="$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8"
+          [ -f "$ASC_KEY_FILE" ] && node ci/asc-signing.js cleanup "$RUNNER_TEMP/sign" || true
+          security delete-keychain "$RUNNER_TEMP/ci.keychain-db" 2>/dev/null || true
+          rm -rf "$RUNNER_TEMP/keys" "$RUNNER_TEMP/sign"
