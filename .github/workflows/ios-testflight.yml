@@ -69,6 +69,24 @@ jobs:
             echo "::error::ASC_KEY_P8 is not a valid key. Re-copy it from the .p8 file in Notepad (Ctrl+A, Ctrl+C)."; exit 1
           fi
           echo "Key OK"
+          case "$APPLE_TEAM_ID" in
+            [A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]) echo "Team ID format OK" ;;
+            *) echo "::error::APPLE_TEAM_ID should be exactly 10 capital letters/numbers from developer.apple.com → Membership details (got ${#APPLE_TEAM_ID} characters)"; exit 1 ;;
+          esac
+          # Ask Apple whether this key works and can see the app.
+          KEYFILE="$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8"
+          TOKEN=$(KEYFILE="$KEYFILE" node -e '
+            const c=require("crypto"),fs=require("fs");
+            const u=o=>Buffer.from(JSON.stringify(o)).toString("base64url");
+            const now=Math.floor(Date.now()/1000);
+            const d=u({alg:"ES256",kid:process.env.ASC_KEY_ID,typ:"JWT"})+"."+u({iss:process.env.ASC_ISSUER_ID,iat:now,exp:now+600,aud:"appstoreconnect-v1"});
+            const sig=c.sign("sha256",Buffer.from(d),{key:fs.readFileSync(process.env.KEYFILE),dsaEncoding:"ieee-p1363"}).toString("base64url");
+            process.stdout.write(d+"."+sig)')
+          code=$(curl -s -o /tmp/asc.json -w '%{http_code}' -H "Authorization: Bearer $TOKEN" "https://api.appstoreconnect.apple.com/v1/bundleIds?filter%5Bidentifier%5D=com.thepublicadjustertx.stormcheckpro&limit=5")
+          echo "App Store Connect API check: HTTP $code"
+          if [ "$code" = "401" ]; then echo "::error::Apple rejected the key: ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_P8 don't belong together. Re-copy the Key ID and Issuer ID for the key you pasted."; exit 1; fi
+          if [ "$code" = "403" ]; then echo "::error::The key works but lacks permission. In App Store Connect → Integrations, make a key with Access = Admin."; exit 1; fi
+          python3 -c "import json;d=json.load(open('/tmp/asc.json'));print('Bundle IDs found:',[x['attributes']['identifier'] for x in d.get('data',[])], 'seedId(teamPrefix):',[x['attributes'].get('seedId') for x in d.get('data',[])])" || true
 
       - name: Archive
         env:
