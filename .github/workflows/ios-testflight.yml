@@ -86,7 +86,12 @@ jobs:
           echo "App Store Connect API check: HTTP $code"
           if [ "$code" = "401" ]; then echo "::error::Apple rejected the key: ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_P8 don't belong together. Re-copy the Key ID and Issuer ID for the key you pasted."; exit 1; fi
           if [ "$code" = "403" ]; then echo "::error::The key works but lacks permission. In App Store Connect → Integrations, make a key with Access = Admin."; exit 1; fi
-          python3 -c "import json;d=json.load(open('/tmp/asc.json'));print('Bundle IDs found:',[x['attributes']['identifier'] for x in d.get('data',[])], 'seedId(teamPrefix):',[x['attributes'].get('seedId') for x in d.get('data',[])])" || true
+          SEED=$(python3 -c "import json;d=json.load(open('/tmp/asc.json'));print((d.get('data') or [{}])[0].get('attributes',{}).get('seedId',''))" || true)
+          echo "App ID registered: $([ -n "$SEED" ] && echo yes || echo no)"
+          if [ -n "$SEED" ] && [ "$SEED" != "$APPLE_TEAM_ID" ]; then
+            echo "::error::APPLE_TEAM_ID doesn't match your Apple team. It should be $SEED (developer.apple.com → Membership details → Team ID)."; exit 1
+          fi
+          echo "Team ID matches the key's team"
 
       - name: Archive
         env:
