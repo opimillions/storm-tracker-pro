@@ -58,9 +58,17 @@ jobs:
             echo "::error::Missing GitHub secret(s):$missing — add them in Settings → Secrets and variables → Actions (names must match exactly)"
             exit 1
           fi
-          case "$ASC_KEY_P8" in *"BEGIN PRIVATE KEY"*) ;; *) echo "::error::ASC_KEY_P8 must be the full .p8 text, including the BEGIN PRIVATE KEY line"; exit 1;; esac
           mkdir -p "$RUNNER_TEMP/keys"
-          printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8"
+          # Rebuild the PEM so pasted line breaks / spaces don't matter.
+          body=$(printf '%s' "$ASC_KEY_P8" | sed -e 's/-----BEGIN PRIVATE KEY-----//' -e 's/-----END PRIVATE KEY-----//' | tr -d ' \r\n\t')
+          len=${#body}
+          echo "Key body length: $len characters (expected about 200)"
+          if [ "$len" -lt 150 ]; then echo "::error::ASC_KEY_P8 looks cut off ($len characters). Paste the whole .p8 file text."; exit 1; fi
+          { echo "-----BEGIN PRIVATE KEY-----"; printf '%s' "$body" | fold -w 64; echo; echo "-----END PRIVATE KEY-----"; } > "$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8"
+          if ! openssl pkey -in "$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8" -noout 2>/dev/null; then
+            echo "::error::ASC_KEY_P8 is not a valid key. Re-copy it from the .p8 file in Notepad (Ctrl+A, Ctrl+C)."; exit 1
+          fi
+          echo "Key OK"
 
       - name: Archive
         env:
