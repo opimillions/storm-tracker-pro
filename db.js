@@ -288,6 +288,12 @@ async function seedAdmin() {
       set.passwordHash = await require('bcryptjs').hash(adminPassword, 12);
       console.log(`Admin password synced from env: ${adminEmail}`);
     }
+    // Locked out of two-step sign-in with no backup codes: set ADMIN_2FA_RESET=on for one
+    // deploy to turn it off for the admin account, then remove it and turn two-step on again.
+    if (String(process.env.ADMIN_2FA_RESET || '').toLowerCase() === 'on') {
+      Object.assign(set, { totpSecret: null, totpPending: null, totpEnabled: false, totpBackup: [], totpLastStep: null });
+      console.log(`Admin two-step sign-in turned off from env (ADMIN_2FA_RESET): ${adminEmail}. Remove ADMIN_2FA_RESET and turn it back on in Settings > Security.`);
+    }
     await users.update({ email: adminEmail }, { $set: set });
   }
 }
