@@ -125,6 +125,8 @@ const inIosApp = req => /StormCheckProApp\//.test(req.get('user-agent') || '');
 app.use((req, res, next) => {
   if (!inIosApp(req)) return next();
   if (req.method === 'GET' && (req.path === '/' || req.path === '/index.html')) return res.redirect(req.cookies?.token ? '/dashboard' : '/login');
+  // Affiliate payouts and pricing pages are web-only; the app is free.
+  if (req.method === 'GET' && /^\/(affiliate|pricing)(\.html)?\/?$/.test(req.path)) return res.redirect('/dashboard');
   if (req.method === 'GET' && (req.path === '/upgrade' || req.path === '/upgrade.html')) {
     return res.send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Your plan | StormCheck Pro</title><link rel="stylesheet" href="/style.css"><script src="/js/native-app.js"></script></head>
 <body style="background:#f5f7fb"><div style="max-width:520px;margin:0 auto;padding:40px 20px;font-family:-apple-system,system-ui,sans-serif">
